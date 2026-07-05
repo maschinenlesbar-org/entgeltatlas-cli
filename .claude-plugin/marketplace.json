@@ -1,0 +1,37 @@
+{
+  "name": "entgeltatlas-skills",
+  "owner": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "metadata": {
+    "description": "German salary-statistics skills powered by the entgeltatlas-cli (Bundesagentur für Arbeit Entgeltatlas API)"
+  },
+  "plugins": [
+    {
+      "name": "entgeltatlas",
+      "source": "./",
+      "description": "Look up what a German occupation earns, compare salaries across gender/region/level, and resolve the KldB and dimension codes — over the Bundesagentur für Arbeit Entgeltatlas API via the entgeltatlas-cli.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Sebastian Schürmann",
+        "email": "sebs@2xs.org"
+      },
+      "license": "AGPL-3.0-or-later",
+      "repository": "https://github.com/maschinenlesbar-org/entgeltatlas-cli",
+      "homepage": "https://github.com/maschinenlesbar-org/entgeltatlas-cli#readme",
+      "category": "government",
+      "keywords": [
+        "entgeltatlas",
+        "entgelt",
+        "gehalt",
+        "salary",
+        "arbeitsagentur",
+        "kldb",
+        "statistik",
+        "germany",
+        "bund.dev"
+      ]
+    }
+  ]
+}

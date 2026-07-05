@@ -1,0 +1,23 @@
+{
+  "name": "entgeltatlas",
+  "version": "0.1.0",
+  "description": "German salary-statistics skills powered by the entgeltatlas-cli (Bundesagentur für Arbeit Entgeltatlas API).",
+  "author": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "license": "AGPL-3.0-or-later",
+  "repository": "https://github.com/maschinenlesbar-org/entgeltatlas-cli",
+  "homepage": "https://github.com/maschinenlesbar-org/entgeltatlas-cli#readme",
+  "keywords": [
+    "entgeltatlas",
+    "entgelt",
+    "gehalt",
+    "salary",
+    "arbeitsagentur",
+    "kldb",
+    "statistik",
+    "germany",
+    "bund.dev"
+  ]
+}
