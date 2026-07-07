@@ -8,7 +8,7 @@ import { Command } from "commander";
 import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { EntgeltatlasClient } from "../client/client.js";
-import { parseIntArg } from "./shared.js";
+import { parseIntArg, parseBaseUrl } from "./shared.js";
 import { registerCommands } from "./commands/entgelte.js";
 
 /**
@@ -50,7 +50,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
         "This API takes numeric KldB codes, not occupation names, and has no name search.",
     )
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", "https://rest.arbeitsagentur.de")
+    .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
     .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
     .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)
     .option("--user-agent <ua>", "User-Agent header value")

@@ -49,6 +49,27 @@ export function parseKldb(value: string): string {
   return value;
 }
 
+/**
+ * commander value-parser for `--base-url`: must be a syntactically valid URL with
+ * an `http:` or `https:` scheme. Validating at parse time turns a bad value into
+ * a usage error (exit 2) with a message about the base URL the user actually
+ * passed, rather than deferring to the transport — which only sees the fully built
+ * request URL and surfaces a NetworkError (exit 6). The transport keeps its own
+ * scheme check so the invariant also holds for redirect targets and library use.
+ */
+export function parseBaseUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new InvalidArgumentError(`Invalid URL "${value}".`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new InvalidArgumentError("Only http: and https: base URLs are supported.");
+  }
+  return value;
+}
+
 export interface GlobalOptions {
   baseUrl?: string;
   apiKey?: string;

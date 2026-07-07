@@ -57,6 +57,16 @@ test("a non-numeric KldB code exits 2 (usage) before any request", async () => {
   assert.equal(cli.mt.calls.length, 0);
 });
 
+test("a non-http(s) --base-url exits 2 (usage) before any request", async () => {
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  const code = await run(
+    [...KEY, "--base-url", "file:///etc/passwd", "entgelte", "84304"],
+    cli.deps,
+  );
+  assert.equal(code, 2);
+  assert.equal(cli.mt.calls.length, 0);
+});
+
 test("a suppressed result is printed faithfully (null, not 0)", async () => {
   const cli = makeCli(() => jsonResponse(fx.suppressedResult));
   await run([...KEY, "entgelte", "84304", "-g", "3", "-a", "2"], cli.deps);
