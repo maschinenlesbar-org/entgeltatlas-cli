@@ -44,6 +44,29 @@ export interface EngineOptions {
 const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 
 /**
+ * Strip control characters (all C0 except tab and newline, plus DEL and the C1
+ * range) from a string that originates in an attacker-controlled response — the
+ * error `detail` and any echoed Content-Type. `JSON.parse` decodes an escaped
+ * control character in an error body into a real byte, so without this a
+ * hostile/MITM'd endpoint could drive ANSI/OSC escape sequences into the user's
+ * terminal when the message is printed to stderr (title spoofing, screen
+ * clearing, hidden output). The success path is already safe — `JSON.stringify`
+ * re-escapes these — so this only needs to cover text flowing into an error
+ * message. Implemented as a char-code filter to keep zero control-byte literals
+ * in this source file.
+ */
+function sanitizeServerText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const n = ch.codePointAt(0) ?? 0;
+    // Keep tab (0x09) and newline (0x0a); drop the rest of C0, DEL, and C1.
+    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * Request headers that carry credentials and must NOT be forwarded across an
  * origin boundary on a redirect (the classic auth-header-on-redirect leak that
  * fetch/curl --location guard against). Compared case-insensitively.
@@ -182,6 +205,9 @@ export class RequestEngine {
     } catch {
       // Non-JSON error body (e.g. an empty 403 from the Akamai WAF); leave undefined.
     }
+    // `detail` came from the response body; strip control characters so a hostile
+    // endpoint cannot inject terminal escape sequences via the stderr error message.
+    if (detail !== undefined) detail = sanitizeServerText(detail);
     return new EntgeltatlasApiError({ status, url, method, body: text, detail });
   }
 }

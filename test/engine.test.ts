@@ -5,6 +5,10 @@ import { EntgeltatlasApiError, EntgeltatlasParseError } from "../src/client/erro
 import type { HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 
+// Built via char codes so no raw control bytes ever appear in this source file.
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+
 test("buildUrl normalises the path and appends the query", () => {
   const e = new RequestEngine({ baseUrl: "https://rest.test/" });
   assert.equal(e.buildUrl("api/"), "https://rest.test/api/");
@@ -27,6 +31,25 @@ test("getJson throws EntgeltatlasParseError on invalid JSON", async () => {
   const mt = makeMockTransport(() => rawResponse("not json", "application/json"));
   const e = new RequestEngine({ transport: mt.transport });
   await assert.rejects(() => e.getJson("/x"), EntgeltatlasParseError);
+});
+
+test("error detail is stripped of terminal control characters (EA-02)", async () => {
+  // A hostile/MITM'd endpoint returns an error body whose message carries ESC/BEL
+  // control bytes. JSON.parse decodes them into real bytes; the sanitizer must
+  // remove them before they reach err.message and are printed to stderr.
+  const hostile = JSON.stringify({ message: `${ESC}]0;pwned${BEL}denied${ESC}[2J` });
+  const mt = makeMockTransport(() => rawResponse(hostile, "application/json", 403));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => {
+      assert.ok(err instanceof EntgeltatlasApiError);
+      assert.equal(err.detail, "]0;pwneddenied[2J");
+      assert.ok(!err.message.includes(ESC));
+      assert.ok(!err.message.includes(BEL));
+      return true;
+    },
+  );
 });
 
 test("the default X-API-Key, Accept and User-Agent headers are sent", async () => {
