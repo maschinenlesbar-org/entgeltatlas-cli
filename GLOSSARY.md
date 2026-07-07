@@ -44,7 +44,9 @@ and CLI preserve `null` faithfully; do not treat it as zero earnings.
 
 - **X-API-Key** — the static header this API authenticates with. Its value is the
   BA's published community **`client_id`** UUID (an access identifier, not a
-  per-user grant). Fetch it with `npm run fetch-key`; never commit it.
+  per-user grant). Fetch it with `npm run fetch-key`; never commit it — not even
+  the public community key. Tests use an obvious dummy UUID
+  (`00000000-0000-4000-8000-000000000000`) so the repo holds zero real credentials.
 - **WAF / 403** — `rest.arbeitsagentur.de` sits behind an Akamai WAF that blocks
   datacenter/VPN/cloud IPs with an **empty-body HTTP 403**, even with a valid key.
   A 403 is therefore often an IP block, not an auth failure — see

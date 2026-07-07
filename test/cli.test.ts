@@ -22,7 +22,7 @@ function makeCli(
   return { deps, out, err, mt };
 }
 
-const KEY = ["--api-key", "c4f0d292-9d0f-4763-87dd-d3f9e78fb006"];
+const KEY = ["--api-key", "00000000-0000-4000-8000-000000000000"];
 
 test("entgelte prints the salary array and sends the X-API-Key", async () => {
   const cli = makeCli(() => jsonResponse(fx.entgelteResult));
@@ -30,7 +30,7 @@ test("entgelte prints the salary array and sends the X-API-Key", async () => {
   assert.equal(code, 0);
   assert.deepEqual(JSON.parse(cli.out.join("\n")), fx.entgelteResult);
   const req = cli.mt.last();
-  assert.equal(req.headers?.["X-API-Key"], "c4f0d292-9d0f-4763-87dd-d3f9e78fb006");
+  assert.equal(req.headers?.["X-API-Key"], "00000000-0000-4000-8000-000000000000");
   assert.equal(new URL(req.url).pathname, "/infosysbub/entgeltatlas/pc/v1/entgelte/84304");
   assert.equal(queryOf(req).get("l"), "4");
 });
@@ -47,7 +47,7 @@ test("ENTGELTATLAS_API_KEY from the environment seeds the key", async () => {
 test("an explicit --api-key overrides the environment", async () => {
   const cli = makeCli(() => jsonResponse(fx.entgelteResult), { ENTGELTATLAS_API_KEY: "env-key" });
   await run([...KEY, "entgelte", "84304"], cli.deps);
-  assert.equal(cli.mt.last().headers?.["X-API-Key"], "c4f0d292-9d0f-4763-87dd-d3f9e78fb006");
+  assert.equal(cli.mt.last().headers?.["X-API-Key"], "00000000-0000-4000-8000-000000000000");
 });
 
 test("a non-numeric KldB code exits 2 (usage) before any request", async () => {
