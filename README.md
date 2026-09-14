@@ -1,5 +1,7 @@
 # entgeltatlas-cli
 
+**Website:** [English](https://maschinenlesbar-org.github.io/entgeltatlas-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/entgeltatlas-cli/de/) — command reference, guides and API docs
+
 A TypeScript **API client and CLI** for the **Bundesagentur für Arbeit
 Entgeltatlas API** — German **median gross-monthly salary statistics** by
 occupation ([KldB-2010](GLOSSARY.md)), sliced by requirement level, region,

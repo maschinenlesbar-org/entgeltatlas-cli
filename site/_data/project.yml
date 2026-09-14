@@ -1,0 +1,15 @@
+# The only repo-specific texts of the website. Everything else comes from the
+# repository: the English intro from README.md, the commands from the built CLI.
+
+# How the API is accessed: open | key (env: VAR) | account (token, user, password: VARs)
+access:
+  type: key
+  env: ENTGELTATLAS_API_KEY
+
+de:
+  # German version of the README's intro paragraph. Keep it in step with README.md.
+  intro: >-
+    Ein TypeScript-**API-Client mit CLI** für die **Entgeltatlas-API der Bundesagentur für
+    Arbeit** – Statistiken zum **mittleren Bruttomonatsentgelt** nach Beruf ([KldB
+    2010](GLOSSARY.md)), aufgeschlüsselt nach Anforderungsniveau, Region, Geschlecht, Alter
+    und Branche.
