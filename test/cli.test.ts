@@ -75,6 +75,27 @@ test("a suppressed result is printed faithfully (null, not 0)", async () => {
   assert.notEqual(printed[0].entgelt, 0);
 });
 
+test("DEL and C1 control characters in server data are escaped in the JSON output", async () => {
+  const controls = String.fromCharCode(0x7f, 0x85, 0x9b) + "2J";
+  const entry = fx.entgelteResult[0]!;
+  const served = [
+    {
+      ...entry,
+      region: { ...entry.region, bezeichnung: `Deutschland${controls}` },
+      gender: { id: 1, bezeichnung: String.fromCharCode(0x1b) + "[31m" },
+    },
+  ];
+  for (const format of [[], ["--compact"]]) {
+    const cli = makeCli(() => jsonResponse(served));
+    assert.equal(await run([...KEY, ...format, "entgelte", "84304"], cli.deps), 0);
+    const text = cli.out.join("\n");
+    const raw = [...text].filter((c) => c.charCodeAt(0) < 0x20 ? c !== "\n" : c.charCodeAt(0) >= 0x7f && c.charCodeAt(0) <= 0x9f);
+    assert.deepEqual(raw, [], format.join(" "));
+    assert.match(text, /Deutschland\\u007f\\u0085\\u009b2J/);
+    assert.deepEqual(JSON.parse(text), served);
+  }
+});
+
 test("a 403 exits 3 with a WAF/IP-block hint", async () => {
   const cli = makeCli(() => rawResponse("", "text/html", 403));
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);

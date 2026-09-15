@@ -50,9 +50,9 @@ const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
  * control character in an error body into a real byte, so without this a
  * hostile/MITM'd endpoint could drive ANSI/OSC escape sequences into the user's
  * terminal when the message is printed to stderr (title spoofing, screen
- * clearing, hidden output). The success path is already safe — `JSON.stringify`
- * re-escapes these — so this only needs to cover text flowing into an error
- * message. Implemented as a char-code filter to keep zero control-byte literals
+ * clearing, hidden output). This only covers text flowing into an error message:
+ * the CLI's JSON output is escaped separately (escapeControlChars in
+ * cli/shared.ts), since `JSON.stringify` alone leaves DEL and the C1 range raw. Implemented as a char-code filter to keep zero control-byte literals
  * in this source file.
  */
 function sanitizeServerText(text: string): string {
