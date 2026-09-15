@@ -22,7 +22,7 @@ common blocker, since the API takes no names.
 
 This skill drives the `entgeltatlas` command. **Before anything else, validate it is available** — run `command -v entgeltatlas` (or `entgeltatlas --version`). If it is not on your PATH, STOP and inform the user that the `entgeltatlas` CLI (`@maschinenlesbar.org/entgeltatlas-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
 
-**An X-API-Key is required** for the live reference commands (`regionen` etc.), but **`codes` works offline with no key**. The key is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`) — obtain it out of band (the repo's `npm run fetch-key`, or github.com/bundesAPI/entgeltatlas-api). **A 403 with an empty body is usually a WAF/IP block** (datacenter/VPN/cloud IPs are refused), NOT a bad key. Use `--compact` for `jq`.
+**An X-API-Key is required** for the live reference commands (`regionen` etc.), but **`codes` works offline with no key**. The key is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`) — obtain it out of band (the repo's `npm run fetch-key`, or github.com/bundesAPI/entgeltatlas-api). **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong or missing key as when it refuses your network (WAF/IP block). Don't rule either out — have the user re-check the key against the bundesAPI/entgeltatlas-api README first, and if it matches, try from another network (e.g. a residential connection). Use `--compact` for `jq`.
 
 ## Dimension codes (l / r / g / a / b)
 

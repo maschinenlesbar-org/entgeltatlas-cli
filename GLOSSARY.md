@@ -49,7 +49,8 @@ and CLI preserve `null` faithfully; do not treat it as zero earnings.
   (`00000000-0000-4000-8000-000000000000`) so the repo holds zero real credentials.
 - **WAF / 403** — `rest.arbeitsagentur.de` sits behind an Akamai WAF that blocks
   datacenter/VPN/cloud IPs with an **empty-body HTTP 403**, even with a valid key.
-  A 403 is therefore often an IP block, not an auth failure — see
-  [DEVELOPING.md](DEVELOPING.md).
+  A wrong or missing key gets the same empty-body 403, so the response alone
+  can't tell an IP block from an auth failure: re-check the key first, then try
+  another network — see [DEVELOPING.md](DEVELOPING.md).
 
 See [DATA_LICENSE.md](DATA_LICENSE.md) for attribution and reuse terms.

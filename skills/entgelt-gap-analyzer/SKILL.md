@@ -24,7 +24,7 @@ the whole job of this skill is the loop and the honest comparison.
 
 This skill drives the `entgeltatlas` command. **Before anything else, validate it is available** — run `command -v entgeltatlas` (or `entgeltatlas --version`). If it is not on your PATH, STOP and inform the user that the `entgeltatlas` CLI (`@maschinenlesbar.org/entgeltatlas-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
 
-**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it out of band (the repo's `npm run fetch-key`, or github.com/bundesAPI/entgeltatlas-api). **A 403 with an empty body is usually a WAF/IP block** (datacenter/VPN/cloud IPs are refused), NOT a bad key — if you hit one, tell the user to run from a residential connection rather than assuming the key is wrong. Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
+**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it out of band (the repo's `npm run fetch-key`, or github.com/bundesAPI/entgeltatlas-api). **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong or missing key as when it refuses your network (WAF/IP block). Don't rule either out — have the user re-check the key against the bundesAPI/entgeltatlas-api README first, and if it matches, try from another network (e.g. a residential connection). Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
 
 ## Step 1 — Fix the occupation, vary ONE dimension
 
@@ -73,6 +73,7 @@ Compute the gap only between two **present** medians. Report absolute and percen
   computed across different regions or levels is meaningless.
 - **It's a median, not a mean.** Frame results as "median gross monthly", and note
   it does not account for hours beyond full-time, bonuses, or occupation mix.
-- **403 empty body = WAF/IP block**, usually not the key — advise a residential IP.
+- **403 with an empty body is ambiguous** — a wrong key and a refused network look the
+  same. Re-check the key against the bundesAPI README, then try another network.
 - Don't over-claim causation — these are descriptive statistics, not adjusted for
   qualification, tenure, or hours.

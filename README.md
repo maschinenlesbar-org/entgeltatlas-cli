@@ -31,10 +31,12 @@ export ENTGELTATLAS_API_KEY="$(npm run --silent fetch-key)"   # scrapes the bund
 Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
 `codes` command works with no key at all.
 
-> **Heads-up — WAF/IP block.** `rest.arbeitsagentur.de` sits behind an Akamai WAF
-> that returns **HTTP 403 (empty body)** to datacenter/cloud/VPN IPs *even with a
-> valid key*. If you get a 403, try from a residential connection. The CLI's 403
-> message says as much (exit code `3`).
+> **Heads-up — an empty 403 is ambiguous.** `rest.arbeitsagentur.de` answers a wrong
+> or missing key with **HTTP 403 (empty body)**, and its Akamai WAF sends the same
+> response when it refuses a network (datacenter/cloud/VPN IPs). If you get one
+> (exit code `3`), re-check the key against the bundesAPI README first; if it
+> matches, try from another network, e.g. a residential connection. The CLI's 403
+> message says as much.
 
 ## Quickstart
 

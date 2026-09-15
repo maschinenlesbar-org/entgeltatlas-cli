@@ -95,9 +95,12 @@ reliable fallback if the live reference endpoints move.
   confirmed against the live gateway.
 - **Response shape NOT live-verified.** `rest.arbeitsagentur.de` is behind an
   **Akamai WAF** that returns **HTTP 403 with an empty body** to
-  datacenter/cloud/VPN IPs, regardless of the key. `run.ts` maps 401/403 → exit 3
-  with a hint that a 403 is often the WAF, not a bad key. Verify the response
-  shape from a **residential IP**. Tests use the mock `Transport` only — never the
+  datacenter/cloud/VPN IPs, regardless of the key. A wrong or missing key gets the
+  identical response (text/plain, one-space body; seen again on 2026-09-15, when
+  the fetched key and a wrong UUID both got it while the Ausbildungssuche API on
+  the same gateway answered 200 for its own key). `run.ts` maps 401/403 → exit 3
+  with a hint naming both causes, key first. Verify the response shape from a
+  **residential IP**. Tests use the mock `Transport` only — never the
   live API in CI.
 
 ## Conventions matched from the blueprint

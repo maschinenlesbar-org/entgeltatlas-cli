@@ -49,7 +49,9 @@ und CLI geben `null` unverändert weiter; werten Sie es nicht als Entgelt von nu
   (`00000000-0000-4000-8000-000000000000`), damit das Repo keinerlei echte Zugangsdaten enthält.
 - **WAF / 403** – `rest.arbeitsagentur.de` liegt hinter einer Akamai-WAF, die IP-Adressen aus
   Rechenzentren, VPNs und Clouds mit einem **HTTP 403 mit leerem Body** blockiert, selbst bei
-  gültigem Schlüssel. Ein 403 ist daher oft eine IP-Sperre und kein Authentifizierungsfehler –
-  siehe [DEVELOPING.md](DEVELOPING.md).
+  gültigem Schlüssel. Ein falscher oder fehlender Schlüssel erhält denselben 403 mit leerem
+  Body; die Antwort allein unterscheidet eine IP-Sperre also nicht von einem
+  Authentifizierungsfehler. Prüfen Sie zuerst den Schlüssel und versuchen Sie es dann aus einem
+  anderen Netz – siehe [DEVELOPING.md](DEVELOPING.md).
 
 Namensnennung und Bedingungen zur Weiterverwendung: siehe [DATA_LICENSE.md](DATA_LICENSE.md).

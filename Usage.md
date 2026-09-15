@@ -80,4 +80,5 @@ to look up the numbers for the `entgelte` flags.
   ceiling — see [GLOSSARY.md](GLOSSARY.md).
 - **Region numbering is irregular** (Bund/Ost/West + 16 states + 11 cities), not
   1..16 — check `codes`/`regionen`.
-- **403 is often the WAF**, not your key — try from a residential IP.
+- **An empty 403 is ambiguous** — a wrong key and a WAF block of your network look
+  the same. Re-check the key against the bundesAPI README, then try another network.

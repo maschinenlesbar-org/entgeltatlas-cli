@@ -20,8 +20,9 @@ They compose: **code-finder → lookup**, or **code-finder → gap-analyzer**.
   community key. Set `ENTGELTATLAS_API_KEY` or pass `--api-key`. No key is bundled
   — fetch it via `npm run fetch-key` (from the repo) or
   [github.com/bundesAPI/entgeltatlas-api](https://github.com/bundesAPI/entgeltatlas-api).
-- **Note:** `rest.arbeitsagentur.de` blocks datacenter/VPN IPs with an empty-body
-  **403** — run from a residential connection if you hit one.
+- **Note:** a **403** with an empty body looks the same for a wrong key and for a
+  network `rest.arbeitsagentur.de` refuses. Re-check the key against the bundesAPI
+  README first; if it matches, try from another network.
 
 ## Installing the plugin
 
