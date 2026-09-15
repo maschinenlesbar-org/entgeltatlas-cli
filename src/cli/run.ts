@@ -74,14 +74,15 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       deps.io.err(`Error: ${err.message}`);
       if (err.status === 404) return EXIT.NOT_FOUND;
       if (err.status === 401 || err.status === 403) {
-        // A 403 from this API is frequently NOT an auth failure: rest.arbeitsagentur.de
-        // sits behind an Akamai WAF that blocks cloud/datacenter egress IPs with an
-        // empty-body 403 even when the key is valid. Surface both possibilities.
+        // An empty-body 403 is ambiguous: the rest.arbeitsagentur.de gateway sends the
+        // same text/plain one-space 403 for a wrong or missing X-API-Key as when its
+        // WAF refuses the caller's network. Name both, key first, and don't rule
+        // either out.
         deps.io.err(
           `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
-            `${API_KEY_ENV_VAR} env var — but note a 403 with an empty body is often a ` +
-            "WAF/IP block (datacenter/VPN/cloud IPs are refused), not a bad key. Try from a " +
-            "residential IP.",
+            `${API_KEY_ENV_VAR} env var against the key in the bundesAPI/entgeltatlas-api ` +
+            "README. A 403 with an empty body looks the same for a wrong key and for a " +
+            "refused network (WAF/IP block), so if the key matches, try from another network.",
         );
         return EXIT.AUTH;
       }

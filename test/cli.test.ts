@@ -96,11 +96,15 @@ test("DEL and C1 control characters in server data are escaped in the JSON outpu
   }
 });
 
-test("a 403 exits 3 with a WAF/IP-block hint", async () => {
-  const cli = makeCli(() => rawResponse("", "text/html", 403));
+test("a 403 exits 3 with a hint that names both a wrong key and a refused network", async () => {
+  // The gateway answers a wrong key with the same one-space text/plain 403 as a WAF block.
+  const cli = makeCli(() => rawResponse(" ", "text/plain", 403));
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);
   assert.equal(code, 3);
-  assert.match(cli.err.join("\n"), /WAF\/IP block/);
+  const err = cli.err.join("\n");
+  assert.match(err, /ENTGELTATLAS_API_KEY env var against the key in the bundesAPI\/entgeltatlas-api README/);
+  assert.match(err, /looks the same for a wrong key and for a refused network/);
+  assert.doesNotMatch(err, /not a bad key/);
 });
 
 test("a 404 exits 4", async () => {
