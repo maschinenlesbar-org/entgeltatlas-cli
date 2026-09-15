@@ -42,11 +42,13 @@ values.
 Run the calls sequentially (be gentle — the API throttles):
 
 ```bash
-entgeltatlas entgelte 84304 -l 4 -g 2 --compact   # Männer
-entgeltatlas entgelte 84304 -l 4 -g 3 --compact   # Frauen
+entgeltatlas entgelte 84304 -l 4 -r 1 -g 2 --compact   # Männer, Deutschland
+entgeltatlas entgelte 84304 -l 4 -r 1 -g 3 --compact   # Frauen, Deutschland
 ```
 
-Pull `entgelt` (median) from each `[0]`. Keep `besetzung` (headcount) — a tiny
+Pull `entgelt` (median) from the row whose labels (`region`, `gender`, `ageCategory`,
+`performanceLevel`, `branche`) match the slice; don't assume `[0]` is it, since an
+omitted flag leaves the slice to the server. Keep `besetzung` (headcount) — a tiny
 `besetzung` makes a comparison unreliable, and a suppressed slice has no number
 at all.
 

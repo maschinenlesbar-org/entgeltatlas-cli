@@ -44,8 +44,11 @@ If the user already gave a code, skip ahead.
 entgeltatlas codes            # offline: all l/r/g/a/b tables (no key needed)
 ```
 
-Map the user's intent to codes (omit a dimension to get its `1 = Gesamt`
-aggregate):
+Map the user's intent to codes. Code `1` is `Gesamt` only for `-g`, `-a` and `-b`;
+for `-l` it is Helfer (there is no Gesamt level) and for `-r` Deutschland. An
+omitted flag sends no parameter and the server picks the slice, which hasn't been
+checked live, so pass every dimension the answer depends on (e.g. `-r 1` for
+Germany) and read the labels back in Step 3:
 
 | Flag | Dimension | Example |
 |---|---|---|
@@ -63,7 +66,9 @@ entgeltatlas entgelte 84304 -l 4 -r 1 --compact
 
 Returns a JSON array of observations; each has `entgelt` (median),
 `entgeltQ25`/`entgeltQ75` (quartiles), `besetzung` (headcount), and the labelled
-dimensions.
+dimensions (`region`, `gender`, `ageCategory`, `performanceLevel`, `branche`, each
+`{id, bezeichnung}`). Before reporting a row, check that its labels match the slice
+you asked for; if the array holds several rows, pick by label, not by position.
 
 ## Step 4 — Report the numbers honestly
 

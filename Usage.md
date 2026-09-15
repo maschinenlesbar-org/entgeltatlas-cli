@@ -21,8 +21,11 @@ entgeltatlas entgelte <kldb> [-l <n>] [-r <n>] [-g <n>] [-a <n>] [-b <n>]
 ```
 
 `<kldb>` is the **numeric KldB-2010 code** (3–5 digits, e.g. `84304`) — not an
-occupation name. Each dimension flag narrows the slice; omit one to get its
-`1 = Gesamt` aggregate. Run `entgeltatlas codes` to see all the numbers.
+occupation name. Each dimension flag narrows the slice. Code `1` is `Gesamt` only
+for `-g`, `-a` and `-b`; for `-l` it is Helfer and for `-r` Deutschland. An
+omitted flag sends no parameter and leaves the slice to the server (not
+live-verified), so pass the dimensions you mean and check each row's labels. Run
+`entgeltatlas codes` to see all the numbers.
 
 | Flag | Dimension | Values |
 |---|---|---|

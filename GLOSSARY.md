@@ -13,8 +13,12 @@ salary**, sliced by five dimensions.
 
 ## The five dimensions
 
-Pass each as a numeric code; run `entgeltatlas codes` for the full tables. Omitting
-a dimension gives its `1 = Gesamt` aggregate.
+Pass each as a numeric code; run `entgeltatlas codes` for the full tables. Code
+`1` is the `Gesamt` aggregate only for `-g`, `-a` and `-b`: for `-l` it is
+`Helfer` (there is no Gesamt level) and for `-r` it is `Deutschland`. Omitting a
+flag sends no parameter, so the server picks the slice; that has not been
+verified against the live API. Pass the dimensions you mean and check the labels
+in each returned row.
 
 | Flag | Param | Dimension | Codes |
 |---|---|---|---|
