@@ -8,7 +8,8 @@ import { Command } from "commander";
 import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { EntgeltatlasClient } from "../client/client.js";
-import { parseIntArg, parseBaseUrl } from "./shared.js";
+import { MAX_TIMEOUT_MS } from "../client/http.js";
+import { parseIntArg, parseBaseUrl, parseBoundedInt } from "./shared.js";
 import { registerCommands } from "./commands/entgelte.js";
 
 /**
@@ -52,7 +53,11 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .version(VERSION)
     .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
     .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
-    .option("--timeout <ms>", "time limit per request in ms, whole response included (0 = no timeout)", parseIntArg)
+    .option(
+      "--timeout <ms>",
+      "time limit per request in ms, whole response included (0 = no timeout)",
+      parseBoundedInt(0, MAX_TIMEOUT_MS),
+    )
     .option("--user-agent <ua>", "User-Agent header value")
     .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg)
     .option(

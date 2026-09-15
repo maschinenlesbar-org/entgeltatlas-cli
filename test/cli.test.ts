@@ -135,6 +135,17 @@ test("--compact prints single-line JSON", async () => {
   assert.equal(cli.out[0], JSON.stringify(fx.entgelteResult));
 });
 
+test("--timeout accepts up to the largest timer Node supports", async () => {
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  assert.equal(await run([...KEY, "--timeout", "2147483647", "entgelte", "84304"], cli.deps), 0);
+  assert.equal(cli.mt.last().timeoutMs, 2_147_483_647);
+
+  const over = makeCli(() => jsonResponse(fx.entgelteResult));
+  assert.equal(await run([...KEY, "--timeout", "2147483648", "entgelte", "84304"], over.deps), 2);
+  assert.equal(over.mt.calls.length, 0);
+  assert.match(over.err.join("\n"), /Must be <= 2147483647/);
+});
+
 test("a bare invocation prints help to stdout and exits 0", async () => {
   const cli = makeCli(() => jsonResponse([]));
   const code = await run([], cli.deps);
