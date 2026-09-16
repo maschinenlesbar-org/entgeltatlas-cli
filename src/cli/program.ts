@@ -11,6 +11,8 @@ import { EntgeltatlasClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
 import { parseIntArg, parseBaseUrl, parseBoundedInt } from "./shared.js";
 import { registerCommands } from "./commands/entgelte.js";
+import { registerObtainKeyCommands } from "./commands/obtain-key.js";
+import { nodeHttpTransport } from "../client/http.js";
 
 /**
  * Single source of truth for the version: read from package.json at runtime
@@ -35,6 +37,7 @@ export const defaultDeps: CliDeps = {
   io: defaultIO,
   createClient: (options) => new EntgeltatlasClient(options),
   env: process.env,
+  transport: nodeHttpTransport,
 };
 
 export function buildProgram(deps: CliDeps = defaultDeps): Command {
@@ -47,7 +50,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
         "(rest.arbeitsagentur.de/infosysbub/entgeltatlas) — median gross-monthly " +
         "salary statistics by KldB-2010 occupation. Requires an X-API-Key: pass " +
         `--api-key or set ${API_KEY_ENV_VAR} (a public key is published at ` +
-        "github.com/bundesAPI/entgeltatlas-api; fetch it with `npm run fetch-key`). " +
+        "github.com/bundesAPI/entgeltatlas-api; run `entgeltatlas obtain-key` to fetch it). " +
         "This API takes numeric KldB codes, not occupation names, and has no name search.",
     )
     .version(VERSION)
@@ -76,6 +79,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     program.setOptionValue("apiKey", envKey.trim());
   }
 
+  registerObtainKeyCommands(program, deps);
   registerCommands(program, deps);
 
   return program;

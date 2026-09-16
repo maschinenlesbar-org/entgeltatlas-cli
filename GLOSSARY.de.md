@@ -48,7 +48,7 @@ und CLI geben `null` unverändert weiter; werten Sie es nicht als Entgelt von nu
 
 - **X-API-Key** – der statische Header, über den sich diese API authentifiziert. Sein Wert ist
   die von der BA veröffentlichte Community-UUID **`client_id`** (eine Zugangskennung, keine
-  Berechtigung pro Nutzer). Abrufen mit `npm run fetch-key`; committen Sie ihn nie – auch nicht
+  Berechtigung pro Nutzer). Abrufen mit `entgeltatlas obtain-key`; committen Sie ihn nie – auch nicht
   den öffentlichen Community-Schlüssel. Tests verwenden eine offensichtliche Dummy-UUID
   (`00000000-0000-4000-8000-000000000000`), damit das Repo keinerlei echte Zugangsdaten enthält.
 - **WAF / 403** – `rest.arbeitsagentur.de` liegt hinter einer Akamai-WAF, die IP-Adressen aus

@@ -42,7 +42,7 @@ The BA's own wording on reuse:
   API“*. Field names may change without notice. This tool wraps it best-effort.
 - **The credential is a published community `client_id`.** It is an access
   identifier, **not** a per-user reuse grant, and is never bundled here (fetch it
-  via `npm run fetch-key`). No published rate-limit or non-sharing clause was found.
+  via `entgeltatlas obtain-key`). No published rate-limit or non-sharing clause was found.
 - **Redistribution covers the figures, not the prose.** The reuse grant applies to
   the factual earnings statistics the API returns. BA methodology/quality reports
   and other copyrightable works require explicit prior BA permission — do not

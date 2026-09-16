@@ -28,8 +28,6 @@ src/
     run.ts       # argv -> exit code (no process.exit; testable)
     index.ts     # #! bin shim
   index.ts       # library entry
-scripts/
-  fetch-api-key.mjs  # scrape the published X-API-Key from the bundesAPI README
 ```
 
 Two seams keep everything testable in-process: **`Transport`** (the only HTTP
@@ -41,7 +39,7 @@ npm install
 npm run build       # tsc -> dist/
 npm run typecheck
 npm test            # pretest builds, then node --test dist/test/*.test.js
-npm run fetch-key   # print the published X-API-Key (network)
+npm run obtain-key  # print the published X-API-Key (network; needs a build)
 ```
 
 ## Entgeltatlas-specific notes
@@ -53,7 +51,8 @@ needs an `X-API-Key` header whose value is the BA's published community
 `client_id` UUID (`c4f0d292-…`). It flows through `EngineOptions.defaultHeaders`
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
 `ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. No key is bundled —
-`scripts/fetch-api-key.mjs` scrapes it from the bundesAPI README for CI. The
+`obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
+run time. The
 engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
 cross-origin redirect.
 
@@ -90,7 +89,7 @@ reliable fallback if the live reference endpoints move.
 
 ## Live verification status (2026-07-03)
 
-- `fetch-api-key.mjs` correctly scrapes the published key.
+- `obtain-key` correctly reads the published key from the bundesAPI README.
 - The client builds the correct request (path, dims, `X-API-Key` header) —
   confirmed against the live gateway.
 - **Response shape NOT live-verified.** `rest.arbeitsagentur.de` is behind an

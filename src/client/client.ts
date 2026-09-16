@@ -5,8 +5,8 @@
 // value is the BA "client_id" UUID). The key is NOT bundled with this client —
 // pass it via `apiKey` (the CLI maps this to `--api-key` / the
 // ENTGELTATLAS_API_KEY env var). When no key is supplied the header is omitted
-// and the API answers 401/403. The public key can be fetched out-of-band for
-// CI / live testing via scripts/fetch-api-key.mjs.
+// and the API answers 401/403. The public key is fetched at run time by
+// obtainKey() / the CLI's `obtain-key` command.
 //
 //   client.entgelte("84304", { l: 4, r: 1 })
 //   client.regionen()
@@ -25,8 +25,8 @@ const KLDB_PATTERN = /^[0-9]{3,5}$/;
 export interface EntgeltatlasClientOptions extends EngineOptions {
   /**
    * The `X-API-Key` to send (the BA client_id UUID). No key is bundled; when
-   * omitted (or blank) the header is not sent. Obtain the public key via
-   * scripts/fetch-api-key.mjs.
+   * omitted (or blank) the header is not sent. Obtain the public key with
+   * obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
 }

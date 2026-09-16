@@ -21,15 +21,46 @@ npm install -g @maschinenlesbar.org/entgeltatlas-cli
 ## API key
 
 The API needs a static **`X-API-Key`** (the BA's published community `client_id`).
-No key is bundled with this tool. Fetch the public key and set it:
-
-```bash
-export ENTGELTATLAS_API_KEY="$(npm run --silent fetch-key)"   # scrapes the bundesAPI README
-# or pass --api-key <uuid> per call
-```
+No key is bundled with this tool — see **[Obtain key](#obtain-key)** below.
 
 Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
 `codes` command works with no key at all.
+
+## Obtain key
+
+The Bundesagentur für Arbeit publishes one community `client_id` for public use.
+It is **not a secret** — the same value for everyone, printed in the upstream
+[bundesAPI/entgeltatlas-api](https://github.com/bundesAPI/entgeltatlas-api)
+README — but finding and copying it shouldn't be your job either. `obtain-key`
+reads it from that published source at run time and prints it:
+
+```bash
+entgeltatlas obtain-key      # -> a UUID  (provenance note on stderr)
+```
+
+**From obtaining the key to having it where it is used, in one line:**
+
+```bash
+# this shell only
+eval "$(entgeltatlas obtain-key --export)"
+
+# or keep it for later — appends one `export …` line to your shell profile
+entgeltatlas obtain-key --export >> ~/.zshrc     # ~/.bashrc on bash
+```
+
+`--export` prints a single shell-quoted `export ENTGELTATLAS_API_KEY='…'` line on
+stdout (the "obtained from …" note goes to stderr, so it never lands in your
+profile). The plain form composes too:
+
+```bash
+export ENTGELTATLAS_API_KEY="$(entgeltatlas obtain-key)"
+```
+
+Because the key is fetched rather than compiled in, a rotated key needs no
+release of this CLI. If the source is unreachable or stops publishing a key,
+`obtain-key` fails loudly with a non-zero exit rather than printing a guess.
+Note that a successfully obtained key is still no guarantee the API will answer:
+see the 403 heads-up below.
 
 > **Heads-up — an empty 403 is ambiguous.** `rest.arbeitsagentur.de` answers a wrong
 > or missing key with **HTTP 403 (empty body)**, and its Akamai WAF sends the same
