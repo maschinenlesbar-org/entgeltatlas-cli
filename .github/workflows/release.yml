@@ -27,8 +27,10 @@ jobs:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
-          # Full history and tags so the changelog step can walk back to the
-          # previous v* tag.
+          # Full history + tags — the changelog step below walks `git log`/`git
+          # tag` back to the previous release, which a shallow (default) clone
+          # doesn't have. fetch-depth: 0 alone doesn't reliably fetch every tag,
+          # so fetch-tags is set explicitly too.
           fetch-depth: 0
           fetch-tags: true
 
