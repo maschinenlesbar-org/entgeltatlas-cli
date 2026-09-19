@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine } from "../src/client/engine.js";
-import { EntgeltatlasApiError, EntgeltatlasParseError } from "../src/client/errors.js";
+import {
+  EntgeltatlasApiError,
+  EntgeltatlasNetworkError,
+  EntgeltatlasParseError,
+} from "../src/client/errors.js";
 import type { HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 
@@ -145,4 +149,23 @@ test("a 403 with an empty body (WAF) surfaces as EntgeltatlasApiError with no de
     () => e.getJson("/x"),
     (err) => err instanceof EntgeltatlasApiError && err.status === 403 && err.detail === undefined,
   );
+});
+
+test("a non-http(s) base URL is rejected in the engine, before any request", () => {
+  // A custom transport does no scheme check of its own; the engine must not hand
+  // it a file:/ftp: URL (with the X-API-Key header attached).
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org", "not a url"]) {
+    const mt = makeMockTransport(() => jsonResponse([]));
+    assert.throws(
+      () =>
+        new RequestEngine({
+          baseUrl,
+          transport: mt.transport,
+          defaultHeaders: { "X-API-Key": "SECRET" },
+        }),
+      EntgeltatlasNetworkError,
+      baseUrl,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });

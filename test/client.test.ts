@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EntgeltatlasClient, type EntgeltatlasClientOptions } from "../src/client/client.js";
-import { EntgeltatlasValidationError } from "../src/client/errors.js";
+import { EntgeltatlasNetworkError, EntgeltatlasValidationError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, queryOf, type MockTransport } from "./helpers.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import * as fx from "./fixtures.js";
@@ -76,4 +76,16 @@ test("regionen hits the reference endpoint and returns the array", async () => {
 test("a reference endpoint returning a non-array yields []", async () => {
   const { c } = client(() => jsonResponse({ unexpected: true }), { apiKey: "K" });
   assert.deepEqual(await c.branchen(), []);
+});
+
+test("the client rejects a non-http(s) base URL before any request", () => {
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
+    const mt = makeMockTransport(() => jsonResponse([]));
+    assert.throws(
+      () => new EntgeltatlasClient({ baseUrl, apiKey: "KEY-UUID", transport: mt.transport }),
+      EntgeltatlasNetworkError,
+      baseUrl,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });

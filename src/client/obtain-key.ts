@@ -19,6 +19,7 @@
 import type { Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
 import { EntgeltatlasError } from "./errors.js";
+import { assertHttpScheme } from "./engine.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
@@ -58,6 +59,9 @@ export interface ObtainedKey {
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
   const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
   const transport = options.transport ?? nodeHttpTransport;
+  // A custom transport may do no scheme check of its own; never hand it a
+  // file:/ftp: source URL.
+  assertHttpScheme(sourceUrl);
 
   const response = await transport({
     method: "GET",

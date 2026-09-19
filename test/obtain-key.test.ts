@@ -9,7 +9,7 @@ import { EntgeltatlasClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey } from "../src/client/obtain-key.js";
-import { EntgeltatlasError } from "../src/client/errors.js";
+import { EntgeltatlasError, EntgeltatlasNetworkError } from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
 const SOURCE_DOC = ["# entgeltatlas-api", "", "```bash", 'curl -H "X-API-Key: c4f0d292-9d0f-4763-87dd-d3f9e78fb006" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
@@ -45,6 +45,18 @@ test("obtainKey throws when the source is unreachable", async () => {
 test("obtainKey throws when the source no longer states a key", async () => {
   const mt = makeMockTransport(() => rawResponse("# readme with no key", "text/plain"));
   await assert.rejects(() => obtainKey({ transport: mt.transport }), EntgeltatlasError);
+});
+
+test("obtainKey rejects a non-http(s) source URL before any request", async () => {
+  for (const sourceUrl of ["file:///etc/passwd", "ftp://example.org"]) {
+    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+    await assert.rejects(
+      () => obtainKey({ transport: mt.transport, sourceUrl }),
+      EntgeltatlasNetworkError,
+      sourceUrl,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });
 
 test("obtain-key prints only the key on stdout, provenance on stderr", async () => {
