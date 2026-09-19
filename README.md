@@ -116,6 +116,20 @@ Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
   [LICENSING.md](LICENSING.md). External code contributions are not accepted
   ([CONTRIBUTING.md](CONTRIBUTING.md)); bug reports and forks are welcome.
 
+## Claude Code skills
+
+Three [Agent Skills](SKILLS.md) teach Claude Code to use this CLI for real questions:
+look up what an occupation earns (**entgelt-lookup**), compare salaries by gender, region or
+level (**entgelt-gap-analyzer**), and resolve the codes the API needs
+(**entgelt-code-finder**). Install them from the maschinenlesbar.org marketplace:
+
+```
+/plugin marketplace add maschinenlesbar-org/plugins
+/plugin install entgeltatlas@maschinenlesbar
+```
+
+See **[SKILLS.md](SKILLS.md)** for details.
+
 ## Development
 
 ```bash
