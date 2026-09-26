@@ -279,3 +279,9 @@ test("a dimension code outside the documented table exits 2 before any request",
   assert.equal(await run([...KEY, ...args], cli.deps), 0);
   assert.equal(new URL(cli.mt.last().url).search, "?l=4&r=30&g=3&a=4&b=11");
 });
+
+test("--help states the --max-retries range and default", async () => {
+  const cli = makeCli(() => jsonResponse([]));
+  assert.equal(await run(["--help"], cli.deps), 0);
+  assert.match(cli.out.join("\n").replace(/\s+/g, " "), /--max-retries <n> retries for transient 429\/503 responses \(0\.\.10, default 2;/);
+});

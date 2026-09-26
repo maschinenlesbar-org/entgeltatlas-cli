@@ -79,10 +79,12 @@ is no guarantee the API will answer: see the 403 heads-up below.
 
 ```bash
 entgeltatlas codes                              # dimension code tables (offline, no key)
-entgeltatlas entgelte 84304                     # salary stats for a KldB occupation
+entgeltatlas entgelte 84304                     # salary stats; omitted dimensions are left to the server
 entgeltatlas entgelte 84304 -l 4 -r 1 -g 1      # Experte, Deutschland, all genders
 entgeltatlas regionen                           # live region codes
-entgeltatlas entgelte 84304 --compact | jq '.[0].entgelt'
+# every row with its labels — check them rather than assuming .[0] is the slice you meant
+entgeltatlas entgelte 84304 -l 4 -r 1 -g 1 -a 1 -b 1 --compact \
+  | jq '.[] | {level: .performanceLevel.bezeichnung, region: .region.bezeichnung, entgelt}'
 ```
 
 `entgelte <kldb>` takes the **numeric KldB-2010 code**, not an occupation name —
