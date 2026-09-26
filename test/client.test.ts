@@ -120,3 +120,9 @@ test("the client rejects a non-http(s) base URL before any request", () => {
     assert.equal(mt.calls.length, 0);
   }
 });
+
+test("the client rejects an apiKey an HTTP header cannot carry", () => {
+  for (const apiKey of ["abc\ndef", "ключ", "a\u007fb"]) {
+    assert.throws(() => new EntgeltatlasClient({ apiKey }), EntgeltatlasValidationError, JSON.stringify(apiKey));
+  }
+});

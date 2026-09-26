@@ -31,6 +31,15 @@ export interface EntgeltatlasClientOptions extends EngineOptions {
   apiKey?: string;
 }
 
+/** True if Node can send `value` as a header value: no C0 control but tab, no DEL, nothing above U+00FF. */
+function isHeaderSafe(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09) || c === 0x7f || c > 0xff) return false;
+  }
+  return true;
+}
+
 /** A non-null, non-array JSON object. */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -67,6 +76,12 @@ export class EntgeltatlasClient {
     const { apiKey, ...engineOptions } = options;
     // Only send X-API-Key when a non-blank key was supplied; never default one.
     const key = apiKey?.trim() ? apiKey.trim() : undefined;
+    if (key !== undefined && !isHeaderSafe(key)) {
+      throw new EntgeltatlasValidationError(
+        "Invalid apiKey: it contains control characters or characters outside Latin-1 " +
+          "(above U+00FF), which an HTTP header cannot carry.",
+      );
+    }
     this.engine = new RequestEngine({
       ...engineOptions,
       defaultHeaders: {

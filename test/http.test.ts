@@ -100,3 +100,15 @@ test("enforces maxResponseBytes", async () => {
     },
   );
 });
+
+test("a header value Node refuses becomes EntgeltatlasNetworkError, not a TypeError", async () => {
+  await assert.rejects(
+    () =>
+      nodeHttpTransport({
+        method: "GET",
+        url: "http://127.0.0.1:1/",
+        headers: { "User-Agent": "x\r\nX-Evil: 1" },
+      }),
+    (err) => err instanceof EntgeltatlasNetworkError && /^Invalid request: /.test(err.message),
+  );
+});

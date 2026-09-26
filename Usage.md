@@ -13,6 +13,10 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 | `--timeout <ms>` · `--max-response-bytes <n>` | transport tuning |
 | `--max-retries <n>` | retries for a transient 429/503, `0`–`10` (default 2); each waits the server's `Retry-After` (seconds or HTTP-date, up to 30 s — a longer one is not retried), else 200 ms × attempt |
 | `--user-agent <ua>` | User-Agent header |
+
+`--api-key` and `--user-agent` (and `ENTGELTATLAS_API_KEY`) must be sendable as an HTTP
+header: a blank value, a control character (CR/LF, DEL; tab is fine) or a character above
+U+00FF is a usage error (exit 2) before any request.
 | `--compact` | single-line JSON |
 
 ## entgelte — salary statistics

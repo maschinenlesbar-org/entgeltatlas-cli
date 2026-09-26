@@ -211,3 +211,30 @@ test("--help exits 0", async () => {
   const cli = makeCli(() => jsonResponse([]));
   assert.equal(await run(["--help"], cli.deps), 0);
 });
+
+test("header-invalid --api-key / --user-agent values exit 2 before any request", async () => {
+  const cases: [string, string, RegExp][] = [
+    ["--api-key", "ключ", /outside Latin-1/],
+    ["--api-key", "abc\ndef", /control characters/],
+    ["--user-agent", "x\r\nX-Evil: 1", /control characters/],
+    ["--user-agent", "x" + String.fromCharCode(0x7f), /control characters/],
+  ];
+  for (const [flag, value, message] of cases) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+    const code = await run([flag, value, "entgelte", "84304"], cli.deps);
+    assert.equal(code, 2, JSON.stringify(value));
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  }
+  // Tab and Latin-1 are fine in a User-Agent.
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  assert.equal(await run([...KEY, "--user-agent", "Grüße\tbot", "entgelte", "84304"], cli.deps), 0);
+});
+
+test("a header-invalid ENTGELTATLAS_API_KEY is a usage error, not 'Unexpected error'", async () => {
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult), { ENTGELTATLAS_API_KEY: "abc\ndef" });
+  const code = await run(["regionen"], cli.deps);
+  assert.equal(code, 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /^Error: Invalid apiKey: it contains control characters/);
+});
