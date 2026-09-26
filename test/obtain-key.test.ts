@@ -167,3 +167,37 @@ test("obtainKey does not follow a redirect to another host, nor a loop past the 
   await assert.rejects(() => obtainKey({ transport: loop.transport }), /HTTP 302/);
   assert.equal(loop.calls.length, MAX_KEY_SOURCE_REDIRECTS + 1);
 });
+
+async function keyFrom(doc: string): Promise<string> {
+  const mt = makeMockTransport(() => rawResponse(doc, "text/plain"));
+  return (await obtainKey({ transport: mt.transport })).key;
+}
+
+test("obtainKey reads the README's **client_id:** line, JSON and query forms", async () => {
+  const uuid = "11111111-2222-3333-4444-555555555555";
+  assert.equal(await keyFrom(`# API\n\n**client_id:** ${uuid}\n`), uuid);
+  assert.equal(await keyFrom(`{"client_id": "${uuid}"}`), uuid);
+  assert.equal(await keyFrom(`curl -d "client_id=${uuid}&grant_type=client_credentials"`), uuid);
+  // The upstream layout: the key twice, as **client_id:** and in a curl example.
+  assert.equal(await keyFrom(`**client_id:** ${uuid}\n\ncurl -d "client_id=${uuid.toUpperCase()}"`), uuid);
+});
+
+test("obtainKey prefers client_id and ignores an all-zero placeholder", async () => {
+  const uuid = "11111111-2222-3333-4444-555555555555";
+  const zero = "00000000-0000-0000-0000-000000000000";
+  assert.equal(await keyFrom(`curl -H "X-API-Key: ${zero}"\n**client_id:** ${uuid}`), uuid);
+  assert.equal(await keyFrom(`curl -H "X-API-Key: ${uuid}"\n**client_id:** ${uuid}`), uuid);
+  await assert.rejects(() => keyFrom(`curl -H "X-API-Key: ${zero}"`), /No X-API-Key found/);
+});
+
+test("obtainKey fails on a source that states conflicting keys", async () => {
+  const a = "11111111-2222-3333-4444-555555555555";
+  const b = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  for (const doc of [`**client_id:** ${a}\nclient_id=${b}`, `curl -H "X-API-Key: ${b}"\n**client_id:** ${a}`]) {
+    await assert.rejects(
+      () => keyFrom(doc),
+      (err) => err instanceof EntgeltatlasError && /states conflicting keys/.test(err.message),
+      doc,
+    );
+  }
+});

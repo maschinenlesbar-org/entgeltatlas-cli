@@ -35,11 +35,35 @@ export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
 export const KEY_SOURCE_URL =
   "https://raw.githubusercontent.com/bundesAPI/entgeltatlas-api/main/README.md";
 
-/** The key is a UUID, published as an `X-API-Key` value or a `client_id`. */
-const KEY_PATTERNS = [
-  /X-API-Key[:=]\s*["'`]?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i,
-  /client_id[":=\s]+["'`]?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i,
-];
+/** The key is a UUID. */
+const UUID = String.raw`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`;
+
+/**
+ * Between a label and its value: Markdown emphasis, quotes, `:`/`=` and blanks —
+ * so `**client_id:** <uuid>`, `"client_id": "<uuid>"`, `client_id=<uuid>` and
+ * `X-API-Key: <uuid>` all match.
+ */
+const SEPARATOR = String.raw`[\s"'\x60*:=]+`;
+
+/** The documented value: the BA `client_id`. */
+const CLIENT_ID_PATTERN = new RegExp(String.raw`client_id${SEPARATOR}(${UUID})`, "gi");
+/** Fallback only: a UUID sent as an `X-API-Key` header in an example. */
+const X_API_KEY_PATTERN = new RegExp(String.raw`X-API-Key${SEPARATOR}(${UUID})`, "gi");
+
+/** A placeholder such as 00000000-0000-0000-0000-000000000000: one repeated hex digit. */
+function isPlaceholder(uuid: string): boolean {
+  return /^([0-9a-f])(?:\1|-)*$/i.test(uuid);
+}
+
+/** Distinct non-placeholder UUIDs the pattern finds, lower-cased, in document order. */
+function findKeys(text: string, pattern: RegExp): string[] {
+  const keys: string[] = [];
+  for (const match of text.matchAll(pattern)) {
+    const key = match[1]?.toLowerCase();
+    if (key !== undefined && !isPlaceholder(key) && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
 
 /** Same-origin redirects the key-source request follows (e.g. a renamed repository). */
 export const MAX_KEY_SOURCE_REDIRECTS = 5;
@@ -123,11 +147,22 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   }
 
   const text = response.body.toString("utf8");
-  let key: string | undefined;
-  for (const pattern of KEY_PATTERNS) {
-    key = pattern.exec(text)?.[1]?.trim();
-    if (key) break;
+  // The `client_id` is the documented value and wins; an `X-API-Key` UUID is
+  // only a fallback, since an example may show a placeholder or another API's
+  // key. When the document states more than one distinct key — two client_ids,
+  // or an X-API-Key that contradicts the client_id — it is ambiguous, and
+  // guessing would be worse than failing.
+  const clientIds = findKeys(text, CLIENT_ID_PATTERN);
+  const headerKeys = findKeys(text, X_API_KEY_PATTERN);
+  const candidates = clientIds.length > 0 ? clientIds : headerKeys;
+  const conflicting = [...new Set([...candidates, ...(clientIds.length > 0 ? headerKeys : [])])];
+  if (conflicting.length > 1) {
+    throw new EntgeltatlasError(
+      `The key source ${url} states conflicting keys (${conflicting.join(", ")}). ` +
+        `Check it by hand before relying on this command.`,
+    );
   }
+  const key = candidates[0];
   if (!key) {
     throw new EntgeltatlasError(
       `No X-API-Key found at ${sourceUrl}. The upstream document may have changed ` +

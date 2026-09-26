@@ -54,7 +54,11 @@ needs an `X-API-Key` header whose value is the BA's published community
 `obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
 run time, with the client's limits (30 s timeout, 100 MiB cap by default; the CLI
 passes `--timeout` and `--max-response-bytes`) and up to `MAX_KEY_SOURCE_REDIRECTS`
-(5) same-origin redirects — a redirect to another host is not followed. The
+(5) same-origin redirects — a redirect to another host is not followed. It takes the
+documented `client_id` (`**client_id:** <uuid>`, `"client_id": "<uuid>"`,
+`client_id=<uuid>`); an `X-API-Key: <uuid>` is only a fallback. One-digit placeholders
+(`00000000-…`) are ignored, and a document stating two different keys (two
+`client_id`s, or an `X-API-Key` that contradicts the `client_id`) is an error. The
 engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
 cross-origin redirect.
 
