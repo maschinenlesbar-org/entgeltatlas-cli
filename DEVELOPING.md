@@ -131,8 +131,12 @@ reliable fallback if the live reference endpoints move.
   waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
   value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
   without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.
-- `--base-url` accepts only `http:`/`https:`; redirects are followed with
-  credential-header stripping on cross-origin hops.
+- `--base-url` accepts only `http:`/`https:`; redirects (301/302/303/307/308 with a
+  usable Location, up to `maxRedirects` = 5) are followed with credential-header
+  stripping on cross-origin hops. Any other 3xx, a missing or malformed Location, or
+  the limit surface as `EntgeltatlasApiError` (exit 1) naming the target:
+  `redirect to <url> not followed (stopped after 5 redirects)` /
+  `redirect not followed (no Location header)`.
 
 ## Website
 

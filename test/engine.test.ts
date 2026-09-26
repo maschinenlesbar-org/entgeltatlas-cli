@@ -258,3 +258,45 @@ test("userinfo in the base URL is redacted in error messages, but still sent", a
     (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
   );
 });
+
+test("a redirect loop stops at maxRedirects and names the target and the count", async () => {
+  const mt = makeMockTransport((req) => redirectResponse(req.url));
+  const e = new RequestEngine({ baseUrl: "https://rest.test", transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) =>
+      err instanceof EntgeltatlasApiError &&
+      err.status === 302 &&
+      err.location === "https://rest.test/x" &&
+      err.message ===
+        "HTTP 302 for GET https://rest.test/x: redirect to https://rest.test/x not followed (stopped after 5 redirects)",
+  );
+  assert.equal(mt.calls.length, 6);
+});
+
+test("a 3xx without a usable Location, or a non-followed 3xx, names why it stopped", async () => {
+  const noLocation = makeMockTransport(() => ({ status: 302, headers: {}, body: Buffer.alloc(0) }));
+  await assert.rejects(
+    () => new RequestEngine({ baseUrl: "https://rest.test", transport: noLocation.transport }).getJson("/x"),
+    (err) =>
+      err instanceof EntgeltatlasApiError &&
+      err.message === "HTTP 302 for GET https://rest.test/x: redirect not followed (no Location header)",
+  );
+  for (const status of [300, 304, 305]) {
+    const mt = makeMockTransport(() => redirectResponse("/elsewhere", status));
+    await assert.rejects(
+      () => new RequestEngine({ baseUrl: "https://rest.test", transport: mt.transport }).getJson("/x"),
+      (err) =>
+        err instanceof EntgeltatlasApiError &&
+        err.message === `HTTP ${status} for GET https://rest.test/x: redirect to https://rest.test/elsewhere not followed`,
+    );
+    assert.equal(mt.calls.length, 1, String(status));
+  }
+  const malformed = makeMockTransport(() => redirectResponse("http://[bad"));
+  await assert.rejects(
+    () => new RequestEngine({ baseUrl: "https://rest.test", transport: malformed.transport }).getJson("/x"),
+    (err) =>
+      err instanceof EntgeltatlasApiError &&
+      err.message === "HTTP 302 for GET https://rest.test/x: redirect to http://[bad not followed",
+  );
+});
