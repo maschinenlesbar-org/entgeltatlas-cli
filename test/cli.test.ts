@@ -50,6 +50,16 @@ test("an explicit --api-key overrides the environment", async () => {
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "00000000-0000-4000-8000-000000000000");
 });
 
+test("a blank --api-key or --user-agent exits 2 before any request (does not cancel the env key)", async () => {
+  for (const args of [["--api-key", ""], ["--api-key", "  "], ["--user-agent", ""], ["--user-agent", " "]]) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult), { ENTGELTATLAS_API_KEY: "envkey" });
+    const code = await run([...args, "entgelte", "84304"], cli.deps);
+    assert.equal(code, 2, args.join(" "));
+    assert.equal(cli.mt.calls.length, 0, args.join(" "));
+    assert.match(cli.err.join("\n"), /Expected a non-empty value/);
+  }
+});
+
 test("a non-numeric KldB code exits 2 (usage) before any request", async () => {
   const cli = makeCli(() => jsonResponse(fx.entgelteResult));
   const code = await run([...KEY, "entgelte", "Softwareentwickler"], cli.deps);

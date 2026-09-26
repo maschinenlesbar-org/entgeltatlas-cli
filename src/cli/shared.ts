@@ -24,6 +24,18 @@ export function parseIntArg(value: string): number {
   return n;
 }
 
+/**
+ * commander value-parser for a free-text value: reject a blank one (`""` or only
+ * whitespace). A blank `--api-key` would otherwise replace the key seeded from
+ * ENTGELTATLAS_API_KEY and send none at all.
+ */
+export function parseNonEmpty(value: string): string {
+  if (value.trim() === "") {
+    throw new InvalidArgumentError("Expected a non-empty value.");
+  }
+  return value;
+}
+
 /** Build a commander value-parser for an integer constrained to [min, max]. */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {
   return (value: string) => {
