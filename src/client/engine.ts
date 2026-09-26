@@ -169,6 +169,14 @@ export class RequestEngine {
   constructor(options: EngineOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     assertHttpScheme(this.baseUrl);
+    // Request paths are appended to the base URL as a string, so a `?` or `#` in
+    // it would swallow every path: `http://h/?x=1` requests `/?x=1/infosysbub/...`
+    // and `http://h/#f` requests `/` with no service path and no filters.
+    if (/[?#]/.test(this.baseUrl)) {
+      throw new EntgeltatlasNetworkError(
+        `Base URL must not contain a query or fragment: ${this.baseUrl}`,
+      );
+    }
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.defaultHeaders = options.defaultHeaders ?? {};

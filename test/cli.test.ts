@@ -67,6 +67,19 @@ test("a non-http(s) --base-url exits 2 (usage) before any request", async () => 
   assert.equal(cli.mt.calls.length, 0);
 });
 
+test("a --base-url with a query, fragment or surrounding whitespace exits 2 before any request", async () => {
+  for (const url of ["http://127.0.0.1:1/echo?token=abc", "http://127.0.0.1:1/echo#frag", "http://127.0.0.1:1/echo ", " http://127.0.0.1:1"]) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+    const code = await run([...KEY, "--base-url", url, "entgelte", "84304"], cli.deps);
+    assert.equal(code, 2, url);
+    assert.equal(cli.mt.calls.length, 0, url);
+  }
+  // A path prefix (a mirror) still works.
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  assert.equal(await run([...KEY, "--base-url", "http://mirror.test/ba/", "entgelte", "84304"], cli.deps), 0);
+  assert.equal(cli.mt.last().url, "http://mirror.test/ba/infosysbub/entgeltatlas/pc/v1/entgelte/84304");
+});
+
 test("a suppressed result is printed faithfully (null, not 0)", async () => {
   const cli = makeCli(() => jsonResponse(fx.suppressedResult));
   await run([...KEY, "entgelte", "84304", "-g", "3", "-a", "2"], cli.deps);

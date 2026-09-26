@@ -224,3 +224,15 @@ test("a non-http(s) base URL is rejected in the engine, before any request", () 
     assert.equal(mt.calls.length, 0);
   }
 });
+
+test("a base URL with a query or fragment is rejected in the engine (library users)", () => {
+  for (const baseUrl of ["https://rest.test/x?token=abc", "https://rest.test/x#frag"]) {
+    const mt = makeMockTransport(() => jsonResponse([]));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      (err) =>
+        err instanceof EntgeltatlasNetworkError &&
+        err.message === `Base URL must not contain a query or fragment: ${baseUrl}`,
+    );
+  }
+});

@@ -9,7 +9,7 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 | Flag | Meaning |
 |---|---|
 | `--api-key <key>` | X-API-Key (env `ENTGELTATLAS_API_KEY`) |
-| `--base-url <url>` | API base (default `https://rest.arbeitsagentur.de`) |
+| `--base-url <url>` | API base (default `https://rest.arbeitsagentur.de`); `http:`/`https:` only, a path prefix is fine, a query (`?`), fragment (`#`) or surrounding whitespace is a usage error |
 | `--timeout <ms>` · `--max-response-bytes <n>` | transport tuning |
 | `--max-retries <n>` | retries for a transient 429/503, `0`–`10` (default 2); each waits the server's `Retry-After` (seconds or HTTP-date, up to 30 s — a longer one is not retried), else 200 ms × attempt |
 | `--user-agent <ua>` | User-Agent header |
