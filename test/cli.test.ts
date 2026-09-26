@@ -238,3 +238,22 @@ test("a header-invalid ENTGELTATLAS_API_KEY is a usage error, not 'Unexpected er
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /^Error: Invalid apiKey: it contains control characters/);
 });
+
+test("a deeply nested response fails pretty-printing cleanly and still prints with --compact", async () => {
+  // Deep nesting inside an observation object (a bare nested array is already a
+  // shape error): [{"x":[[[...]]]}]
+  const depth = 200_000;
+  const body = '[{"x":' + "[".repeat(depth) + "]".repeat(depth) + "}]";
+  const deep = () => rawResponse(body, "application/json");
+  const pretty = makeCli(deep);
+  assert.equal(await run([...KEY, "entgelte", "84304"], pretty.deps), 1);
+  assert.deepEqual(pretty.out, []);
+  assert.equal(pretty.err.join("\n"), "Error: The response is nested too deeply to pretty-print; try --compact.");
+
+  // Compact serialisation goes much deeper (it prints this one on current Node);
+  // should a runtime's stack still be too small, it must fail just as cleanly.
+  const compact = makeCli(deep);
+  const code = await run([...KEY, "--compact", "entgelte", "84304"], compact.deps);
+  if (code === 0) assert.equal(compact.out.join("").length, body.length);
+  else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
+});
