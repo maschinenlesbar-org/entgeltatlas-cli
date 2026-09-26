@@ -102,9 +102,17 @@ test("a 403 exits 3 with a hint that names both a wrong key and a refused networ
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);
   assert.equal(code, 3);
   const err = cli.err.join("\n");
-  assert.match(err, /ENTGELTATLAS_API_KEY env var against the key in the bundesAPI\/entgeltatlas-api README/);
-  assert.match(err, /looks the same for a wrong key and for a refused network/);
+  assert.match(err, /ENTGELTATLAS_API_KEY env var against `entgeltatlas obtain-key`/);
+  assert.match(err, /looks the same for a wrong key, a refused network \(WAF\/IP block\) and a key the API no longer accepts/);
+  assert.match(err, /OAuth client-credentials flow this CLI does not implement/);
   assert.doesNotMatch(err, /not a bad key/);
+});
+
+test("a 403 without any key says that no key was sent", async () => {
+  const cli = makeCli(() => rawResponse(" ", "text/plain", 403));
+  const code = await run(["entgelte", "84304"], cli.deps);
+  assert.equal(code, 3);
+  assert.match(cli.err.join("\n"), /no X-API-Key was sent\. Pass --api-key or set ENTGELTATLAS_API_KEY/);
 });
 
 test("a 404 exits 4", async () => {

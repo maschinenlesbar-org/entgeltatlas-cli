@@ -16,9 +16,12 @@
 // `eval "$(entgeltatlas obtain-key --export)"`, and it follows a few same-origin
 // redirects (GitHub raw answers a renamed repository with one).
 //
-// NOTE: the live API sits behind a WAF that answers datacenter/cloud IPs with an
-// empty 403 even for a valid key — obtaining a key is no guarantee a later
-// request succeeds from the same host.
+// NOTE: obtaining the key is no guarantee a later request succeeds. The gateway
+// answers a wrong key, a refused network (WAF) and — seen on every Entgeltatlas
+// endpoint on 2026-09-26 — the published static key itself with the same empty
+// 403, and upstream now documents an OAuth client-credentials flow this package
+// does not implement. The key is therefore not checked here (an empty 403 would
+// not say why), and the CLI's note says it was not checked.
 
 import type { HttpResponse, Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";

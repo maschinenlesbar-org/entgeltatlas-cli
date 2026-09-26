@@ -28,7 +28,7 @@ This skill drives the `entgeltatlas` command. **Before anything else, validate i
 
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
-**An X-API-Key is required** for the live reference commands (`regionen` etc.), but **`codes` works offline with no key**. The key is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`) — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from github.com/bundesAPI/entgeltatlas-api at run time. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. The key is public — name it when you report back — but never guess one if `obtain-key` fails. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong or missing key as when it refuses your network (WAF/IP block). Don't rule either out — have the user re-check the key with `entgeltatlas obtain-key` first, and if it matches, try from another network (e.g. a residential connection). Use `--compact` for `jq`.
+**An X-API-Key is required** for the live reference commands (`regionen` etc.), but **`codes` works offline with no key**. The key is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`) — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from github.com/bundesAPI/entgeltatlas-api at run time. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. The key is public — name it when you report back — but never guess one if `obtain-key` fails. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong or missing key, for a refused network (WAF/IP block), and for a static key it no longer accepts — the published key got one on every Entgeltatlas endpoint on 2026-09-26, and upstream now documents an OAuth client-credentials flow this CLI does not implement. Have the user re-check the key with `entgeltatlas obtain-key` first; if it matches, tell them the API may no longer accept the published key (trying another network is only a secondary check), and never present a 403 as "no data". Use `--compact` for `jq`.
 
 ## Dimension codes (l / r / g / a / b)
 
@@ -77,7 +77,7 @@ Region 11 = Baden-Württemberg · Level 4 = Experte
 
 ## Traps
 
-- **`codes` needs no key** — use it even when the API key/WAF is a problem.
+- **`codes` needs no key** — use it even when the API answers an empty 403.
 - **Region codes are irregular** (not 1..16) — always verify.
 - **A KldB code is mandatory** and must come from outside this API; don't fabricate
   one, and confirm its title before the user relies on the figures.

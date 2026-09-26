@@ -24,9 +24,11 @@ They compose: **code-finder → lookup**, or **code-finder → gap-analyzer**.
   eval "$(entgeltatlas obtain-key --export)"        # this shell
   entgeltatlas obtain-key --export >> ~/.zshrc      # or keep it for later
   ```
-- **Note:** a **403** with an empty body looks the same for a wrong key and for a
-  network `rest.arbeitsagentur.de` refuses. Re-check the key against the bundesAPI
-  README first; if it matches, try from another network.
+- **Note:** a **403** with an empty body looks the same for a wrong key, a network
+  `rest.arbeitsagentur.de` refuses, and a static key the API no longer accepts (the
+  published key got one on every endpoint on 2026-09-26; upstream now documents an
+  OAuth flow this CLI does not implement). Re-check the key with `entgeltatlas
+  obtain-key` first; see the README's 403 heads-up.
 
 ## Installing the plugin
 

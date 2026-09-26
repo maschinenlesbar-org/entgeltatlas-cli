@@ -75,14 +75,23 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       if (err.status === 404) return EXIT.NOT_FOUND;
       if (err.status === 401 || err.status === 403) {
         // An empty-body 403 is ambiguous: the rest.arbeitsagentur.de gateway sends the
-        // same text/plain one-space 403 for a wrong or missing X-API-Key as when its
-        // WAF refuses the caller's network. Name both, key first, and don't rule
-        // either out.
+        // same text/plain one-space 403 for a wrong or missing X-API-Key, for a
+        // refused network (WAF), and — seen on every Entgeltatlas endpoint in
+        // 2026-09, while a sibling BA API on the same gateway answered — for the
+        // published static key itself. Say which key situation applies and name
+        // every cause without ruling one out.
+        const sentKey = typeof program.opts()["apiKey"] === "string";
         deps.io.err(
-          `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
-            `${API_KEY_ENV_VAR} env var against the key in the bundesAPI/entgeltatlas-api ` +
-            "README. A 403 with an empty body looks the same for a wrong key and for a " +
-            "refused network (WAF/IP block), so if the key matches, try from another network.",
+          sentKey
+            ? `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
+                `${API_KEY_ENV_VAR} env var against \`entgeltatlas obtain-key\`. An empty 403 ` +
+                "looks the same for a wrong key, a refused network (WAF/IP block) and a key the " +
+                "API no longer accepts: the published static key has been answered this way, and " +
+                "upstream documents an OAuth client-credentials flow this CLI does not implement. " +
+                "See the README's 403 heads-up."
+            : `Hint: the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
+                `Pass --api-key or set ${API_KEY_ENV_VAR} (\`entgeltatlas obtain-key\` prints ` +
+                "the published key).",
         );
         return EXIT.AUTH;
       }

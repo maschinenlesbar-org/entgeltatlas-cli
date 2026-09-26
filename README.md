@@ -59,15 +59,21 @@ export ENTGELTATLAS_API_KEY="$(entgeltatlas obtain-key)"
 Because the key is fetched rather than compiled in, a rotated key needs no
 release of this CLI. If the source is unreachable or stops publishing a key,
 `obtain-key` fails loudly with a non-zero exit rather than printing a guess.
-Note that a successfully obtained key is still no guarantee the API will answer:
-see the 403 heads-up below.
+`obtain-key` does not check the key against the API, so a successfully obtained key
+is no guarantee the API will answer: see the 403 heads-up below.
 
-> **Heads-up — an empty 403 is ambiguous.** `rest.arbeitsagentur.de` answers a wrong
-> or missing key with **HTTP 403 (empty body)**, and its Akamai WAF sends the same
-> response when it refuses a network (datacenter/cloud/VPN IPs). If you get one
-> (exit code `3`), re-check the key against the bundesAPI README first; if it
-> matches, try from another network, e.g. a residential connection. The CLI's 403
-> message says as much.
+> **Heads-up — the published key may no longer be accepted.** `rest.arbeitsagentur.de`
+> answers with **HTTP 403 (empty body)** for a wrong or missing key, for a network its
+> WAF refuses (datacenter/cloud/VPN IPs), and — observed on 2026-09-26 — for the
+> published static key itself: every Entgeltatlas endpoint answered it with an empty
+> 403, while the Ausbildungssuche API on the same gateway answered 200 from the same
+> machine, and a browser User-Agent changed nothing. The upstream README now presents
+> an OAuth client-credentials flow (a token in an `OAuthAccessToken` header) as the
+> primary way in; **this CLI does not implement it** and only sends the static
+> `X-API-Key`. If you get an empty 403 (exit code `3`), re-check the key with
+> `entgeltatlas obtain-key`; if it matches, the likeliest cause is that the static key
+> is no longer accepted, and trying another network is a secondary check. `codes`
+> keeps working offline.
 
 ## Quickstart
 

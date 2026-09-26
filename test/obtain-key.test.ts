@@ -70,6 +70,7 @@ test("obtain-key prints only the key on stdout, provenance on stderr", async () 
   assert.equal(code, 0);
   assert.deepEqual(cli.out, [EXPECTED_KEY]);
   assert.ok(cli.err.join("\n").includes(KEY_SOURCE_URL));
+  assert.match(cli.err.join("\n"), /not checked against the API/);
 });
 
 test("obtain-key --export emits a quoted, eval-safe export line", async () => {

@@ -72,7 +72,7 @@ to look up the numbers for the `entgelte` flags.
 | `0` | success (help/version/bare invocation included) |
 | `1` | other API or parse error (incl. a response that is not a JSON array of objects, or an empty body) |
 | `2` | usage error (bad KldB code, bad flag) |
-| `3` | 401/403 — key rejected **or** a WAF/IP block (see README) |
+| `3` | 401/403 — no key sent, key rejected (the published static key may no longer be accepted), **or** a WAF/IP block (see README) |
 | `4` | 404 — not found |
 | `6` | network/transport failure (timeout, size cap) |
 
@@ -84,5 +84,8 @@ to look up the numbers for the `entgelte` flags.
   ceiling — see [GLOSSARY.md](GLOSSARY.md).
 - **Region numbering is irregular** (Bund/Ost/West + 16 states + 11 cities), not
   1..16 — check `codes`/`regionen`.
-- **An empty 403 is ambiguous** — a wrong key and a WAF block of your network look
-  the same. Re-check the key against the bundesAPI README, then try another network.
+- **An empty 403 is ambiguous** — a wrong key, a WAF block of your network and a
+  static key the API no longer accepts look the same. The published key got an empty
+  403 on every endpoint on 2026-09-26 (upstream now documents an OAuth
+  client-credentials flow this CLI does not implement). Re-check the key with
+  `entgeltatlas obtain-key`; see the README's 403 heads-up.

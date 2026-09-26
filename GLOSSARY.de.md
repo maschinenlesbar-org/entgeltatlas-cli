@@ -51,11 +51,12 @@ und CLI geben `null` unverändert weiter; werten Sie es nicht als Entgelt von nu
   Berechtigung pro Nutzer). Abrufen mit `entgeltatlas obtain-key`; committen Sie ihn nie – auch nicht
   den öffentlichen Community-Schlüssel. Tests verwenden eine offensichtliche Dummy-UUID
   (`00000000-0000-4000-8000-000000000000`), damit das Repo keinerlei echte Zugangsdaten enthält.
-- **WAF / 403** – `rest.arbeitsagentur.de` liegt hinter einer Akamai-WAF, die IP-Adressen aus
-  Rechenzentren, VPNs und Clouds mit einem **HTTP 403 mit leerem Body** blockiert, selbst bei
-  gültigem Schlüssel. Ein falscher oder fehlender Schlüssel erhält denselben 403 mit leerem
-  Body; die Antwort allein unterscheidet eine IP-Sperre also nicht von einem
-  Authentifizierungsfehler. Prüfen Sie zuerst den Schlüssel und versuchen Sie es dann aus einem
-  anderen Netz – siehe [DEVELOPING.md](DEVELOPING.md).
+- **WAF / 403** – `rest.arbeitsagentur.de` antwortet mit einem **HTTP 403 mit leerem Body**
+  bei falschem oder fehlendem Schlüssel, bei einem Netz, das die WAF abweist (IP-Adressen aus
+  Rechenzentren, VPNs und Clouds), und – am 26.09.2026 auf allen Entgeltatlas-Endpunkten
+  beobachtet – auch beim veröffentlichten statischen Schlüssel selbst, während eine
+  Schwester-API der BA auf demselben Gateway antwortete. Die Antwort allein unterscheidet diese
+  Fälle nicht. Upstream dokumentiert inzwischen einen OAuth-Client-Credentials-Ablauf, den
+  diese CLI nicht umsetzt. Prüfen Sie zuerst den Schlüssel – siehe [DEVELOPING.md](DEVELOPING.md).
 
 Namensnennung und Bedingungen zur Weiterverwendung: siehe [DATA_LICENSE.md](DATA_LICENSE.md).

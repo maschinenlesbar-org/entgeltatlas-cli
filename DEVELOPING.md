@@ -61,8 +61,12 @@ cross-origin redirect.
 > **OAuth fallback (not implemented).** BA `infosysbub` also supports OAuth2
 > client-credentials (POST `client_id`/`client_secret` to `/oauth/gettoken_cc`,
 > then send the JWT in a **non-standard `OAuthAccessToken`** header — *not*
-> `Authorization: Bearer`). The static X-API-Key works, so this is deferred; the
-> credential-header set already lists `oauthaccesstoken` for the day it's added.
+> `Authorization: Bearer`). The upstream README now presents it as the primary way
+> in. It is still not implemented (an auth-design decision, deferred in the
+> 2026-09-26 exploratory review): on 2026-09-26 the published static key got an
+> empty 403 on every Entgeltatlas endpoint (see below), so the static path may no
+> longer be accepted. The credential-header set already lists `oauthaccesstoken`
+> for the day it's added.
 
 ### One data endpoint, a bare array
 
@@ -105,9 +109,15 @@ reliable fallback if the live reference endpoints move.
   identical response (text/plain, one-space body; seen again on 2026-09-15, when
   the fetched key and a wrong UUID both got it while the Ausbildungssuche API on
   the same gateway answered 200 for its own key). `run.ts` maps 401/403 → exit 3
-  with a hint naming both causes, key first. Verify the response shape from a
-  **residential IP**. Tests use the mock `Transport` only — never the
-  live API in CI.
+  with a hint naming every cause (or saying that no key was sent).
+- **2026-09-26:** the obtained key (it matches the upstream README's `client_id`)
+  got an empty 403 on `entgelte`, `regionen` and `geschlechter`; a wrong UUID and a
+  browser User-Agent got the same, while the Ausbildungssuche API on the same
+  gateway answered 200 from the same IP. So a network-wide block is not the likely
+  cause; the static `X-API-Key` path is probably no longer accepted for this service
+  (OAuth, above, untested). `obtain-key` therefore says in its stderr note that it
+  did not check the key. Verify the response shape once a working auth path exists.
+  Tests use the mock `Transport` only — never the live API in CI.
 
 ## Conventions matched from the blueprint
 

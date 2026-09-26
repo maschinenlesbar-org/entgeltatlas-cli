@@ -28,7 +28,12 @@ export function registerObtainKeyCommands(program: Command, deps: CliDeps): void
         ...(global.maxResponseBytes !== undefined ? { maxResponseBytes: global.maxResponseBytes } : {}),
         ...(global.userAgent !== undefined ? { userAgent: global.userAgent } : {}),
       });
-      deps.io.err(`Obtained the public key from ${sourceUrl}`);
+      // The key is not checked against the API (an empty 403 cannot tell a dead key
+      // from a refused network), so say so rather than imply it works.
+      deps.io.err(
+        `Obtained the public key from ${sourceUrl} (not checked against the API; ` +
+          "if the API answers an empty 403, see the README's 403 heads-up).",
+      );
       deps.io.out(
         command.opts()["export"] ? `export ${API_KEY_ENV_VAR}=${shellQuoteSingle(key)}` : key,
       );

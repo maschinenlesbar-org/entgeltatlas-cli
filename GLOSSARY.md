@@ -51,10 +51,12 @@ and CLI preserve `null` faithfully; do not treat it as zero earnings.
   per-user grant). Obtain it with `entgeltatlas obtain-key`; never commit it — not even
   the public community key. Tests use an obvious dummy UUID
   (`00000000-0000-4000-8000-000000000000`) so the repo holds zero real credentials.
-- **WAF / 403** — `rest.arbeitsagentur.de` sits behind an Akamai WAF that blocks
-  datacenter/VPN/cloud IPs with an **empty-body HTTP 403**, even with a valid key.
-  A wrong or missing key gets the same empty-body 403, so the response alone
-  can't tell an IP block from an auth failure: re-check the key first, then try
-  another network — see [DEVELOPING.md](DEVELOPING.md).
+- **WAF / 403** — `rest.arbeitsagentur.de` answers with an **empty-body HTTP 403**
+  for a wrong or missing key, for a network its WAF refuses (datacenter/VPN/cloud
+  IPs), and — observed on 2026-09-26 on every Entgeltatlas endpoint — for the
+  published static key itself, while a sibling BA API on the same gateway answered.
+  The response alone can't tell these apart. Upstream now documents an OAuth
+  client-credentials flow, which this CLI does not implement. Re-check the key
+  first — see [DEVELOPING.md](DEVELOPING.md).
 
 See [DATA_LICENSE.md](DATA_LICENSE.md) for attribution and reuse terms.
