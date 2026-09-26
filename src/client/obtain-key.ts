@@ -25,7 +25,7 @@
 
 import type { HttpResponse, Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
-import { EntgeltatlasError } from "./errors.js";
+import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
 import { DEFAULT_MAX_RESPONSE_BYTES, DEFAULT_TIMEOUT_MS, assertHttpScheme } from "./engine.js";
 
 /** The environment variable the client and CLI read the key from. */
@@ -140,10 +140,15 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   }
 
   if (response.status < 200 || response.status >= 300) {
-    throw new EntgeltatlasError(
-      `Could not read the key source ${sourceUrl} (HTTP ${response.status}). ` +
-        `Retry, or copy the key from github.com/bundesAPI/entgeltatlas-api by hand.`,
-    );
+    throw new EntgeltatlasKeySourceError({
+      status: response.status,
+      url,
+      method: "GET",
+      body: response.body.toString("utf8"),
+      detail:
+        "could not read the key source. Retry, or copy the key from " +
+        "github.com/bundesAPI/entgeltatlas-api by hand",
+    });
   }
 
   const text = response.body.toString("utf8");

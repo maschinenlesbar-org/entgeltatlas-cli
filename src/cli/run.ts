@@ -9,6 +9,7 @@ import { API_KEY_ENV_VAR } from "./io.js";
 import {
   EntgeltatlasApiError,
   EntgeltatlasError,
+  EntgeltatlasKeySourceError,
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
 } from "../client/errors.js";
@@ -69,6 +70,12 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     if (err instanceof EntgeltatlasValidationError) {
       deps.io.err(`Error: ${err.message}`);
       return EXIT.USAGE;
+    }
+    // obtain-key could not read the published key: a 404 is "not found", but a
+    // 401/403 from the key source says nothing about an API key (so not exit 3).
+    if (err instanceof EntgeltatlasKeySourceError) {
+      deps.io.err(`Error: ${err.message}`);
+      return err.status === 404 ? EXIT.NOT_FOUND : EXIT.OTHER;
     }
     if (err instanceof EntgeltatlasApiError) {
       deps.io.err(`Error: ${err.message}`);

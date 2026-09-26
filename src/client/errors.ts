@@ -42,6 +42,14 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
   }
 }
 
+/**
+ * `obtainKey()` could not read the document that publishes the key (a non-2xx
+ * from the key source, not from the Entgeltatlas API). An `EntgeltatlasApiError`,
+ * so `status`/`url` are available; the CLI maps a 404 to exit 4 and every other
+ * status to 1 (never to 3, which means the API rejected a key).
+ */
+export class EntgeltatlasKeySourceError extends EntgeltatlasApiError {}
+
 /** A transport-level failure (DNS, connection reset, timeout, ...). */
 export class EntgeltatlasNetworkError extends EntgeltatlasError {}
 

@@ -14,7 +14,12 @@ import {
   MAX_KEY_SOURCE_REDIRECTS,
   obtainKey,
 } from "../src/client/obtain-key.js";
-import { EntgeltatlasError, EntgeltatlasNetworkError } from "../src/client/errors.js";
+import {
+  EntgeltatlasApiError,
+  EntgeltatlasError,
+  EntgeltatlasKeySourceError,
+  EntgeltatlasNetworkError,
+} from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
 const SOURCE_DOC = ["# entgeltatlas-api", "", "```bash", 'curl -H "X-API-Key: c4f0d292-9d0f-4763-87dd-d3f9e78fb006" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
@@ -200,4 +205,28 @@ test("obtainKey fails on a source that states conflicting keys", async () => {
       doc,
     );
   }
+});
+
+test("a key-source HTTP failure is a typed EntgeltatlasApiError with status and url", async () => {
+  const mt = makeMockTransport(() => rawResponse("", "text/plain", 404));
+  await assert.rejects(
+    () => obtainKey({ transport: mt.transport }),
+    (err) =>
+      err instanceof EntgeltatlasKeySourceError &&
+      err instanceof EntgeltatlasApiError &&
+      err.status === 404 &&
+      err.url === KEY_SOURCE_URL &&
+      err.message ===
+        `HTTP 404 for GET ${KEY_SOURCE_URL}: could not read the key source. ` +
+          "Retry, or copy the key from github.com/bundesAPI/entgeltatlas-api by hand",
+  );
+});
+
+test("obtain-key exits 4 for a vanished key source and 1 (no API-key hint) for a 403 from it", async () => {
+  const gone = makeCli(() => rawResponse("", "text/plain", 404));
+  assert.equal(await run(["obtain-key"], gone.deps), 4);
+  const refused = makeCli(() => rawResponse("", "text/plain", 403));
+  assert.equal(await run(["obtain-key"], refused.deps), 1);
+  assert.doesNotMatch(refused.err.join("\n"), /Hint:/);
+  assert.deepEqual(refused.out, []);
 });

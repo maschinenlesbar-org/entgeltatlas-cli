@@ -76,6 +76,11 @@ to look up the numbers for the `entgelte` flags.
 | `4` | 404 — not found |
 | `6` | network/transport failure (timeout, size cap) |
 
+`obtain-key` talks only to the key source (the bundesAPI README), never to the API:
+it exits `4` when the source answers 404, `6` on a network failure, and `1` for any
+other failure (another status, no key stated, conflicting keys) — never `3`. Library
+users get an `EntgeltatlasKeySourceError` (an `EntgeltatlasApiError` with `status`/`url`).
+
 ## Gotchas
 
 - **No name search** — you must supply the numeric KldB code. Resolve names via
