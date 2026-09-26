@@ -8,7 +8,12 @@ import { run } from "../src/cli/run.js";
 import { EntgeltatlasClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey } from "../src/client/obtain-key.js";
+import {
+  API_KEY_ENV_VAR,
+  KEY_SOURCE_URL,
+  MAX_KEY_SOURCE_REDIRECTS,
+  obtainKey,
+} from "../src/client/obtain-key.js";
 import { EntgeltatlasError, EntgeltatlasNetworkError } from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
@@ -86,4 +91,78 @@ test("a failing obtain-key exits non-zero rather than printing a guess", async (
   const code = await run(["obtain-key"], cli.deps);
   assert.notEqual(code, 0);
   assert.deepEqual(cli.out, []);
+});
+
+test("obtainKey applies the client's default timeout and size cap", async () => {
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  await obtainKey({ transport: mt.transport });
+  assert.equal(mt.last().timeoutMs, 30_000);
+  assert.equal(mt.last().maxResponseBytes, 100 * 1024 * 1024);
+});
+
+test("obtainKey passes explicit limits, and 0 turns a limit off", async () => {
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  await obtainKey({ transport: mt.transport, timeoutMs: 1234, maxResponseBytes: 5678 });
+  assert.equal(mt.last().timeoutMs, 1234);
+  assert.equal(mt.last().maxResponseBytes, 5678);
+  await obtainKey({ transport: mt.transport, timeoutMs: 0, maxResponseBytes: 0 });
+  assert.equal("timeoutMs" in mt.last(), false);
+  assert.equal("maxResponseBytes" in mt.last(), false);
+});
+
+test("obtainKey falls back to the default User-Agent for a blank one", async () => {
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  await obtainKey({ transport: mt.transport, userAgent: "  " });
+  assert.equal(mt.last().headers?.["User-Agent"], "entgeltatlas-cli");
+});
+
+test("obtain-key forwards --timeout and --max-response-bytes", async () => {
+  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const code = await run(["--timeout", "500", "--max-response-bytes", "10000", "obtain-key"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(cli.mt.last().timeoutMs, 500);
+  assert.equal(cli.mt.last().maxResponseBytes, 10000);
+});
+
+test("obtain-key fails on a source larger than --max-response-bytes", async () => {
+  const cli = makeCli((req) => {
+    if (req.maxResponseBytes !== undefined && SOURCE_DOC.length > req.maxResponseBytes) {
+      throw new EntgeltatlasNetworkError(`Response exceeded maxResponseBytes (${req.maxResponseBytes})`);
+    }
+    return rawResponse(SOURCE_DOC, "text/plain");
+  });
+  const code = await run(["--max-response-bytes", "10", "obtain-key"], cli.deps);
+  assert.equal(code, 6);
+  assert.deepEqual(cli.out, []);
+});
+
+test("obtainKey follows same-origin redirects and cites the final URL", async () => {
+  const moved = "https://raw.githubusercontent.com/bundesAPI/renamed/main/README.md";
+  const mt = makeMockTransport((req) =>
+    req.url === KEY_SOURCE_URL
+      ? { status: 301, headers: { location: "/bundesAPI/renamed/main/README.md" }, body: Buffer.alloc(0) }
+      : rawResponse(SOURCE_DOC, "text/plain"),
+  );
+  const result = await obtainKey({ transport: mt.transport });
+  assert.equal(result.key, EXPECTED_KEY);
+  assert.equal(result.sourceUrl, moved);
+  assert.equal(mt.calls.length, 2);
+});
+
+test("obtainKey does not follow a redirect to another host, nor a loop past the limit", async () => {
+  const cross = makeMockTransport(() => ({
+    status: 302,
+    headers: { location: "https://evil.example/README.md" },
+    body: Buffer.alloc(0),
+  }));
+  await assert.rejects(() => obtainKey({ transport: cross.transport }), /HTTP 302/);
+  assert.equal(cross.calls.length, 1);
+
+  const loop = makeMockTransport((req) => ({
+    status: 302,
+    headers: { location: req.url },
+    body: Buffer.alloc(0),
+  }));
+  await assert.rejects(() => obtainKey({ transport: loop.transport }), /HTTP 302/);
+  assert.equal(loop.calls.length, MAX_KEY_SOURCE_REDIRECTS + 1);
 });

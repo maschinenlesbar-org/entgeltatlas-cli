@@ -52,7 +52,9 @@ needs an `X-API-Key` header whose value is the BA's published community
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
 `ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
-run time. The
+run time, with the client's limits (30 s timeout, 100 MiB cap by default; the CLI
+passes `--timeout` and `--max-response-bytes`) and up to `MAX_KEY_SOURCE_REDIRECTS`
+(5) same-origin redirects — a redirect to another host is not followed. The
 engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
 cross-origin redirect.
 
