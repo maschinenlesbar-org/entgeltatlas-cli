@@ -70,7 +70,7 @@ to look up the numbers for the `entgelte` flags.
 | Code | Meaning |
 |---|---|
 | `0` | success (help/version/bare invocation included) |
-| `1` | other API / network / parse error |
+| `1` | other API or parse error (incl. a response that is not a JSON array of objects, or an empty body) |
 | `2` | usage error (bad KldB code, bad flag) |
 | `3` | 401/403 — key rejected **or** a WAF/IP block (see README) |
 | `4` | 404 — not found |

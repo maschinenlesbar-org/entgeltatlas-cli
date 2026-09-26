@@ -150,6 +150,14 @@ test("--timeout accepts up to the largest timer Node supports", async () => {
   assert.match(over.err.join("\n"), /Must be <= 2147483647/);
 });
 
+test("a wrong-shaped 2xx body exits 1 with a shape error, not exit 0", async () => {
+  const cli = makeCli(() => jsonResponse({ error: "not an array", status: 500 }));
+  const code = await run([...KEY, "entgelte", "84304"], cli.deps);
+  assert.equal(code, 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(cli.err.join("\n"), /Unexpected response shape from .*expected a JSON array of objects/);
+});
+
 test("--max-retries is bounded to 0..10 (usage error, no request)", async () => {
   for (const value of ["11", "9007199254740991", "-1", "1.5"]) {
     const cli = makeCli(() => jsonResponse(fx.entgelteResult));

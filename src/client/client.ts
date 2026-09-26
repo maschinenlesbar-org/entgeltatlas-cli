@@ -12,7 +12,7 @@
 //   client.regionen()
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { EntgeltatlasValidationError } from "./errors.js";
+import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
 
@@ -29,6 +29,26 @@ export interface EntgeltatlasClientOptions extends EngineOptions {
    * obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
+}
+
+/** A non-null, non-array JSON object. */
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Check the top-level shape the CLI relies on: every endpoint answers a JSON
+ * array of objects. Anything else (an error object with a 200, a string, a HAL
+ * envelope) is not data and must not be printed as an observation or turned into
+ * an empty — i.e. "suppressed" — result.
+ */
+function assertArrayOfObjects<T>(body: unknown, path: string): T[] {
+  if (!Array.isArray(body) || !body.every(isObject)) {
+    throw new EntgeltatlasParseError(
+      `Unexpected response shape from ${path}: expected a JSON array of objects.`,
+    );
+  }
+  return body as T[];
 }
 
 /** Drop undefined values so only the parameters the caller set are sent. */
@@ -68,14 +88,11 @@ export class EntgeltatlasClient {
           "This API takes the numeric KldB-2010 code, not an occupation name.",
       );
     }
-    const res = await this.engine.getJson<EntgeltEntry[] | EntgeltEntry | null>(
-      `${SERVICE}/entgelte/${kldb}`,
-      prune({ ...params }),
-    );
-    // The API is documented to return an array; defend against a single object
-    // or a null/empty body so callers always get a well-formed array.
-    if (Array.isArray(res)) return res;
-    return res ? [res] : [];
+    const path = `${SERVICE}/entgelte/${kldb}`;
+    const res = await this.engine.getJson<unknown>(path, prune({ ...params }));
+    // The API is documented to return an array of observations; anything else is
+    // a ParseError, never wrapped or coerced (an empty array means suppressed).
+    return assertArrayOfObjects<EntgeltEntry>(res, path);
   }
 
   /** Reference list of region codes (`r`). */
@@ -96,7 +113,7 @@ export class EntgeltatlasClient {
   }
 
   private async reference(name: string): Promise<ReferenceItem[]> {
-    const res = await this.engine.getJson<ReferenceItem[] | null>(`${SERVICE}/${name}`);
-    return Array.isArray(res) ? res : [];
+    const path = `${SERVICE}/${name}`;
+    return assertArrayOfObjects<ReferenceItem>(await this.engine.getJson<unknown>(path), path);
   }
 }

@@ -25,10 +25,15 @@ test("getJson parses a JSON array body", async () => {
   assert.deepEqual(await e.getJson("/x"), [{ ok: true }]);
 });
 
-test("getJson returns null for an empty body", async () => {
-  const mt = makeMockTransport(() => rawResponse("", "application/json", 204));
-  const e = new RequestEngine({ transport: mt.transport });
-  assert.equal(await e.getJson("/x"), null);
+test("getJson rejects an empty or 204 body with EntgeltatlasParseError", async () => {
+  for (const [body, status] of [["", 204], ["", 200], ["  \n", 200]] as const) {
+    const mt = makeMockTransport(() => rawResponse(body, "application/json", status));
+    const e = new RequestEngine({ transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err) => err instanceof EntgeltatlasParseError && err.message === "Empty response body from /x",
+    );
+  }
 });
 
 test("getJson throws EntgeltatlasParseError on invalid JSON", async () => {

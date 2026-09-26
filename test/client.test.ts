@@ -1,8 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EntgeltatlasClient, type EntgeltatlasClientOptions } from "../src/client/client.js";
-import { EntgeltatlasNetworkError, EntgeltatlasValidationError } from "../src/client/errors.js";
-import { makeMockTransport, jsonResponse, queryOf, type MockTransport } from "./helpers.js";
+import {
+  EntgeltatlasNetworkError,
+  EntgeltatlasParseError,
+  EntgeltatlasValidationError,
+} from "../src/client/errors.js";
+import { makeMockTransport, jsonResponse, rawResponse, queryOf, type MockTransport } from "./helpers.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import * as fx from "./fixtures.js";
 
@@ -43,10 +47,26 @@ test("entgelte rejects a non-numeric KldB code before any request", async () => 
   assert.equal(mt.calls.length, 0);
 });
 
-test("entgelte wraps a single returned object into an array (defensive)", async () => {
-  const single = fx.entgelteResult[0]!;
-  const { c } = client(() => jsonResponse(single), { apiKey: "K" });
-  assert.deepEqual(await c.entgelte("84304"), [single]);
+test("entgelte rejects a body that is not an array of objects", async () => {
+  const bodies: unknown[] = [fx.entgelteResult[0], { error: "not an array", status: 500 }, "hello", 42, null, ["x"], [null], [[]]];
+  for (const body of bodies) {
+    const { c } = client(() => jsonResponse(body), { apiKey: "K" });
+    await assert.rejects(
+      () => c.entgelte("84304"),
+      (err) =>
+        err instanceof EntgeltatlasParseError &&
+        err.message ===
+          "Unexpected response shape from /infosysbub/entgeltatlas/pc/v1/entgelte/84304: expected a JSON array of objects.",
+      JSON.stringify(body),
+    );
+  }
+});
+
+test("entgelte rejects an empty or 204 body instead of returning []", async () => {
+  for (const status of [200, 204]) {
+    const { c } = client(() => rawResponse("", "application/json", status), { apiKey: "K" });
+    await assert.rejects(() => c.entgelte("84304"), EntgeltatlasParseError);
+  }
 });
 
 test("entgelte returns [] for a suppressed/empty result", async () => {
@@ -73,9 +93,20 @@ test("regionen hits the reference endpoint and returns the array", async () => {
   assert.equal(new URL(mt.last().url).pathname, "/infosysbub/entgeltatlas/pc/v1/regionen");
 });
 
-test("a reference endpoint returning a non-array yields []", async () => {
-  const { c } = client(() => jsonResponse({ unexpected: true }), { apiKey: "K" });
-  assert.deepEqual(await c.branchen(), []);
+test("a reference endpoint returning a non-array is a parse error, not []", async () => {
+  const bodies: unknown[] = [{ unexpected: true }, { _embedded: [{ id: 1, bezeichnung: "x" }] }, null, "x", [1]];
+  for (const body of bodies) {
+    const { c } = client(() => jsonResponse(body), { apiKey: "K" });
+    await assert.rejects(
+      () => c.branchen(),
+      (err) =>
+        err instanceof EntgeltatlasParseError &&
+        /^Unexpected response shape from \/infosysbub\/entgeltatlas\/pc\/v1\/branchen: expected a JSON array of objects\.$/.test(err.message),
+      JSON.stringify(body),
+    );
+  }
+  const { c } = client(() => rawResponse("", "application/json", 204), { apiKey: "K" });
+  await assert.rejects(() => c.regionen(), EntgeltatlasParseError);
 });
 
 test("the client rejects a non-http(s) base URL before any request", () => {

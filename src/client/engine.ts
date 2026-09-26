@@ -254,9 +254,10 @@ export class RequestEngine {
   async getJson<T>(path: string, query?: QueryParams, accept = "application/json"): Promise<T> {
     const res = await this.request("GET", path, { query, accept });
     const text = res.data.toString("utf8");
-    // A 204 or empty body is not a parse failure — surface it as null.
+    // Every endpoint answers a JSON document; a 204 or an empty body is not "no
+    // data" (that is an empty array), so it is an error rather than null.
     if (res.status === 204 || text.trim().length === 0) {
-      return null as T;
+      throw new EntgeltatlasParseError(`Empty response body from ${path}`);
     }
     try {
       return JSON.parse(text) as T;
