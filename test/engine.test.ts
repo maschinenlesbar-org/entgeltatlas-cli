@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine } from "../src/client/engine.js";
+import { MAX_RETRY_AFTER_MS, RequestEngine, parseRetryAfter } from "../src/client/engine.js";
 import {
   EntgeltatlasApiError,
   EntgeltatlasNetworkError,
@@ -92,6 +92,56 @@ test("a retried request that then succeeds resolves", async () => {
   const e = new RequestEngine({ transport: mt.transport, sleep: async () => {} });
   assert.deepEqual(await e.getJson("/x"), [{ ok: 1 }]);
   assert.equal(calls, 2);
+});
+
+function retryAfterResponse(retryAfter: string | undefined, status = 429): HttpResponse {
+  return {
+    status,
+    headers: retryAfter === undefined ? {} : { "retry-after": retryAfter },
+    body: Buffer.from("{}"),
+  };
+}
+
+test("a 429 waits the server's Retry-After (seconds) before each retry", async () => {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => retryAfterResponse("1"));
+  const e = new RequestEngine({ transport: mt.transport, sleep: async (ms) => void delays.push(ms) });
+  await assert.rejects(() => e.getJson("/x"), EntgeltatlasApiError);
+  assert.deepEqual(delays, [1000, 1000]);
+  assert.equal(mt.calls.length, 3);
+});
+
+test("an HTTP-date Retry-After is turned into the time left", () => {
+  const now = Date.parse("Wed, 21 Oct 2026 07:28:00 GMT");
+  assert.equal(parseRetryAfter("Wed, 21 Oct 2026 07:28:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Wed, 21 Oct 2026 07:27:00 GMT", now), 0);
+  assert.equal(parseRetryAfter([" 3 "], now), 3000);
+});
+
+test("a malformed Retry-After falls back to the linear backoff", async () => {
+  for (const header of ["-1", "+5", "1.5", "1e3", "0x10", "", "2026-10-21T07:28:00Z", "Wednesday, 21-Oct-26 07:28:00 GMT", undefined]) {
+    assert.equal(parseRetryAfter(header), undefined, String(header));
+    const delays: number[] = [];
+    const mt = makeMockTransport(() => retryAfterResponse(header, 503));
+    const e = new RequestEngine({ transport: mt.transport, sleep: async (ms) => void delays.push(ms) });
+    await assert.rejects(() => e.getJson("/x"), EntgeltatlasApiError);
+    assert.deepEqual(delays, [200, 400], String(header));
+  }
+});
+
+test("a Retry-After beyond the cap is not retried: the error surfaces at once", async () => {
+  const far = new Date(Date.now() + 10 * MAX_RETRY_AFTER_MS).toUTCString();
+  for (const header of ["31", "99999999", far]) {
+    const delays: number[] = [];
+    const mt = makeMockTransport(() => retryAfterResponse(header));
+    const e = new RequestEngine({ transport: mt.transport, sleep: async (ms) => void delays.push(ms) });
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err) => err instanceof EntgeltatlasApiError && err.status === 429,
+    );
+    assert.equal(mt.calls.length, 1, header);
+    assert.deepEqual(delays, [], header);
+  }
 });
 
 function redirectResponse(location: string, status = 302): HttpResponse {

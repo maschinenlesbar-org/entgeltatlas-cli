@@ -150,6 +150,17 @@ test("--timeout accepts up to the largest timer Node supports", async () => {
   assert.match(over.err.join("\n"), /Must be <= 2147483647/);
 });
 
+test("--max-retries is bounded to 0..10 (usage error, no request)", async () => {
+  for (const value of ["11", "9007199254740991", "-1", "1.5"]) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+    const code = await run([...KEY, "--max-retries", value, "entgelte", "84304"], cli.deps);
+    assert.equal(code, 2, value);
+    assert.equal(cli.mt.calls.length, 0, value);
+  }
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  assert.equal(await run([...KEY, "--max-retries", "10", "entgelte", "84304"], cli.deps), 0);
+});
+
 test("a bare invocation prints help to stdout and exits 0", async () => {
   const cli = makeCli(() => jsonResponse([]));
   const code = await run([], cli.deps);

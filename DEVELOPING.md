@@ -106,7 +106,10 @@ reliable fallback if the live reference endpoints move.
 
 - Zero runtime HTTP dependencies (only `commander`); strict TS + ESM.
 - Exit codes (`run.ts`): 0 ok; 2 usage; 3 auth/WAF; 4 not-found; 6 network; 1 other.
-- Transient `429`/`503` retried up to `maxRetries`. Rate limits are undocumented.
+- Transient `429`/`503` retried up to `maxRetries` (CLI `--max-retries` 0..10). Each retry
+  waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
+  value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
+  without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.
 - `--base-url` accepts only `http:`/`https:`; redirects are followed with
   credential-header stripping on cross-origin hops.
 
