@@ -8,6 +8,7 @@ import {
   EntgeltatlasApiError,
   EntgeltatlasNetworkError,
   EntgeltatlasParseError,
+  redactUrl,
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
@@ -133,11 +134,11 @@ export function assertHttpScheme(baseUrl: string): void {
   try {
     url = new URL(baseUrl);
   } catch {
-    throw new EntgeltatlasNetworkError(`Invalid base URL: ${baseUrl}`);
+    throw new EntgeltatlasNetworkError(`Invalid base URL: ${redactUrl(baseUrl)}`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new EntgeltatlasNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${baseUrl}`,
+      `Unsupported protocol "${url.protocol}" in base URL: ${redactUrl(baseUrl)}`,
     );
   }
 }
@@ -174,7 +175,7 @@ export class RequestEngine {
     // and `http://h/#f` requests `/` with no service path and no filters.
     if (/[?#]/.test(this.baseUrl)) {
       throw new EntgeltatlasNetworkError(
-        `Base URL must not contain a query or fragment: ${this.baseUrl}`,
+        `Base URL must not contain a query or fragment: ${redactUrl(this.baseUrl)}`,
       );
     }
     this.transport = options.transport ?? nodeHttpTransport;

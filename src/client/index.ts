@@ -24,6 +24,7 @@ export {
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
   EntgeltatlasParseError,
+  redactUrl,
 } from "./errors.js";
 
 export * from "./types.js";

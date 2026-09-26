@@ -236,3 +236,25 @@ test("a base URL with a query or fragment is rejected in the engine (library use
     );
   }
 });
+
+test("userinfo in the base URL is redacted in error messages, but still sent", async () => {
+  const mt = makeMockTransport(() => jsonResponse({ message: "boom" }, 500));
+  const e = new RequestEngine({ baseUrl: "http://user:s3cret@rest.test/ba", transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) =>
+      err instanceof EntgeltatlasApiError &&
+      err.message === "HTTP 500 for GET http://***@rest.test/ba/x: boom" &&
+      err.url === "http://***@rest.test/ba/x" &&
+      !err.message.includes("s3cret"),
+  );
+  assert.equal(mt.last().url, "http://user:s3cret@rest.test/ba/x");
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "http://user:s3cret@rest.test/?x=1" }),
+    (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
+  );
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "ftp://user:s3cret@rest.test/" }),
+    (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
+  );
+});
