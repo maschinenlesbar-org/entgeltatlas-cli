@@ -6,6 +6,7 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
+import { DIMENSIONS } from "./codes.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -71,13 +72,34 @@ export function parseBoundedInt(min: number, max: number): (value: string) => nu
 
 /**
  * commander value-parser for a dimension code (l/r/g/a/b): a positive integer.
- * The API declares no enum constraints, so out-of-range values are left to the
- * server (it answers with an empty result) — we only reject 0 / non-numeric.
  */
 export function parseCode(value: string): number {
   const n = parseIntArg(value);
   if (n < 1) throw new InvalidArgumentError("Expected a positive integer (codes start at 1).");
   return n;
+}
+
+/**
+ * commander value-parser for one dimension (`l`, `r`, `g`, `a` or `b`): a code from
+ * that dimension's table in codes.ts (the one `entgeltatlas codes` prints). What the
+ * API does with an unknown code is not live-verified — if it ignored the parameter,
+ * the user would silently get the unfiltered slice — so an unknown code is a usage
+ * error rather than a request.
+ */
+export function parseDimensionCode(param: string): (value: string) => number {
+  const dimension = DIMENSIONS.find((d) => d.param === param);
+  if (dimension === undefined) throw new Error(`No dimension "${param}" in codes.ts`);
+  const ids = dimension.values.map((v) => v.id);
+  return (value: string) => {
+    const n = parseCode(value);
+    if (!ids.includes(n)) {
+      throw new InvalidArgumentError(
+        `Unknown ${dimension.flag} code ${n}: valid codes are ${ids[0]}–${ids[ids.length - 1]} ` +
+          "(see `entgeltatlas codes`).",
+      );
+    }
+    return n;
+  };
 }
 
 /**

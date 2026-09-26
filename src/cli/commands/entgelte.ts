@@ -5,7 +5,7 @@ import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import type { EntgeltatlasClient } from "../../client/client.js";
 import type { EntgelteParams } from "../../client/types.js";
-import { action, parseCode, parseKldb, renderJson } from "../shared.js";
+import { action, parseDimensionCode, parseKldb, renderJson } from "../shared.js";
 import { DIMENSIONS } from "../codes.js";
 
 const REFERENCES: { name: string; desc: string; run: (c: EntgeltatlasClient) => Promise<unknown> }[] = [
@@ -20,11 +20,11 @@ export function registerCommands(program: Command, deps: CliDeps): void {
     .command("entgelte")
     .description("Gross-salary statistics for a KldB-2010 occupation code")
     .argument("<kldb>", "KldB-2010 occupation code (3–5 digits, e.g. 84304)", parseKldb)
-    .option("-l, --level <code>", "Anforderungsniveau 1–4 (see `codes`)", parseCode)
-    .option("-r, --region <code>", "Region 1–30 (see `codes`)", parseCode)
-    .option("-g, --gender <code>", "Geschlecht 1–3 (see `codes`)", parseCode)
-    .option("-a, --age <code>", "Alter 1–4 (see `codes`)", parseCode)
-    .option("-b, --branch <code>", "Branche 1–11 (see `codes`)", parseCode)
+    .option("-l, --level <code>", "Anforderungsniveau 1–4 (see `codes`)", parseDimensionCode("l"))
+    .option("-r, --region <code>", "Region 1–30 (see `codes`)", parseDimensionCode("r"))
+    .option("-g, --gender <code>", "Geschlecht 1–3 (see `codes`)", parseDimensionCode("g"))
+    .option("-a, --age <code>", "Alter 1–4 (see `codes`)", parseDimensionCode("a"))
+    .option("-b, --branch <code>", "Branche 1–11 (see `codes`)", parseDimensionCode("b"))
     .action(
       action(deps, async ({ client, global, opts }, [kldb]) => {
         const params: EntgelteParams = {};

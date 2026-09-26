@@ -257,3 +257,25 @@ test("a deeply nested response fails pretty-printing cleanly and still prints wi
   if (code === 0) assert.equal(compact.out.join("").length, body.length);
   else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
 });
+
+test("a dimension code outside the documented table exits 2 before any request", async () => {
+  const cases: [string, string, string][] = [
+    ["-l", "5", "Unknown --level code 5: valid codes are 1–4"],
+    ["-l", "999999999999", "Unknown --level code 999999999999"],
+    ["-r", "31", "Unknown --region code 31: valid codes are 1–30"],
+    ["-g", "4", "Unknown --gender code 4: valid codes are 1–3"],
+    ["-a", "5", "Unknown --age code 5: valid codes are 1–4"],
+    ["-b", "12", "Unknown --branch code 12: valid codes are 1–11"],
+  ];
+  for (const [flag, value, message] of cases) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+    const code = await run([...KEY, "entgelte", "84304", flag, value], cli.deps);
+    assert.equal(code, 2, `${flag} ${value}`);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.ok(cli.err.join("\n").includes(message), cli.err.join("\n"));
+  }
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  const args = ["entgelte", "84304", "-l", "4", "-r", "30", "-g", "3", "-a", "4", "-b", "11"];
+  assert.equal(await run([...KEY, ...args], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).search, "?l=4&r=30&g=3&a=4&b=11");
+});

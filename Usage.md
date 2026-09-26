@@ -40,6 +40,10 @@ live-verified), so pass the dimensions you mean and check each row's labels. Run
 | `-a, --age <n>` | Alter | 1 Gesamt · 2 <25 · 3 25–<55 · 4 ≥55 |
 | `-b, --branch <n>` | Branche | 1 Gesamt … 11 |
 
+A code outside these tables (the ones `codes` prints) is a usage error (exit 2) before
+any request: what the API does with an unknown code is not live-verified, and if it
+ignored the parameter you would silently get the unfiltered slice.
+
 ```bash
 entgeltatlas entgelte 84304 -l 4 -r 11 -g 2      # Experte, Baden-Württemberg, Männer
 ```
