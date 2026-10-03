@@ -66,3 +66,43 @@ test("parity #1: the code tables come from the library, and `codes` prints them"
     [...lib.DIMENSION_PARAMS],
   );
 });
+
+test("parity #2: an out-of-range engine limit is rejected by both, before any request", async () => {
+  const cases: [string[], lib.EntgeltatlasClientOptions][] = [
+    [["--timeout", "-1"], { timeoutMs: -1 }],
+    [["--timeout", "NaN"], { timeoutMs: NaN }],
+    [["--timeout", "2147483648"], { timeoutMs: 2_147_483_648 }],
+    [["--max-retries", "11"], { maxRetries: 11 }],
+    [["--max-retries", "1.5"], { maxRetries: 1.5 }],
+    [["--max-response-bytes", "-1"], { maxResponseBytes: -1 }],
+    [["--max-response-bytes", "NaN"], { maxResponseBytes: NaN }],
+  ];
+  for (const [flags, options] of cases) {
+    const r = await parity([...KEY, ...flags, "regionen"], async (transport) =>
+      new lib.EntgeltatlasClient({ transport, apiKey: "k", ...options }).regionen(),
+    );
+    assertBothReject(r, flags.join(" "));
+  }
+});
+
+test("parity #2: obtain-key and obtainKey() reject the same out-of-range limits", async () => {
+  const cases: [string[], lib.ObtainKeyOptions][] = [
+    [["--timeout", "-1"], { timeoutMs: -1 }],
+    [["--max-response-bytes", "-1"], { maxResponseBytes: -1 }],
+  ];
+  for (const [flags, options] of cases) {
+    const r = await parity([...flags, "obtain-key"], (transport) => lib.obtainKey({ transport, ...options }));
+    assertBothReject(r, `obtain-key ${flags.join(" ")}`);
+  }
+});
+
+test("parity #2: in-range limits give the identical request on both sides", async () => {
+  const r = await parity(
+    [...KEY, "--timeout", "0", "--max-retries", "10", "--max-response-bytes", "0", "regionen"],
+    (transport) =>
+      new lib.EntgeltatlasClient({ transport, apiKey: "k", timeoutMs: 0, maxRetries: 10, maxResponseBytes: 0 }).regionen(),
+  );
+  assert.equal(r.cli.code, 0, r.cli.err);
+  assert.equal(r.lib.ok, true);
+  assert.deepEqual(r.lib.requests, r.cli.requests);
+});

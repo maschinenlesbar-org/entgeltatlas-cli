@@ -25,3 +25,16 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   }
   return value;
 }
+
+/**
+ * A rule for a safe integer within `[min, max]`. The messages are the CLI's
+ * (`Must be >= 0.`), so a flag and a client option report the same reason.
+ */
+export function intRangeProblem(min: number, max: number): Problem<number> {
+  return (value) => {
+    if (!Number.isSafeInteger(value)) return `Expected an integer from ${min} to ${max}.`;
+    if (value < min) return `Must be >= ${min}.`;
+    if (value > max) return `Must be <= ${max}.`;
+    return undefined;
+  };
+}

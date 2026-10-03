@@ -7,6 +7,8 @@ export {
   DEFAULT_BASE_URL,
   DEFAULT_MAX_RESPONSE_BYTES,
   DEFAULT_TIMEOUT_MS,
+  MAX_REDIRECTS,
+  MAX_RETRIES,
   MAX_RETRY_AFTER_MS,
   parseRetryAfter,
 } from "./engine.js";
@@ -16,7 +18,7 @@ export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { obtainKey, API_KEY_ENV_VAR, KEY_SOURCE_URL, MAX_KEY_SOURCE_REDIRECTS } from "./obtain-key.js";
 export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
-export { assertValid } from "./validate.js";
+export { assertValid, intRangeProblem } from "./validate.js";
 export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
 export type { CodeEntry, Dimension, DimensionCodeWording, DimensionParam } from "./codes.js";
 export type { Problem } from "./validate.js";

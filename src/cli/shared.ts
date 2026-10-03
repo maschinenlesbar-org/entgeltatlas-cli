@@ -7,6 +7,7 @@ import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
+import { intRangeProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -60,12 +61,17 @@ export function parseHeaderValue(value: string): string {
   return value;
 }
 
-/** Build a commander value-parser for an integer constrained to [min, max]. */
+/**
+ * Build a commander value-parser for an integer constrained to [min, max]: a plain
+ * integer (parseIntArg), then the library's {@link intRangeProblem}, the rule the
+ * engine applies to the same option.
+ */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {
+  const problem = intRangeProblem(min, max);
   return (value: string) => {
     const n = parseIntArg(value);
-    if (n < min) throw new InvalidArgumentError(`Must be >= ${min}.`);
-    if (n > max) throw new InvalidArgumentError(`Must be <= ${max}.`);
+    const reason = problem(n);
+    if (reason !== undefined) throw new InvalidArgumentError(reason);
     return n;
   };
 }

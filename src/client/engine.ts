@@ -2,7 +2,7 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
-import { nodeHttpTransport, type Transport } from "./http.js";
+import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   EntgeltatlasApiError,
@@ -10,6 +10,7 @@ import {
   EntgeltatlasParseError,
   redactUrl,
 } from "./errors.js";
+import { assertValid, intRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 const DEFAULT_USER_AGENT = "entgeltatlas-cli";
@@ -31,26 +32,30 @@ export interface EngineOptions {
   defaultHeaders?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
-   * only idle gaps (0 disables; capped at `MAX_TIMEOUT_MS`, 2^31 - 1 ms).
+   * only idle gaps: 0 to `MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables it.
    */
   timeoutMs?: number;
   /**
-   * Number of automatic retries for transient (429/503) responses. Each waits the
-   * response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
-   * retried), or else `retryDelayMs * attempt`.
+   * Number of automatic retries for transient (429/503) responses, 0 to
+   * `MAX_RETRIES` (default 2). Each waits the response's `Retry-After` (up to
+   * `MAX_RETRY_AFTER_MS`; a longer one is not retried), or else `retryDelayMs * attempt`.
    */
   maxRetries?: number;
   /** Base backoff between retries in milliseconds (grows linearly); used without a Retry-After. */
   retryDelayMs?: number;
   /**
-   * Number of HTTP redirects (301/302/303/307/308) to follow. Defaults to 5. Any
-   * other 3xx, one with a missing or malformed Location, and one past this limit
-   * surface as an EntgeltatlasApiError naming the target.
+   * Number of HTTP redirects (301/302/303/307/308) to follow, 0 to `MAX_REDIRECTS`.
+   * Defaults to 5. Any other 3xx, one with a missing or malformed Location, and one
+   * past this limit surface as an EntgeltatlasApiError naming the target.
    */
   maxRedirects?: number;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
+   *
+   * Every numeric option must be a safe integer within its range; the constructor
+   * throws an EntgeltatlasValidationError otherwise (a negative or NaN timeout or
+   * cap would silently switch that guard off).
    */
   maxResponseBytes?: number;
   /** Injectable sleep, primarily for deterministic tests. */
@@ -62,6 +67,21 @@ export const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Default cap on a response body (100 MiB); `maxResponseBytes: 0` disables it. */
 export const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
+
+/** Most automatic retries the engine performs (`maxRetries`, the CLI's --max-retries). */
+export const MAX_RETRIES = 10;
+
+/** Most redirects the engine follows (`maxRedirects`). */
+export const MAX_REDIRECTS = 10;
+
+/**
+ * Check an optional numeric option against `[min, max]` and return it; undefined
+ * stays undefined (the caller applies its default). Anything else throws an
+ * EntgeltatlasValidationError naming the option. Shared with obtainKey().
+ */
+export function intOption(name: string, value: number | undefined, min: number, max: number): number | undefined {
+  return value === undefined ? undefined : assertValid(name, value, intRangeProblem(min, max));
+}
 
 /**
  * Longest `Retry-After` the engine waits out before retrying a 429/503. When the
@@ -215,11 +235,13 @@ export class RequestEngine {
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.defaultHeaders = options.defaultHeaders ?? {};
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.maxRetries = options.maxRetries ?? 2;
-    this.retryDelayMs = options.retryDelayMs ?? 200;
-    this.maxRedirects = options.maxRedirects ?? 5;
-    this.maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
+    this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? 2;
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? 200;
+    this.maxRedirects = intOption("maxRedirects", options.maxRedirects, 0, MAX_REDIRECTS) ?? 5;
+    this.maxResponseBytes =
+      intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
+      DEFAULT_MAX_RESPONSE_BYTES;
     this.sleep = options.sleep ?? realSleep;
   }
 

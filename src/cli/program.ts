@@ -9,7 +9,8 @@ import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { EntgeltatlasClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { parseIntArg, parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./shared.js";
+import { MAX_RETRIES, MAX_RETRY_AFTER_MS } from "../client/engine.js";
+import { parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./shared.js";
 import { registerCommands } from "./commands/entgelte.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
 import { nodeHttpTransport } from "../client/http.js";
@@ -71,13 +72,14 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
     .option(
       "--max-retries <n>",
-      "retries for transient 429/503 responses (0..10, default 2; each waits the server's Retry-After, up to 30 s)",
-      parseBoundedInt(0, 10),
+      `retries for transient 429/503 responses (0..${MAX_RETRIES}, default 2; each waits the server's ` +
+        `Retry-After, up to ${MAX_RETRY_AFTER_MS / 1000} s)`,
+      parseBoundedInt(0, MAX_RETRIES),
     )
     .option(
       "--max-response-bytes <n>",
       "cap response body size in bytes (0 = unlimited; default 100 MiB)",
-      parseIntArg,
+      parseBoundedInt(0, Number.MAX_SAFE_INTEGER),
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .showHelpAfterError();

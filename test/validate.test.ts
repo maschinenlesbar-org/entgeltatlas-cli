@@ -72,3 +72,34 @@ test("dimensionCodeProblem names the CLI flag and adds a hint when asked", () =>
   const problem = lib.dimensionCodeProblem("b", { label: "--branch", hint: "see `entgeltatlas codes`" });
   assert.equal(problem(12), "Unknown --branch code 12: valid codes are 1–11 (see `entgeltatlas codes`).");
 });
+
+test("intRangeProblem accepts safe integers in range, with the CLI's messages", () => {
+  const p = lib.intRangeProblem(0, 10);
+  assert.equal(p(0), undefined);
+  assert.equal(p(10), undefined);
+  assert.equal(p(-1), "Must be >= 0.");
+  assert.equal(p(11), "Must be <= 10.");
+  for (const bad of [NaN, Infinity, 1.5, "2" as unknown as number]) {
+    assert.equal(p(bad), "Expected an integer from 0 to 10.", String(bad));
+  }
+});
+
+test("the engine checks every numeric option, and 0 keeps its meaning", () => {
+  assert.equal(lib.MAX_RETRIES, 10);
+  assert.equal(lib.MAX_REDIRECTS, 10);
+  const bad: lib.EngineOptions[] = [
+    { retryDelayMs: -1 },
+    { retryDelayMs: NaN },
+    { maxRedirects: 11 },
+    { maxRedirects: NaN },
+    { maxRetries: -1 },
+  ];
+  for (const options of bad) {
+    assert.throws(() => new lib.RequestEngine(options), EntgeltatlasValidationError, JSON.stringify(options));
+  }
+  assert.throws(
+    () => new lib.RequestEngine({ timeoutMs: -1 }),
+    (err) => err instanceof EntgeltatlasValidationError && err.message === "Invalid timeoutMs: Must be >= 0.",
+  );
+  new lib.RequestEngine({ timeoutMs: 0, maxRetries: 0, retryDelayMs: 0, maxRedirects: 0, maxResponseBytes: 0 });
+});

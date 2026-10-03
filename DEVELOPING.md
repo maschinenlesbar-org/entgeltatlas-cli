@@ -83,7 +83,19 @@ problem)` turns a reason into an `EntgeltatlasValidationError` with the message
 (a method that returns a promise rejects rather than throwing synchronously;
 constructors throw). The CLI's value-parsers call the same functions, and `run.ts`
 maps an `EntgeltatlasValidationError` to exit `2` (`Error: <message>`), so CLI and
-library accept and reject the same inputs. `test/validate.test.ts` holds the parity
+library accept and reject the same inputs.
+
+The engine options are range-checked in the `RequestEngine` constructor (and the
+same way in `obtainKey()`): `timeoutMs` 0..`MAX_TIMEOUT_MS`, `maxRetries`
+0..`MAX_RETRIES` (10), `maxRedirects` 0..`MAX_REDIRECTS` (10), `retryDelayMs` and
+`maxResponseBytes` any non-negative safe integer; 0 keeps its documented meaning.
+`NaN`, a negative or fractional value or one past the bound throws an
+`EntgeltatlasValidationError` (`Invalid timeoutMs: Must be >= 0.`), instead of
+silently switching the timeout or size cap off. The CLI's `--timeout`,
+`--max-retries` and `--max-response-bytes` parsers use the same `intRangeProblem`
+and constants.
+
+`test/validate.test.ts` holds the unit tests and `test/parity.test.ts` the parity
 tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a
 request, or both send the identical request.
@@ -154,7 +166,7 @@ the flag in the message.
 
 - Zero runtime HTTP dependencies (only `commander`); strict TS + ESM.
 - Exit codes (`run.ts`): 0 ok; 2 usage; 3 auth/WAF; 4 not-found; 6 network; 1 other.
-- Transient `429`/`503` retried up to `maxRetries` (CLI `--max-retries` 0..10). Each retry
+- Transient `429`/`503` retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
   waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
   value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
   without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.

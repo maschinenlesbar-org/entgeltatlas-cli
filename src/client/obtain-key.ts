@@ -26,7 +26,8 @@
 import type { HttpResponse, Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
 import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
-import { DEFAULT_MAX_RESPONSE_BYTES, DEFAULT_TIMEOUT_MS, assertHttpScheme } from "./engine.js";
+import { DEFAULT_MAX_RESPONSE_BYTES, DEFAULT_TIMEOUT_MS, assertHttpScheme, intOption } from "./engine.js";
+import { MAX_TIMEOUT_MS } from "./http.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
@@ -79,12 +80,14 @@ export interface ObtainKeyOptions {
   /**
    * Time limit per request in milliseconds, whole response included. Defaults to
    * `DEFAULT_TIMEOUT_MS` (30 s), like the API client, so a stalled source cannot hang
-   * `eval "$(entgeltatlas obtain-key --export)"`; 0 disables it.
+   * `eval "$(entgeltatlas obtain-key --export)"`; 0 disables it. 0 to `MAX_TIMEOUT_MS`,
+   * as in the API client; anything else rejects with an EntgeltatlasValidationError.
    */
   timeoutMs?: number;
   /**
    * Cap on the response body in bytes. Defaults to `DEFAULT_MAX_RESPONSE_BYTES`
-   * (100 MiB), like the API client; 0 disables it.
+   * (100 MiB), like the API client; 0 disables it. A non-negative safe integer, as
+   * in the API client; anything else rejects with an EntgeltatlasValidationError.
    */
   maxResponseBytes?: number;
   /** User-Agent header; a blank value falls back to the default. */
@@ -115,8 +118,12 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const userAgent = options.userAgent?.trim() ? options.userAgent : "entgeltatlas-cli";
   // The request gets the client's limits: a source that stalls, or streams
   // without end, must not hang the command.
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+  // The same range checks as the API client: a negative or NaN limit must not
+  // silently switch the guard off.
+  const timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
+  const maxResponseBytes =
+    intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
+    DEFAULT_MAX_RESPONSE_BYTES;
 
   let url = sourceUrl;
   let response: HttpResponse;
