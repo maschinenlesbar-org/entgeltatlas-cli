@@ -14,6 +14,7 @@ src/
   client/        # typed API client, usable as a library independent of the CLI
     types.ts     # EntgeltEntry + dimension/reference interfaces (fully typed)
     query.ts     # dependency-free query-string builder
+    validate.ts  # input rules (Problem functions) + assertValid, shared by library and CLI
     http.ts      # Transport interface + default node:http/https transport
     engine.ts    # URL building, retry, redirect (+ credential stripping), JSON decode
     errors.ts    # Entgeltatlas{Error,ApiError,NetworkError,ValidationError,ParseError}
@@ -71,6 +72,21 @@ cross-origin redirect.
 > empty 403 on every Entgeltatlas endpoint (see below), so the static path may no
 > longer be accepted. The credential-header set already lists `oauthaccesstoken`
 > for the day it's added.
+
+### Input validation (library)
+
+[`validate.ts`](src/client/validate.ts): the library owns every rule about what a
+request may contain. A rule is a pure, exported `…Problem(value)` function that
+returns the reason a value is invalid (or `undefined`); `assertValid(name, value,
+problem)` turns a reason into an `EntgeltatlasValidationError` with the message
+`Invalid <name>: <reason>`. Client methods check their input before any request
+(a method that returns a promise rejects rather than throwing synchronously;
+constructors throw). The CLI's value-parsers call the same functions, and `run.ts`
+maps an `EntgeltatlasValidationError` to exit `2` (`Error: <message>`), so CLI and
+library accept and reject the same inputs. `test/validate.test.ts` holds the parity
+tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
+library on one recording mock transport, and a test asserts both reject without a
+request, or both send the identical request.
 
 ### One data endpoint, a bare array
 

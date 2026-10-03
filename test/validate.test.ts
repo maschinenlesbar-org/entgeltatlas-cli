@@ -1,0 +1,56 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { assertValid, type Problem } from "../src/client/validate.js";
+import { EntgeltatlasError, EntgeltatlasValidationError } from "../src/client/errors.js";
+import * as lib from "../src/index.js";
+import { run } from "../src/cli/run.js";
+import type { EntgeltatlasClient } from "../src/client/client.js";
+import { parity } from "./helpers.js";
+
+const notBlank: Problem = (v) => (v.trim() === "" ? "Expected a non-empty value." : undefined);
+
+test("assertValid returns a valid value unchanged", () => {
+  assert.equal(assertValid("kldb", "84304", notBlank), "84304");
+});
+
+test("assertValid throws EntgeltatlasValidationError naming the input and the reason", () => {
+  assert.throws(
+    () => assertValid("kldb", " ", notBlank),
+    (err) =>
+      err instanceof EntgeltatlasValidationError &&
+      err instanceof EntgeltatlasError &&
+      err.message === "Invalid kldb: Expected a non-empty value.",
+  );
+});
+
+test("the validation layer is exported from the package root", () => {
+  assert.equal(lib.assertValid, assertValid);
+  assert.equal(lib.EntgeltatlasValidationError, EntgeltatlasValidationError);
+});
+
+test("run() maps an EntgeltatlasValidationError from an action to exit 2 with 'Error: <message>'", async () => {
+  const out: string[] = [];
+  const err: string[] = [];
+  const fake = {
+    regionen: async () => assertValid("kldb", " ", notBlank),
+  } as unknown as EntgeltatlasClient;
+  const code = await run(["regionen"], {
+    io: { out: (s) => out.push(s), err: (s) => err.push(s) },
+    createClient: () => fake,
+    env: {},
+  });
+  assert.equal(code, 2);
+  assert.deepEqual(err, ["Error: Invalid kldb: Expected a non-empty value."]);
+  assert.deepEqual(out, []);
+});
+
+test("parity() drives the same input through the CLI and the library on one transport", async () => {
+  const { cli, lib: l } = await parity(
+    ["--api-key", "k", "entgelte", "84304", "--region", "11"],
+    (transport) => new lib.EntgeltatlasClient({ transport, apiKey: "k" }).entgelte("84304", { r: 11 }),
+  );
+  assert.equal(cli.code, 0);
+  assert.equal(l.ok, true);
+  assert.equal(cli.requests.length, 1);
+  assert.deepEqual(l.requests, cli.requests);
+});
