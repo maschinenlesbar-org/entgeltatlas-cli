@@ -62,3 +62,12 @@ export const headerNameProblem: Problem = (value) =>
   typeof value === "string" && /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value)
     ? undefined
     : "Expected an HTTP header name (a token such as X-Request-Id).";
+
+/**
+ * A base URL must not have surrounding whitespace: `new URL()` trims it silently,
+ * but the engine joins the raw value to every request path, so `"https://h/ "`
+ * would request `/%20/...` and a custom transport would see the padded value.
+ * Rejected rather than trimmed, so the value used is the value given.
+ */
+export const baseUrlWhitespaceProblem: Problem = (value) =>
+  value !== value.trim() ? "A base URL cannot have surrounding whitespace." : undefined;

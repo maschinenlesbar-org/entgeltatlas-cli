@@ -10,7 +10,7 @@ import {
   EntgeltatlasParseError,
   redactUrl,
 } from "./errors.js";
-import { assertValid, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
+import { assertValid, baseUrlWhitespaceProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 /** The User-Agent sent when none is given (the API client and obtainKey()). */
@@ -23,7 +23,10 @@ export interface RawResponse {
 }
 
 export interface EngineOptions {
-  /** Base URL of the API. Defaults to https://rest.arbeitsagentur.de */
+  /**
+   * Base URL of the API. Defaults to https://rest.arbeitsagentur.de. Surrounding
+   * whitespace throws an EntgeltatlasValidationError.
+   */
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
@@ -247,7 +250,13 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    // The raw value is checked before the trailing-slash strip, so "https://h/ "
+    // cannot slip past it; only an omitted baseUrl selects the default.
+    const baseUrl =
+      options.baseUrl === undefined
+        ? DEFAULT_BASE_URL
+        : assertValid("baseUrl", options.baseUrl, baseUrlWhitespaceProblem);
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
     assertHttpScheme(this.baseUrl);
     // Request paths are appended to the base URL as a string, so a `?` or `#` in
     // it would swallow every path: `http://h/?x=1` requests `/?x=1/infosysbub/...`

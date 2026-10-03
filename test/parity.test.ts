@@ -128,3 +128,21 @@ test("parity #3: a valid User-Agent is sent as given by both", async () => {
   assert.deepEqual(r.lib.requests, r.cli.requests);
   assert.equal(r.cli.requests[0]?.headers?.["User-Agent"], "ok-agent\t1");
 });
+
+test("parity #4: a base URL with surrounding whitespace is rejected by both, before any request", async () => {
+  for (const baseUrl of ["http://h.example ", " http://h.example", "\thttps://h.example", "https://h.example\n", "http://h.example/ "]) {
+    const r = await parity([...KEY, "--base-url", baseUrl, "regionen"], async (transport) =>
+      new lib.EntgeltatlasClient({ transport, apiKey: "k", baseUrl }).regionen(),
+    );
+    assertBothReject(r, JSON.stringify(baseUrl));
+  }
+});
+
+test("parity #4: a clean base URL gives the identical request on both sides", async () => {
+  const r = await parity([...KEY, "--base-url", "http://h.example/", "regionen"], (transport) =>
+    new lib.EntgeltatlasClient({ transport, apiKey: "k", baseUrl: "http://h.example/" }).regionen(),
+  );
+  assert.equal(r.cli.code, 0, r.cli.err);
+  assert.deepEqual(r.lib.requests, r.cli.requests);
+  assert.equal(r.cli.requests[0]?.url, "http://h.example/infosysbub/entgeltatlas/pc/v1/regionen");
+});

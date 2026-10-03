@@ -7,7 +7,7 @@ import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
-import { headerValueProblem, intRangeProblem } from "../client/validate.js";
+import { baseUrlWhitespaceProblem, headerValueProblem, intRangeProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -131,11 +131,10 @@ export function parseBaseUrl(value: string): string {
   if (/[?#]/.test(value)) {
     throw new InvalidArgumentError("A base URL cannot have a query (?) or fragment (#).");
   }
-  // new URL() trims surrounding whitespace silently; the raw value is what the
-  // engine uses, so reject it rather than guess.
-  if (value !== value.trim()) {
-    throw new InvalidArgumentError("A base URL cannot have surrounding whitespace.");
-  }
+  // The library's rule: new URL() trims surrounding whitespace silently, but the
+  // engine uses the raw value, so it rejects it rather than guess.
+  const spacing = baseUrlWhitespaceProblem(value);
+  if (spacing !== undefined) throw new InvalidArgumentError(spacing);
   return value;
 }
 

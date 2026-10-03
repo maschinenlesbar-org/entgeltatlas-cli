@@ -126,3 +126,17 @@ test("the engine checks userAgent and every defaultHeaders name and value", () =
   assert.throws(() => new lib.RequestEngine({ defaultHeaders: { "Bad Name": "v" } }), EntgeltatlasValidationError);
   assert.equal(lib.assertHeaderValue("userAgent", "ok"), "ok");
 });
+
+test("baseUrlWhitespaceProblem rejects surrounding whitespace only", () => {
+  const p = lib.baseUrlWhitespaceProblem;
+  assert.equal(p("https://h.example/x"), undefined);
+  for (const bad of [" https://h", "https://h ", "\thttps://h", "https://h\n", "https://h/ "]) {
+    assert.equal(p(bad), "A base URL cannot have surrounding whitespace.", JSON.stringify(bad));
+  }
+  assert.throws(
+    () => new lib.RequestEngine({ baseUrl: "https://h.example/ " }),
+    (err) =>
+      err instanceof EntgeltatlasValidationError &&
+      err.message === "Invalid baseUrl: A base URL cannot have surrounding whitespace.",
+  );
+});

@@ -104,6 +104,11 @@ tokens. Only an omitted `userAgent` selects `DEFAULT_USER_AGENT`; a blank one is
 error in both entry points, as `--user-agent ''` is in the CLI, whose parser calls the
 same rule.
 
+A `baseUrl` with surrounding whitespace is rejected in the `RequestEngine`
+constructor (`baseUrlWhitespaceProblem`, checked on the raw value before the
+trailing-slash strip), not trimmed: `new URL()` would trim it silently while the
+engine joins the raw string to every path. `--base-url` calls the same rule.
+
 `test/validate.test.ts` holds the unit tests and `test/parity.test.ts` the parity
 tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a
