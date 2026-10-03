@@ -146,3 +146,28 @@ test("parity #4: a clean base URL gives the identical request on both sides", as
   assert.deepEqual(r.lib.requests, r.cli.requests);
   assert.equal(r.cli.requests[0]?.url, "http://h.example/infosysbub/entgeltatlas/pc/v1/regionen");
 });
+
+test("parity #6: flag, env and library trim a key the same way before the header check", async () => {
+  for (const raw of ["k\r", "k\n", "\r\nk", "k\v", "k﻿", "　k", "k ", " k "]) {
+    const lib6 = (transport: lib.Transport) => new lib.EntgeltatlasClient({ transport, apiKey: raw }).regionen();
+    const flag = await parity(["--api-key", raw, "regionen"], lib6);
+    const env = await parity(["regionen"], lib6, { env: { ENTGELTATLAS_API_KEY: raw } });
+    for (const [label, r] of [["flag", flag], ["env", env]] as const) {
+      assert.equal(r.cli.code, 0, `${label} ${JSON.stringify(raw)}: ${r.cli.err}`);
+      assert.equal(r.lib.ok, true, JSON.stringify(raw));
+      assert.deepEqual(r.lib.requests, r.cli.requests, `${label} ${JSON.stringify(raw)}`);
+      assert.equal(r.cli.requests[0]?.headers?.["X-API-Key"], "k");
+    }
+  }
+});
+
+test("parity #6: a key an HTTP header cannot carry is rejected by flag, env and library alike", async () => {
+  for (const raw of ["a\nb", "ключ", "a" + String.fromCharCode(0x7f) + "b"]) {
+    const lib6 = async (transport: lib.Transport) => new lib.EntgeltatlasClient({ transport, apiKey: raw }).regionen();
+    assertBothReject(await parity(["--api-key", raw, "regionen"], lib6), `flag ${JSON.stringify(raw)}`);
+    const env = await parity(["regionen"], lib6, { env: { ENTGELTATLAS_API_KEY: raw } });
+    assertBothReject(env, `env ${JSON.stringify(raw)}`);
+    // One rule, one message: the env path prints the library's error.
+    assert.equal(env.cli.err, `Error: ${(env.lib.error as Error).message}`);
+  }
+});

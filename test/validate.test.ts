@@ -140,3 +140,19 @@ test("baseUrlWhitespaceProblem rejects surrounding whitespace only", () => {
       err.message === "Invalid baseUrl: A base URL cannot have surrounding whitespace.",
   );
 });
+
+test("normalizeApiKey trims, maps blank to undefined, and is idempotent", () => {
+  assert.equal(lib.normalizeApiKey(undefined), undefined);
+  assert.equal(lib.normalizeApiKey("   "), undefined);
+  assert.equal(lib.normalizeApiKey("k\r\n"), "k");
+  assert.equal(lib.normalizeApiKey(lib.normalizeApiKey(" k ")), "k");
+});
+
+test("the client rejects a key an HTTP header cannot carry with the header rule's message", () => {
+  assert.throws(
+    () => new lib.EntgeltatlasClient({ apiKey: "a\nb" }),
+    (err) =>
+      err instanceof EntgeltatlasValidationError &&
+      err.message === "Invalid apiKey: Value contains control characters.",
+  );
+});

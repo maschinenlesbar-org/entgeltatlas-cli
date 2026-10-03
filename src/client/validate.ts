@@ -71,3 +71,16 @@ export const headerNameProblem: Problem = (value) =>
  */
 export const baseUrlWhitespaceProblem: Problem = (value) =>
   value !== value.trim() ? "A base URL cannot have surrounding whitespace." : undefined;
+
+/**
+ * The canonical form of an API key: trimmed, and `undefined` when blank (a blank
+ * key means "no key", so no X-API-Key header is sent). Idempotent. Trimming comes
+ * before the header check (headerValueProblem), so a key read from a CRLF file
+ * (`"k\r"`) is the same key from the client, the env var and the CLI flag.
+ * A non-string is returned as is, for the header check to reject.
+ */
+export function normalizeApiKey(raw: string | undefined): string | undefined {
+  if (typeof raw !== "string") return raw;
+  const key = raw.trim();
+  return key === "" ? undefined : key;
+}

@@ -10,7 +10,8 @@ import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { EntgeltatlasClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
 import { MAX_RETRIES, MAX_RETRY_AFTER_MS } from "../client/engine.js";
-import { parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./shared.js";
+import { parseApiKey, parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./shared.js";
+import { normalizeApiKey } from "../client/validate.js";
 import { registerCommands } from "./commands/entgelte.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
 import { nodeHttpTransport } from "../client/http.js";
@@ -60,9 +61,9 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       "--api-key <key>",
       `X-API-Key header value (env: ${API_KEY_ENV_VAR})`,
       // A blank flag would replace the env value seeded below and send no key at
-      // all, so it is a usage error rather than "unset"; so is a value an HTTP
-      // header cannot carry.
-      parseHeaderValue,
+      // all, so it is a usage error rather than "unset"; otherwise the key is
+      // trimmed and checked by the library's rule, as the env value is.
+      parseApiKey,
     )
     .option(
       "--timeout <ms>",
@@ -84,13 +85,12 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .showHelpAfterError();
 
-  // Seed --api-key from ENTGELTATLAS_API_KEY (trimmed; blank treated as unset).
-  // commander treats this as the option's value, which an explicit --api-key on
-  // the command line overrides during parse: flag > env var > none.
-  const envKey = deps.env[API_KEY_ENV_VAR];
-  if (typeof envKey === "string" && envKey.trim().length > 0) {
-    program.setOptionValue("apiKey", envKey.trim());
-  }
+  // Seed --api-key from ENTGELTATLAS_API_KEY (the library's normalizeApiKey: trimmed,
+  // blank treated as unset); the client checks it. commander treats this as the
+  // option's value, which an explicit --api-key on the command line overrides
+  // during parse: flag > env var > none.
+  const envKey = normalizeApiKey(deps.env[API_KEY_ENV_VAR]);
+  if (envKey !== undefined) program.setOptionValue("apiKey", envKey);
 
   registerObtainKeyCommands(program, deps);
   registerCommands(program, deps);

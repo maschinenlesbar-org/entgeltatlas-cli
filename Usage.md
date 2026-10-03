@@ -16,7 +16,9 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 
 `--api-key` and `--user-agent` (and `ENTGELTATLAS_API_KEY`) must be sendable as an HTTP
 header: a blank value, a control character (CR/LF, DEL; tab is fine) or a character above
-U+00FF is a usage error (exit 2) before any request.
+U+00FF is a usage error (exit 2) before any request. The key, from the flag or the env var,
+is trimmed first, as the library does, so a trailing CR/LF from a key file is dropped
+rather than rejected.
 | `--compact` | single-line JSON |
 
 ## entgelte — salary statistics

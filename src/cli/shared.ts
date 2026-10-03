@@ -7,7 +7,12 @@ import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
-import { baseUrlWhitespaceProblem, headerValueProblem, intRangeProblem } from "../client/validate.js";
+import {
+  baseUrlWhitespaceProblem,
+  headerValueProblem,
+  intRangeProblem,
+  normalizeApiKey,
+} from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -40,8 +45,23 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
- * commander value-parser for a value that ends up in an HTTP header (`--api-key`,
- * `--user-agent`). The rule is the library's {@link headerValueProblem} — blank,
+ * commander value-parser for `--api-key`. A blank flag would replace the key seeded
+ * from ENTGELTATLAS_API_KEY and send none at all, so it is a usage error rather than
+ * "unset" (the CLI's own rule). Otherwise the key gets the library's treatment —
+ * trimmed by {@link normalizeApiKey}, then checked by {@link headerValueProblem} —
+ * exactly as the env var and the client do.
+ */
+export function parseApiKey(value: string): string {
+  parseNonEmpty(value);
+  const key = normalizeApiKey(value) as string;
+  const reason = headerValueProblem(key);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
+  return key;
+}
+
+/**
+ * commander value-parser for a value that ends up in an HTTP header
+ * (`--user-agent`). The rule is the library's {@link headerValueProblem} — blank,
  * control characters other than tab, and characters above U+00FF are rejected — so
  * a bad value is a usage error (exit 2) here, as it is in the client.
  */

@@ -26,6 +26,7 @@ export {
   headerNameProblem,
   headerValueProblem,
   intRangeProblem,
+  normalizeApiKey,
 } from "./validate.js";
 export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
 export type { CodeEntry, Dimension, DimensionCodeWording, DimensionParam } from "./codes.js";

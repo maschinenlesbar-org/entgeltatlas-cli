@@ -15,7 +15,7 @@ import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
-import { assertValid } from "./validate.js";
+import { assertValid, headerValueProblem, normalizeApiKey } from "./validate.js";
 import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
@@ -27,19 +27,11 @@ const KLDB_PATTERN = /^[0-9]{3,5}$/;
 export interface EntgeltatlasClientOptions extends EngineOptions {
   /**
    * The `X-API-Key` to send (the BA client_id UUID). No key is bundled; when
-   * omitted (or blank) the header is not sent. Obtain the public key with
-   * obtainKey() (see obtain-key.ts).
+   * omitted (or blank) the header is not sent. Surrounding whitespace is trimmed
+   * (normalizeApiKey); a key an HTTP header cannot carry throws an
+   * EntgeltatlasValidationError. Obtain the public key with obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
-}
-
-/** True if Node can send `value` as a header value: no C0 control but tab, no DEL, nothing above U+00FF. */
-function isHeaderSafe(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i);
-    if ((c < 0x20 && c !== 0x09) || c === 0x7f || c > 0xff) return false;
-  }
-  return true;
 }
 
 /** A non-null, non-array JSON object. */
@@ -76,14 +68,10 @@ export class EntgeltatlasClient {
 
   constructor(options: EntgeltatlasClientOptions = {}) {
     const { apiKey, ...engineOptions } = options;
-    // Only send X-API-Key when a non-blank key was supplied; never default one.
-    const key = apiKey?.trim() ? apiKey.trim() : undefined;
-    if (key !== undefined && !isHeaderSafe(key)) {
-      throw new EntgeltatlasValidationError(
-        "Invalid apiKey: it contains control characters or characters outside Latin-1 " +
-          "(above U+00FF), which an HTTP header cannot carry.",
-      );
-    }
+    // Only send X-API-Key when a non-blank key was supplied; never default one. The
+    // key is trimmed first (normalizeApiKey), then checked like any header value.
+    const key = normalizeApiKey(apiKey);
+    if (key !== undefined) assertValid("apiKey", key, headerValueProblem);
     this.engine = new RequestEngine({
       ...engineOptions,
       defaultHeaders: {

@@ -51,7 +51,11 @@ The candidate list marked this API `auth=none`; that is **wrong**. Every call
 needs an `X-API-Key` header whose value is the BA's published community
 `client_id` UUID (`c4f0d292-…`). It flows through `EngineOptions.defaultHeaders`
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
-`ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. No key is bundled —
+`ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. Flag, env var and
+`apiKey` share one rule: `normalizeApiKey` trims the key (blank = no key), then
+`headerValueProblem` checks the trimmed value (`Invalid apiKey: Value contains control
+characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
+would override the env key. No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
 run time, with the client's limits (30 s timeout, 100 MiB cap by default; the CLI
 passes `--timeout` and `--max-response-bytes`) and up to `MAX_KEY_SOURCE_REDIRECTS`
