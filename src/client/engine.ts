@@ -2,7 +2,7 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
-import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
+import { MAX_TIMEOUT_MS, nodeHttpTransport, type HttpResponse, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   EntgeltatlasApiError,
@@ -76,6 +76,12 @@ export const DEFAULT_TIMEOUT_MS = 30_000;
 /** Default cap on a response body (100 MiB); `maxResponseBytes: 0` disables it. */
 export const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 
+/** Retries for a transient 429/503 when `maxRetries` is not given (the API client and obtainKey()). */
+export const DEFAULT_MAX_RETRIES = 2;
+
+/** Base backoff between retries when `retryDelayMs` is not given. */
+export const DEFAULT_RETRY_DELAY_MS = 200;
+
 /** Most automatic retries the engine performs (`maxRetries`, the CLI's --max-retries). */
 export const MAX_RETRIES = 10;
 
@@ -143,6 +149,25 @@ export function parseRetryAfter(
   if (!IMF_FIXDATE.test(value)) return undefined;
   const when = Date.parse(value);
   return Number.isNaN(when) ? undefined : Math.max(0, when - now);
+}
+
+/**
+ * The retry policy for one response, shared by the engine and obtainKey(): how
+ * long to wait before the next try, or `undefined` when the response is not
+ * retried. Only a transient 429/503 is retried, and only while `attempt` (retries
+ * done so far) is below `maxRetries`. The wait is the response's `Retry-After`
+ * when usable and at most `MAX_RETRY_AFTER_MS` — a longer one is not retried at
+ * all, so the error surfaces at once — or else `retryDelayMs × (attempt + 1)`.
+ */
+export function transientRetryDelay(
+  response: Pick<HttpResponse, "status" | "headers">,
+  attempt: number,
+  policy: { maxRetries: number; retryDelayMs: number },
+): number | undefined {
+  if ((response.status !== 429 && response.status !== 503) || attempt >= policy.maxRetries) return undefined;
+  const retryAfter = parseRetryAfter(response.headers["retry-after"]);
+  if (retryAfter === undefined) return policy.retryDelayMs * (attempt + 1);
+  return retryAfter <= MAX_RETRY_AFTER_MS ? retryAfter : undefined;
 }
 
 /**
@@ -273,8 +298,9 @@ export class RequestEngine {
       options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
     this.defaultHeaders = headerOption(options.defaultHeaders);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
-    this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? 2;
-    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? 200;
+    this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES;
+    this.retryDelayMs =
+      intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? DEFAULT_RETRY_DELAY_MS;
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, 0, MAX_REDIRECTS) ?? 5;
     this.maxResponseBytes =
       intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
@@ -317,16 +343,16 @@ export class RequestEngine {
       });
 
       const status = response.status;
-      const retryable = status === 429 || status === 503;
-      if (retryable && attempt < this.maxRetries) {
-        // Honour Retry-After; without a usable one, back off linearly. A Retry-After
-        // beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at once.
-        const retryAfter = parseRetryAfter(response.headers["retry-after"]);
-        if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {
-          attempt += 1;
-          await this.sleep(retryAfter ?? this.retryDelayMs * attempt);
-          continue;
-        }
+      // Honour Retry-After; without a usable one, back off linearly. A Retry-After
+      // beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at once.
+      const wait = transientRetryDelay(response, attempt, {
+        maxRetries: this.maxRetries,
+        retryDelayMs: this.retryDelayMs,
+      });
+      if (wait !== undefined) {
+        attempt += 1;
+        await this.sleep(wait);
+        continue;
       }
 
       // Follow redirects, resolving the Location relative to the current URL.

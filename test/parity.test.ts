@@ -171,3 +171,63 @@ test("parity #6: a key an HTTP header cannot carry is rejected by flag, env and 
     assert.equal(env.cli.err, `Error: ${(env.lib.error as Error).message}`);
   }
 });
+
+/** The published key, in the shape the key source states it. */
+const KEY_DOC = "**client_id:** c4f0d292-9d0f-4763-87dd-d3f9e78fb006\n";
+
+/** Answers each side's first request with `first`, its second with the key document. */
+function flaky(first: lib.HttpResponse): () => lib.HttpResponse {
+  let n = 0;
+  return () => {
+    n += 1;
+    return n % 2 === 1
+      ? first
+      : { status: 200, headers: { "content-type": "text/plain" }, body: Buffer.from(KEY_DOC) };
+  };
+}
+
+const busy = (status: number, retryAfter?: string): lib.HttpResponse => ({
+  status,
+  headers: { "content-type": "text/plain", ...(retryAfter === undefined ? {} : { "retry-after": retryAfter }) },
+  body: Buffer.from("busy"),
+});
+
+test("parity #7: obtain-key and obtainKey() retry a transient 429/503 like the API client", async () => {
+  for (const [flags, options] of [
+    [["--max-retries", "2"], { maxRetries: 2 }],
+    [[], {}],
+  ] as [string[], lib.ObtainKeyOptions][]) {
+    for (const status of [503, 429]) {
+      const r = await parity([...flags, "obtain-key"], (transport) => lib.obtainKey({ transport, ...options }), {
+        responder: flaky(busy(status, "0")),
+      });
+      assert.equal(r.cli.code, 0, `${status} ${flags.join(" ")}: ${r.cli.err}`);
+      assert.equal(r.cli.out, "c4f0d292-9d0f-4763-87dd-d3f9e78fb006");
+      assert.equal(r.lib.ok, true, String(r.lib.error));
+      assert.equal(r.cli.requests.length, 2);
+      assert.deepEqual(r.lib.requests, r.cli.requests);
+    }
+  }
+});
+
+test("parity #7: --max-retries 0 / maxRetries: 0 and a too-long Retry-After surface the error at once", async () => {
+  for (const [flags, options, first] of [
+    [["--max-retries", "0"], { maxRetries: 0 }, busy(503, "0")],
+    [[], {}, busy(503, "31")],
+  ] as [string[], lib.ObtainKeyOptions, lib.HttpResponse][]) {
+    const r = await parity([...flags, "obtain-key"], (transport) => lib.obtainKey({ transport, ...options }), {
+      responder: () => first,
+    });
+    assert.equal(r.cli.code, 1, r.cli.err);
+    assert.equal(r.cli.requests.length, 1);
+    assert.ok(r.lib.error instanceof lib.EntgeltatlasKeySourceError, String(r.lib.error));
+    assert.equal(r.lib.requests.length, 1);
+  }
+});
+
+test("parity #7: an out-of-range retry count is rejected by obtain-key and obtainKey() alike", async () => {
+  const r = await parity(["--max-retries", "11", "obtain-key"], (transport) =>
+    lib.obtainKey({ transport, maxRetries: 11 }),
+  );
+  assertBothReject(r, "maxRetries 11");
+});

@@ -57,8 +57,10 @@ needs an `X-API-Key` header whose value is the BA's published community
 characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
 would override the env key. No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
-run time, with the client's limits (30 s timeout, 100 MiB cap by default; the CLI
-passes `--timeout` and `--max-response-bytes`) and up to `MAX_KEY_SOURCE_REDIRECTS`
+run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
+`DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared
+`transientRetryDelay`, all range-checked like the client's; the CLI passes `--timeout`,
+`--max-response-bytes`, `--max-retries` and `--user-agent`) and up to `MAX_KEY_SOURCE_REDIRECTS`
 (5) same-origin redirects — a redirect to another host is not followed. It takes the
 documented `client_id` (`**client_id:** <uuid>`, `"client_id": "<uuid>"`,
 `client_id=<uuid>`); an `X-API-Key: <uuid>` is only a fallback. One-digit placeholders

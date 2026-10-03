@@ -13,7 +13,8 @@
 // honours --timeout/--max-response-bytes/--user-agent and is testable in-process
 // without a network. Like the API client it has a 30 s timeout and a 100 MiB
 // size cap by default, so a stalled source cannot hang
-// `eval "$(entgeltatlas obtain-key --export)"`, and it follows a few same-origin
+// `eval "$(entgeltatlas obtain-key --export)"`, it retries a transient 429/503 with
+// the client's policy (transientRetryDelay), and it follows a few same-origin
 // redirects (GitHub raw answers a renamed repository with one).
 //
 // NOTE: obtaining the key is no guarantee a later request succeeds. The gateway
@@ -28,11 +29,15 @@ import { nodeHttpTransport } from "./http.js";
 import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
 import {
   DEFAULT_MAX_RESPONSE_BYTES,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_RETRY_DELAY_MS,
   DEFAULT_TIMEOUT_MS,
   DEFAULT_USER_AGENT,
+  MAX_RETRIES,
   assertHeaderValue,
   assertHttpScheme,
   intOption,
+  transientRetryDelay,
 } from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
 
@@ -98,6 +103,17 @@ export interface ObtainKeyOptions {
    */
   maxResponseBytes?: number;
   /**
+   * Retries for a transient 429/503 from the key source, 0 to `MAX_RETRIES`
+   * (default `DEFAULT_MAX_RETRIES`, 2), with the API client's policy: each waits
+   * the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
+   * retried), or else `retryDelayMs × attempt`.
+   */
+  maxRetries?: number;
+  /** Base backoff between retries in milliseconds (default 200); used without a Retry-After. */
+  retryDelayMs?: number;
+  /** Injectable sleep, primarily for deterministic tests. */
+  sleep?: (ms: number) => Promise<void>;
+  /**
    * User-Agent header (default `DEFAULT_USER_AGENT`). Checked like the API client's:
    * a blank value or one an HTTP header cannot carry rejects with an
    * EntgeltatlasValidationError.
@@ -136,10 +152,19 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const maxResponseBytes =
     intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
     DEFAULT_MAX_RESPONSE_BYTES;
+  // The API client's retry policy (transientRetryDelay), with its defaults and bounds.
+  const retry = {
+    maxRetries: intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES,
+    retryDelayMs:
+      intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? DEFAULT_RETRY_DELAY_MS,
+  };
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   let url = sourceUrl;
   let response: HttpResponse;
-  for (let redirects = 0; ; redirects += 1) {
+  let redirects = 0;
+  let attempt = 0;
+  for (;;) {
     response = await transport({
       method: "GET",
       url,
@@ -150,12 +175,19 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       ...(timeoutMs > 0 ? { timeoutMs } : {}),
       ...(maxResponseBytes > 0 ? { maxResponseBytes } : {}),
     });
+    const wait = transientRetryDelay(response, attempt, retry);
+    if (wait !== undefined) {
+      attempt += 1;
+      await sleep(wait);
+      continue;
+    }
     if (!FOLLOWED_REDIRECTS.has(response.status) || redirects >= MAX_KEY_SOURCE_REDIRECTS) break;
     const next = resolveLocation(response.headers["location"], url);
     // Only same-origin hops: the key is trusted because of where it is
     // published, so a redirect to another host is not followed.
     if (next === undefined || next.origin !== new URL(url).origin) break;
     url = next.href;
+    redirects += 1;
   }
 
   if (response.status < 200 || response.status >= 300) {

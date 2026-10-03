@@ -9,7 +9,7 @@ import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { EntgeltatlasClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { MAX_RETRIES, MAX_RETRY_AFTER_MS } from "../client/engine.js";
+import { DEFAULT_MAX_RETRIES, MAX_RETRIES, MAX_RETRY_AFTER_MS } from "../client/engine.js";
 import { parseApiKey, parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./shared.js";
 import { normalizeApiKey } from "../client/validate.js";
 import { registerCommands } from "./commands/entgelte.js";
@@ -73,7 +73,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
     .option(
       "--max-retries <n>",
-      `retries for transient 429/503 responses (0..${MAX_RETRIES}, default 2; each waits the server's ` +
+      `retries for transient 429/503 responses (0..${MAX_RETRIES}, default ${DEFAULT_MAX_RETRIES}; each waits the server's ` +
         `Retry-After, up to ${MAX_RETRY_AFTER_MS / 1000} s)`,
       parseBoundedInt(0, MAX_RETRIES),
     )

@@ -6,6 +6,8 @@ export {
   RequestEngine,
   DEFAULT_BASE_URL,
   DEFAULT_MAX_RESPONSE_BYTES,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_RETRY_DELAY_MS,
   DEFAULT_TIMEOUT_MS,
   DEFAULT_USER_AGENT,
   MAX_REDIRECTS,
@@ -13,6 +15,7 @@ export {
   MAX_RETRY_AFTER_MS,
   assertHeaderValue,
   parseRetryAfter,
+  transientRetryDelay,
 } from "./engine.js";
 export type { EngineOptions, RawResponse } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";

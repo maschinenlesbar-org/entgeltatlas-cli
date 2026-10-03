@@ -25,6 +25,7 @@ export function registerObtainKeyCommands(program: Command, deps: CliDeps): void
       const { key, sourceUrl } = await obtainKey({
         ...(deps.transport !== undefined ? { transport: deps.transport } : {}),
         ...(global.timeout !== undefined ? { timeoutMs: global.timeout } : {}),
+        ...(global.maxRetries !== undefined ? { maxRetries: global.maxRetries } : {}),
         ...(global.maxResponseBytes !== undefined ? { maxResponseBytes: global.maxResponseBytes } : {}),
         ...(global.userAgent !== undefined ? { userAgent: global.userAgent } : {}),
       });

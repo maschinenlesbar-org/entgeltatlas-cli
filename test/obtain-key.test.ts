@@ -48,9 +48,14 @@ test("obtainKey reads the key from the published source", async () => {
   assert.equal(mt.last().method, "GET");
 });
 
-test("obtainKey throws when the source is unreachable", async () => {
+test("obtainKey throws when the source is unreachable, after the client's retries", async () => {
   const mt = makeMockTransport(() => rawResponse("nope", "text/plain", 503));
-  await assert.rejects(() => obtainKey({ transport: mt.transport }), EntgeltatlasError);
+  const waits: number[] = [];
+  const sleep = async (ms: number) => void waits.push(ms);
+  await assert.rejects(() => obtainKey({ transport: mt.transport, sleep }), EntgeltatlasError);
+  // Without a Retry-After the backoff is retryDelayMs (200) × attempt, as in the engine.
+  assert.equal(mt.calls.length, 3);
+  assert.deepEqual(waits, [200, 400]);
 });
 
 test("obtainKey throws when the source no longer states a key", async () => {
