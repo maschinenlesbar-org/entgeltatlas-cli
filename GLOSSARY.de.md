@@ -18,7 +18,10 @@ Jede Dimension wird als numerischer Code übergeben; die vollständigen Tabellen
 Bei `-l` steht er für `Helfer` (ein Gesamt-Niveau gibt es nicht), bei `-r` für `Deutschland`.
 Lassen Sie ein Flag weg, wird kein Parameter gesendet und der Server wählt den Ausschnitt;
 das ist gegen die Live-API nicht geprüft. Übergeben Sie die gewünschten Dimensionen und
-prüfen Sie die Bezeichnungen in jeder zurückgegebenen Zeile.
+prüfen Sie die Bezeichnungen in jeder zurückgegebenen Zeile. Ein Code, der nicht in seiner
+Tabelle steht (z. B. `-r 31`), wird vor jeder Anfrage abgelehnt, von der CLI wie von der
+Bibliothek (`DIMENSIONS` enthält die Tabellen), weil die API ihn sonst ignorieren und den
+ungefilterten Ausschnitt liefern könnte.
 
 | Flag | Parameter | Dimension | Codes |
 |---|---|---|---|

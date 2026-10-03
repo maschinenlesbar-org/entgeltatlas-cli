@@ -6,7 +6,7 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
-import { DIMENSIONS } from "./codes.js";
+import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -70,34 +70,30 @@ export function parseBoundedInt(min: number, max: number): (value: string) => nu
   };
 }
 
-/**
- * commander value-parser for a dimension code (l/r/g/a/b): a positive integer.
- */
-export function parseCode(value: string): number {
-  const n = parseIntArg(value);
-  if (n < 1) throw new InvalidArgumentError("Expected a positive integer (codes start at 1).");
-  return n;
-}
+/** The CLI flag of each dimension (the library's DIMENSIONS has no CLI names). */
+export const DIMENSION_FLAGS: Record<DimensionParam, string> = {
+  l: "--level",
+  r: "--region",
+  g: "--gender",
+  a: "--age",
+  b: "--branch",
+};
 
 /**
- * commander value-parser for one dimension (`l`, `r`, `g`, `a` or `b`): a code from
- * that dimension's table in codes.ts (the one `entgeltatlas codes` prints). What the
- * API does with an unknown code is not live-verified — if it ignored the parameter,
- * the user would silently get the unfiltered slice — so an unknown code is a usage
- * error rather than a request.
+ * commander value-parser for one dimension (`l`, `r`, `g`, `a` or `b`): a plain
+ * integer (parseIntArg), then the library's {@link dimensionCodeProblem} — a code
+ * from that dimension's table, the one `entgeltatlas codes` prints — so the CLI
+ * and the client accept the same codes. The reason names the flag.
  */
-export function parseDimensionCode(param: string): (value: string) => number {
-  const dimension = DIMENSIONS.find((d) => d.param === param);
-  if (dimension === undefined) throw new Error(`No dimension "${param}" in codes.ts`);
-  const ids = dimension.values.map((v) => v.id);
+export function parseDimensionCode(param: DimensionParam): (value: string) => number {
+  const problem = dimensionCodeProblem(param, {
+    label: DIMENSION_FLAGS[param],
+    hint: "see `entgeltatlas codes`",
+  });
   return (value: string) => {
-    const n = parseCode(value);
-    if (!ids.includes(n)) {
-      throw new InvalidArgumentError(
-        `Unknown ${dimension.flag} code ${n}: valid codes are ${ids[0]}–${ids[ids.length - 1]} ` +
-          "(see `entgeltatlas codes`).",
-      );
-    }
+    const n = parseIntArg(value);
+    const reason = problem(n);
+    if (reason !== undefined) throw new InvalidArgumentError(reason);
     return n;
   };
 }

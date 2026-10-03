@@ -54,3 +54,21 @@ test("parity() drives the same input through the CLI and the library on one tran
   assert.equal(cli.requests.length, 1);
   assert.deepEqual(l.requests, cli.requests);
 });
+
+test("dimensionCodeProblem accepts exactly the codes of each table", () => {
+  for (const d of lib.DIMENSIONS) {
+    const problem = lib.dimensionCodeProblem(d.param);
+    for (const { id } of d.values) assert.equal(problem(id), undefined, `${d.param} ${id}`);
+  }
+  const r = lib.dimensionCodeProblem("r");
+  assert.equal(r(31), "Unknown code 31: valid codes are 1–30.");
+  assert.equal(r(0), "Expected a positive integer (codes start at 1).");
+  for (const bad of [NaN, Infinity, 1.5, -1, "2" as unknown as number]) {
+    assert.equal(r(bad), "Expected a positive integer (codes start at 1).", String(bad));
+  }
+});
+
+test("dimensionCodeProblem names the CLI flag and adds a hint when asked", () => {
+  const problem = lib.dimensionCodeProblem("b", { label: "--branch", hint: "see `entgeltatlas codes`" });
+  assert.equal(problem(12), "Unknown --branch code 12: valid codes are 1–11 (see `entgeltatlas codes`).");
+});

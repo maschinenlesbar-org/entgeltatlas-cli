@@ -18,7 +18,9 @@ Pass each as a numeric code; run `entgeltatlas codes` for the full tables. Code
 `Helfer` (there is no Gesamt level) and for `-r` it is `Deutschland`. Omitting a
 flag sends no parameter, so the server picks the slice; that has not been
 verified against the live API. Pass the dimensions you mean and check the labels
-in each returned row.
+in each returned row. A code that is not in its table (e.g. `-r 31`) is
+rejected before any request, by the CLI and by the library (`DIMENSIONS` holds the
+tables), because the API might ignore it and return the unfiltered slice.
 
 | Flag | Param | Dimension | Codes |
 |---|---|---|---|

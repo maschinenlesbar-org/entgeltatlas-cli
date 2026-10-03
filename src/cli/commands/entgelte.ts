@@ -5,8 +5,8 @@ import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import type { EntgeltatlasClient } from "../../client/client.js";
 import type { EntgelteParams } from "../../client/types.js";
-import { action, parseDimensionCode, parseKldb, renderJson } from "../shared.js";
-import { DIMENSIONS } from "../codes.js";
+import { DIMENSION_FLAGS, action, parseDimensionCode, parseKldb, renderJson } from "../shared.js";
+import { DIMENSIONS } from "../../client/codes.js";
 
 const REFERENCES: { name: string; desc: string; run: (c: EntgeltatlasClient) => Promise<unknown> }[] = [
   { name: "regionen", desc: "List region codes (the `r` dimension)", run: (c) => c.regionen() },
@@ -53,7 +53,12 @@ export function registerCommands(program: Command, deps: CliDeps): void {
     .description("Print the dimension code tables (l/r/g/a/b) — works offline, no API key")
     .action(
       action(deps, async ({ global }) => {
-        renderJson(deps, global, DIMENSIONS);
+        // The library's tables, with each dimension's CLI flag after its param.
+        renderJson(
+          deps,
+          global,
+          DIMENSIONS.map(({ param, label, values }) => ({ param, flag: DIMENSION_FLAGS[param], label, values })),
+        );
       }),
     );
 }

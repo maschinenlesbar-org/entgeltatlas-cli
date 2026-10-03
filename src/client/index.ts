@@ -17,6 +17,8 @@ export { obtainKey, API_KEY_ENV_VAR, KEY_SOURCE_URL, MAX_KEY_SOURCE_REDIRECTS } 
 export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
 export { assertValid } from "./validate.js";
+export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
+export type { CodeEntry, Dimension, DimensionCodeWording, DimensionParam } from "./codes.js";
 export type { Problem } from "./validate.js";
 export type { QueryParams, QueryValue } from "./query.js";
 export {

@@ -14,6 +14,8 @@
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
+import { DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
+import { assertValid } from "./validate.js";
 import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
@@ -95,6 +97,10 @@ export class EntgeltatlasClient {
    * Earnings statistics for one KldB-2010 occupation, sliced by the optional
    * dimensions (l/r/g/a/b). Returns one observation per slice — an array, which
    * is empty when the requested cell is suppressed (too few observations).
+   *
+   * Rejects with an EntgeltatlasValidationError, before any request, for a KldB
+   * code that is not 3–5 digits and for a dimension code outside its table in
+   * DIMENSIONS (see dimensionCodeProblem).
    */
   async entgelte(kldb: string, params: EntgelteParams = {}): Promise<EntgeltEntry[]> {
     if (!KLDB_PATTERN.test(kldb)) {
@@ -102,6 +108,10 @@ export class EntgeltatlasClient {
         `Invalid KldB code "${kldb}": expected 3–5 digits (e.g. 84304). ` +
           "This API takes the numeric KldB-2010 code, not an occupation name.",
       );
+    }
+    for (const param of DIMENSION_PARAMS) {
+      const code = params[param];
+      if (code !== undefined) assertValid(param, code, dimensionCodeProblem(param));
     }
     const path = `${SERVICE}/entgelte/${kldb}`;
     const res = await this.engine.getJson<unknown>(path, prune({ ...params }));

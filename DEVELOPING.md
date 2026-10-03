@@ -15,6 +15,7 @@ src/
     types.ts     # EntgeltEntry + dimension/reference interfaces (fully typed)
     query.ts     # dependency-free query-string builder
     validate.ts  # input rules (Problem functions) + assertValid, shared by library and CLI
+    codes.ts     # static l/r/g/a/b dimension tables (DIMENSIONS) + dimensionCodeProblem
     http.ts      # Transport interface + default node:http/https transport
     engine.ts    # URL building, retry, redirect (+ credential stripping), JSON decode
     errors.ts    # Entgeltatlas{Error,ApiError,NetworkError,ValidationError,ParseError}
@@ -22,8 +23,7 @@ src/
     index.ts
   cli/
     io.ts        # injectable I/O + env seam (CliDeps); API_KEY_ENV_VAR
-    shared.ts    # option parsers (incl. KldB + dimension-code), option->client map, render
-    codes.ts     # static l/r/g/a/b dimension tables (offline `codes`)
+    shared.ts    # option parsers (incl. KldB + dimension-code), the dimension flag names, render
     commands/    # entgelte + reference lists + codes
     program.ts   # assembles the commander program; seeds --api-key from env
     run.ts       # argv -> exit code (no process.exit; testable)
@@ -114,9 +114,20 @@ from <path>: expected a JSON array of objects.`), and an empty or 204 body is on
 ### Reference vs. static codes
 
 `regionen`/`geschlechter`/`alter`/`branchen` hit live endpoints that are **not in
-the OpenAPI spec** (cross-referenced only). The `codes` command prints the same
-tables from `codes.ts` offline (and covers `l`, which has no live endpoint) — a
-reliable fallback if the live reference endpoints move.
+the OpenAPI spec** (cross-referenced only). The library exports the same tables as
+`DIMENSIONS` (`src/client/codes.ts`, `DIMENSION_PARAMS` for the letters), and the
+`codes` command prints them offline with each dimension's CLI flag added (and covers
+`l`, which has no live endpoint) — a reliable fallback if the live reference
+endpoints move.
+
+`client.entgelte()` checks every given `l`/`r`/`g`/`a`/`b` against its table with
+`dimensionCodeProblem` before any request and rejects anything else with an
+`EntgeltatlasValidationError` (`Invalid r: Unknown code 31: valid codes are 1–30.`;
+`NaN`, `Infinity`, fractions, `0` and negatives get `Expected a positive integer
+(codes start at 1).`). What the API does with an unknown code is not live-verified:
+if it ignored the parameter, the caller would silently get the unfiltered slice. The
+CLI's `--level/--region/--gender/--age/--branch` parsers call the same rule, with
+the flag in the message.
 
 ## Live verification status (2026-07-03)
 
