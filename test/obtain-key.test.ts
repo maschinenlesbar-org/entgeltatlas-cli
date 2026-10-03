@@ -19,6 +19,7 @@ import {
   EntgeltatlasError,
   EntgeltatlasKeySourceError,
   EntgeltatlasNetworkError,
+  EntgeltatlasValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
@@ -116,10 +117,15 @@ test("obtainKey passes explicit limits, and 0 turns a limit off", async () => {
   assert.equal("maxResponseBytes" in mt.last(), false);
 });
 
-test("obtainKey falls back to the default User-Agent for a blank one", async () => {
+test("obtainKey sends the default User-Agent, and rejects a blank one like the API client", async () => {
   const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
-  await obtainKey({ transport: mt.transport, userAgent: "  " });
+  await obtainKey({ transport: mt.transport });
   assert.equal(mt.last().headers?.["User-Agent"], "entgeltatlas-cli");
+  await assert.rejects(
+    () => obtainKey({ transport: mt.transport, userAgent: "  " }),
+    (err) => err instanceof EntgeltatlasValidationError && err.message === "Invalid userAgent: Expected a non-empty value.",
+  );
+  assert.equal(mt.calls.length, 1);
 });
 
 test("obtain-key forwards --timeout and --max-response-bytes", async () => {

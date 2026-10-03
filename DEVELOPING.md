@@ -95,6 +95,15 @@ silently switching the timeout or size cap off. The CLI's `--timeout`,
 `--max-retries` and `--max-response-bytes` parsers use the same `intRangeProblem`
 and constants.
 
+Header values are checked the same way in the `RequestEngine` constructor and in
+`obtainKey()`: `userAgent` and every `defaultHeaders` value go through
+`headerValueProblem` / `assertHeaderValue` (blank, a control character other than tab,
+or a character above U+00FF is an `EntgeltatlasValidationError`, e.g. `Invalid
+userAgent: Value contains control characters.`), header names must be RFC 9110
+tokens. Only an omitted `userAgent` selects `DEFAULT_USER_AGENT`; a blank one is an
+error in both entry points, as `--user-agent ''` is in the CLI, whose parser calls the
+same rule.
+
 `test/validate.test.ts` holds the unit tests and `test/parity.test.ts` the parity
 tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a

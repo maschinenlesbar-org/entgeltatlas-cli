@@ -10,10 +10,11 @@ import {
   EntgeltatlasParseError,
   redactUrl,
 } from "./errors.js";
-import { assertValid, intRangeProblem } from "./validate.js";
+import { assertValid, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
-const DEFAULT_USER_AGENT = "entgeltatlas-cli";
+/** The User-Agent sent when none is given (the API client and obtainKey()). */
+export const DEFAULT_USER_AGENT = "entgeltatlas-cli";
 
 export interface RawResponse {
   data: Buffer;
@@ -26,9 +27,13 @@ export interface EngineOptions {
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
-  /** Value of the User-Agent header. */
+  /**
+   * Value of the User-Agent header (default `DEFAULT_USER_AGENT`). A blank value, a
+   * control character other than tab, or a character above U+00FF throws an
+   * EntgeltatlasValidationError.
+   */
   userAgent?: string;
-  /** Extra headers sent on every request (e.g. the X-API-Key). */
+  /** Extra headers sent on every request (e.g. the X-API-Key); names and values are checked like `userAgent`. */
   defaultHeaders?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
@@ -81,6 +86,26 @@ export const MAX_REDIRECTS = 10;
  */
 export function intOption(name: string, value: number | undefined, min: number, max: number): number | undefined {
   return value === undefined ? undefined : assertValid(name, value, intRangeProblem(min, max));
+}
+
+/**
+ * Check a value bound for an HTTP header (see {@link headerValueProblem}) and
+ * return it unchanged; anything else throws an EntgeltatlasValidationError naming
+ * `name` ("Invalid userAgent: Value contains control characters.").
+ */
+export function assertHeaderValue(name: string, value: string): string {
+  return assertValid(name, value, headerValueProblem);
+}
+
+/** Check every name and value of `defaultHeaders`, returning a copy. */
+function headerOption(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) return {};
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    assertValid("defaultHeaders name", name, headerNameProblem);
+    out[name] = assertHeaderValue(`defaultHeaders["${name}"]`, value);
+  }
+  return out;
 }
 
 /**
@@ -233,8 +258,11 @@ export class RequestEngine {
       );
     }
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
-    this.defaultHeaders = options.defaultHeaders ?? {};
+    // Only an omitted userAgent selects the default: a blank one is an error, not
+    // a silent fallback, and a malformed one fails here rather than at request time.
+    this.userAgent =
+      options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
+    this.defaultHeaders = headerOption(options.defaultHeaders);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? 2;
     this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? 200;

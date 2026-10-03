@@ -106,3 +106,25 @@ test("parity #2: in-range limits give the identical request on both sides", asyn
   assert.equal(r.lib.ok, true);
   assert.deepEqual(r.lib.requests, r.cli.requests);
 });
+
+test("parity #3: a User-Agent an HTTP header cannot carry, or a blank one, is rejected by both", async () => {
+  for (const ua of ["a\r\nX-Evil: 1", "", "   ", "Bot €", "日本", "x" + String.fromCharCode(0x7f)]) {
+    const r = await parity([...KEY, "--user-agent", ua, "regionen"], async (transport) =>
+      new lib.EntgeltatlasClient({ transport, apiKey: "k", userAgent: ua }).regionen(),
+    );
+    assertBothReject(r, JSON.stringify(ua));
+    const o = await parity(["--user-agent", ua, "obtain-key"], (transport) =>
+      lib.obtainKey({ transport, userAgent: ua }),
+    );
+    assertBothReject(o, `obtain-key ${JSON.stringify(ua)}`);
+  }
+});
+
+test("parity #3: a valid User-Agent is sent as given by both", async () => {
+  const r = await parity([...KEY, "--user-agent", "ok-agent\t1", "regionen"], (transport) =>
+    new lib.EntgeltatlasClient({ transport, apiKey: "k", userAgent: "ok-agent\t1" }).regionen(),
+  );
+  assert.equal(r.cli.code, 0, r.cli.err);
+  assert.deepEqual(r.lib.requests, r.cli.requests);
+  assert.equal(r.cli.requests[0]?.headers?.["User-Agent"], "ok-agent\t1");
+});

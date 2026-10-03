@@ -103,3 +103,26 @@ test("the engine checks every numeric option, and 0 keeps its meaning", () => {
   );
   new lib.RequestEngine({ timeoutMs: 0, maxRetries: 0, retryDelayMs: 0, maxRedirects: 0, maxResponseBytes: 0 });
 });
+
+test("headerValueProblem: blank, control characters and non-Latin-1 are invalid; tab and Latin-1 are fine", () => {
+  const p = lib.headerValueProblem;
+  assert.equal(p("Grüße\tbot"), undefined);
+  assert.equal(p(""), "Expected a non-empty value.");
+  assert.equal(p("  "), "Expected a non-empty value.");
+  assert.equal(p("a\r\nb"), "Value contains control characters.");
+  assert.equal(p("a" + String.fromCharCode(0x7f)), "Value contains control characters.");
+  assert.equal(p("Bot €"), "Value contains characters outside Latin-1 (above U+00FF).");
+  assert.equal(p(42 as unknown as string), "Expected a non-empty value.");
+});
+
+test("the engine checks userAgent and every defaultHeaders name and value", () => {
+  assert.throws(
+    () => new lib.RequestEngine({ userAgent: "a\nb" }),
+    (err) =>
+      err instanceof EntgeltatlasValidationError &&
+      err.message === "Invalid userAgent: Value contains control characters.",
+  );
+  assert.throws(() => new lib.RequestEngine({ defaultHeaders: { "X-A": "a\r\nb" } }), EntgeltatlasValidationError);
+  assert.throws(() => new lib.RequestEngine({ defaultHeaders: { "Bad Name": "v" } }), EntgeltatlasValidationError);
+  assert.equal(lib.assertHeaderValue("userAgent", "ok"), "ok");
+});

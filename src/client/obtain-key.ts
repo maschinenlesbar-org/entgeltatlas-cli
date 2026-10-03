@@ -26,7 +26,14 @@
 import type { HttpResponse, Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
 import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
-import { DEFAULT_MAX_RESPONSE_BYTES, DEFAULT_TIMEOUT_MS, assertHttpScheme, intOption } from "./engine.js";
+import {
+  DEFAULT_MAX_RESPONSE_BYTES,
+  DEFAULT_TIMEOUT_MS,
+  DEFAULT_USER_AGENT,
+  assertHeaderValue,
+  assertHttpScheme,
+  intOption,
+} from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
 
 /** The environment variable the client and CLI read the key from. */
@@ -90,7 +97,11 @@ export interface ObtainKeyOptions {
    * in the API client; anything else rejects with an EntgeltatlasValidationError.
    */
   maxResponseBytes?: number;
-  /** User-Agent header; a blank value falls back to the default. */
+  /**
+   * User-Agent header (default `DEFAULT_USER_AGENT`). Checked like the API client's:
+   * a blank value or one an HTTP header cannot carry rejects with an
+   * EntgeltatlasValidationError.
+   */
   userAgent?: string;
 }
 
@@ -114,8 +125,9 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   // file:/ftp: source URL.
   assertHttpScheme(sourceUrl);
 
-  // A blank User-Agent falls back to the default, as in the API client.
-  const userAgent = options.userAgent?.trim() ? options.userAgent : "entgeltatlas-cli";
+  // The API client's rule: only an omitted User-Agent selects the default.
+  const userAgent =
+    options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
   // The request gets the client's limits: a source that stalls, or streams
   // without end, must not hang the command.
   // The same range checks as the API client: a negative or NaN limit must not
