@@ -110,10 +110,16 @@ tokens. Only an omitted `userAgent` selects `DEFAULT_USER_AGENT`; a blank one is
 error in both entry points, as `--user-agent ''` is in the CLI, whose parser calls the
 same rule.
 
-A `baseUrl` with surrounding whitespace is rejected in the `RequestEngine`
-constructor (`baseUrlWhitespaceProblem`, checked on the raw value before the
-trailing-slash strip), not trimmed: `new URL()` would trim it silently while the
-engine joins the raw string to every path. `--base-url` calls the same rule.
+The `RequestEngine` constructor checks `baseUrl` with `validateBaseUrl` /
+`baseUrlProblem` on the raw value, before the trailing-slash strip: unparseable
+(including `""`), a scheme other than `http:`/`https:`, a query or fragment, or
+surrounding whitespace (rejected, not trimmed: `new URL()` would trim it silently
+while the engine joins the raw string to every path) throws an
+`EntgeltatlasValidationError` (`Invalid baseUrl: Only http: and https: base URLs are
+supported.`), never an `EntgeltatlasNetworkError`: it is a configuration error, not
+an outage. `obtainKey()`'s `sourceUrl` gets the same class (`httpUrlProblem`).
+`EntgeltatlasNetworkError` stays for the default transport's per-hop scheme check
+and for redirect targets. `--base-url` calls the same `baseUrlProblem`.
 
 `test/validate.test.ts` holds the unit tests and `test/parity.test.ts` the parity
 tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
@@ -190,7 +196,7 @@ the flag in the message.
   waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
   value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
   without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.
-- `--base-url` accepts only `http:`/`https:`; redirects (301/302/303/307/308 with a
+- `--base-url` (and the library's `baseUrl`) accepts only `http:`/`https:`; redirects (301/302/303/307/308 with a
   usable Location, up to `maxRedirects` = 5) are followed with credential-header
   stripping on cross-origin hops. Any other 3xx, a missing or malformed Location, or
   the limit surface as `EntgeltatlasApiError` (exit 1) naming the target:

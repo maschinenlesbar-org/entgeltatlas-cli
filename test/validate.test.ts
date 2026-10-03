@@ -156,3 +156,24 @@ test("the client rejects a key an HTTP header cannot carry with the header rule'
       err.message === "Invalid apiKey: Value contains control characters.",
   );
 });
+
+test("baseUrlProblem: parse, scheme, query/fragment and whitespace, with the CLI's messages", () => {
+  const p = lib.baseUrlProblem;
+  assert.equal(p("https://h.example/prefix/"), undefined);
+  assert.equal(p(""), 'Invalid URL "".');
+  assert.equal(p("not a url"), 'Invalid URL "not a url".');
+  assert.equal(p("ftp://h.example"), "Only http: and https: base URLs are supported.");
+  assert.equal(p("http://h.example/?x=1"), "A base URL cannot have a query (?) or fragment (#).");
+  assert.equal(p("http://h.example/#f"), "A base URL cannot have a query (?) or fragment (#).");
+  assert.equal(p("http://h.example "), "A base URL cannot have surrounding whitespace.");
+  assert.equal(p(42 as unknown as string), 'Invalid URL "42".');
+  assert.equal(p(new URL("https://h.example") as unknown as string), 'Invalid URL "https://h.example/".');
+});
+
+test("validateBaseUrl strips trailing slashes and redacts credentials in its error", () => {
+  assert.equal(lib.validateBaseUrl("https://h.example/x//"), "https://h.example/x");
+  assert.throws(
+    () => lib.validateBaseUrl("ftp://user:s3cret@h.example/"),
+    (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret"),
+  );
+});

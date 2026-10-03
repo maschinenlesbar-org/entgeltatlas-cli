@@ -5,7 +5,7 @@
 // value-parsers call the same function and turn the reason into a usage error, so
 // the rule exists exactly once.
 
-import { EntgeltatlasValidationError } from "./errors.js";
+import { EntgeltatlasValidationError, redactUrl } from "./errors.js";
 
 /** Why `value` is invalid, or `undefined` if it is valid. */
 export type Problem<T = string> = (value: T) => string | undefined;
@@ -71,6 +71,39 @@ export const headerNameProblem: Problem = (value) =>
  */
 export const baseUrlWhitespaceProblem: Problem = (value) =>
   value !== value.trim() ? "A base URL cannot have surrounding whitespace." : undefined;
+
+/** A parseable URL with an `http:` or `https:` scheme; `what` names it in the reason. */
+function schemeProblem(value: string, what: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return `Invalid URL "${redactUrl(value)}".`;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `Only http: and https: ${what} are supported.`;
+  }
+  return undefined;
+}
+
+/**
+ * An absolute `http:`/`https:` URL (obtainKey()'s `sourceUrl`). A custom transport
+ * may do no scheme check of its own, so a `file:`/`ftp:` URL is never handed to it.
+ */
+export const httpUrlProblem: Problem = (value) => schemeProblem(value, "URLs");
+
+/**
+ * A base URL: an absolute `http:`/`https:` URL (a path prefix is fine) without a
+ * query or fragment — request paths are appended to it as a string, so `http://h/?x=1`
+ * would request `/?x=1/infosysbub/...` and `http://h/#f` would request `/` — and
+ * without surrounding whitespace (baseUrlWhitespaceProblem). The reasons are the
+ * CLI's `--base-url` messages.
+ */
+export const baseUrlProblem: Problem = (value) =>
+  (typeof value === "string" ? undefined : `Invalid URL "${String(value)}".`) ??
+  schemeProblem(value, "base URLs") ??
+  (/[?#]/.test(value) ? "A base URL cannot have a query (?) or fragment (#)." : undefined) ??
+  baseUrlWhitespaceProblem(value);
 
 /**
  * The canonical form of an API key: trimmed, and `undefined` when blank (a blank

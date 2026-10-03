@@ -68,7 +68,7 @@ test("obtainKey rejects a non-http(s) source URL before any request", async () =
     const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
     await assert.rejects(
       () => obtainKey({ transport: mt.transport, sourceUrl }),
-      EntgeltatlasNetworkError,
+      EntgeltatlasValidationError,
       sourceUrl,
     );
     assert.equal(mt.calls.length, 0);

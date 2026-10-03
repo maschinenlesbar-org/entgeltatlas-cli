@@ -8,7 +8,7 @@ import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError } from "../client/errors.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 import {
-  baseUrlWhitespaceProblem,
+  baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
   normalizeApiKey,
@@ -129,32 +129,14 @@ export function parseKldb(value: string): string {
 }
 
 /**
- * commander value-parser for `--base-url`: must be a syntactically valid URL with
- * an `http:` or `https:` scheme. Validating at parse time turns a bad value into
- * a usage error (exit 2) with a message about the base URL the user actually
- * passed, rather than deferring to the transport — which only sees the fully built
- * request URL and surfaces a NetworkError (exit 6). The transport keeps its own
- * scheme check so the invariant also holds for redirect targets and library use.
+ * commander value-parser for `--base-url`: the library's {@link baseUrlProblem}
+ * (http(s) only, no query or fragment, no surrounding whitespace), so a bad value is
+ * a usage error (exit 2) at parse time, as it is an EntgeltatlasValidationError in
+ * the client. The CLI keeps no rules of its own.
  */
 export function parseBaseUrl(value: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new InvalidArgumentError(`Invalid URL "${value}".`);
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new InvalidArgumentError("Only http: and https: base URLs are supported.");
-  }
-  // Paths are appended to the base URL as a string, so a query or fragment would
-  // swallow every request path ("http://h/#f" requests "/" for every command).
-  if (/[?#]/.test(value)) {
-    throw new InvalidArgumentError("A base URL cannot have a query (?) or fragment (#).");
-  }
-  // The library's rule: new URL() trims surrounding whitespace silently, but the
-  // engine uses the raw value, so it rejects it rather than guess.
-  const spacing = baseUrlWhitespaceProblem(value);
-  if (spacing !== undefined) throw new InvalidArgumentError(spacing);
+  const reason = baseUrlProblem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
 }
 

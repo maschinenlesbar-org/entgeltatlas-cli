@@ -35,11 +35,11 @@ import {
   DEFAULT_USER_AGENT,
   MAX_RETRIES,
   assertHeaderValue,
-  assertHttpScheme,
   intOption,
   transientRetryDelay,
 } from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
+import { assertValid, httpUrlProblem } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
@@ -138,8 +138,8 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
   const transport = options.transport ?? nodeHttpTransport;
   // A custom transport may do no scheme check of its own; never hand it a
-  // file:/ftp: source URL.
-  assertHttpScheme(sourceUrl);
+  // file:/ftp: source URL (a configuration error: EntgeltatlasValidationError).
+  assertValid("sourceUrl", sourceUrl, httpUrlProblem);
 
   // The API client's rule: only an omitted User-Agent selects the default.
   const userAgent =

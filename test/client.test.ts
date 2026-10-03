@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EntgeltatlasClient, type EntgeltatlasClientOptions } from "../src/client/client.js";
 import {
-  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
   EntgeltatlasValidationError,
 } from "../src/client/errors.js";
@@ -114,7 +113,7 @@ test("the client rejects a non-http(s) base URL before any request", () => {
     const mt = makeMockTransport(() => jsonResponse([]));
     assert.throws(
       () => new EntgeltatlasClient({ baseUrl, apiKey: "KEY-UUID", transport: mt.transport }),
-      EntgeltatlasNetworkError,
+      EntgeltatlasValidationError,
       baseUrl,
     );
     assert.equal(mt.calls.length, 0);

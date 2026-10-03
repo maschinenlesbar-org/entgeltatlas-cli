@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { MAX_RETRY_AFTER_MS, RequestEngine, parseRetryAfter } from "../src/client/engine.js";
 import {
   EntgeltatlasApiError,
-  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
+  EntgeltatlasValidationError,
 } from "../src/client/errors.js";
 import type { HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
@@ -218,7 +218,7 @@ test("a non-http(s) base URL is rejected in the engine, before any request", () 
           transport: mt.transport,
           defaultHeaders: { "X-API-Key": "SECRET" },
         }),
-      EntgeltatlasNetworkError,
+      EntgeltatlasValidationError,
       baseUrl,
     );
     assert.equal(mt.calls.length, 0);
@@ -231,8 +231,8 @@ test("a base URL with a query or fragment is rejected in the engine (library use
     assert.throws(
       () => new RequestEngine({ baseUrl, transport: mt.transport }),
       (err) =>
-        err instanceof EntgeltatlasNetworkError &&
-        err.message === `Base URL must not contain a query or fragment: ${baseUrl}`,
+        err instanceof EntgeltatlasValidationError &&
+        err.message === "Invalid baseUrl: A base URL cannot have a query (?) or fragment (#).",
     );
   }
 });
@@ -251,11 +251,11 @@ test("userinfo in the base URL is redacted in error messages, but still sent", a
   assert.equal(mt.last().url, "http://user:s3cret@rest.test/ba/x");
   assert.throws(
     () => new RequestEngine({ baseUrl: "http://user:s3cret@rest.test/?x=1" }),
-    (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
+    (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret"),
   );
   assert.throws(
     () => new RequestEngine({ baseUrl: "ftp://user:s3cret@rest.test/" }),
-    (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
+    (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret"),
   );
 });
 

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import * as lib from "../src/index.js";
 import { EntgeltatlasValidationError } from "../src/client/errors.js";
 import type { EntgelteParams } from "../src/client/types.js";
+import { run } from "../src/cli/run.js";
 import { parity } from "./helpers.js";
 
 const KEY = ["--api-key", "k"];
@@ -230,4 +231,25 @@ test("parity #7: an out-of-range retry count is rejected by obtain-key and obtai
     lib.obtainKey({ transport, maxRetries: 11 }),
   );
   assertBothReject(r, "maxRetries 11");
+});
+
+test("parity #5: an invalid base URL is a validation error in the library, as it is a usage error in the CLI", async () => {
+  for (const baseUrl of ["ftp://h.example", "http://h.example/?x=1", "http://h.example/#f", "", "not a url"]) {
+    const r = await parity([...KEY, "--base-url", baseUrl, "regionen"], async (transport) =>
+      new lib.EntgeltatlasClient({ transport, apiKey: "k", baseUrl }).regionen(),
+    );
+    assertBothReject(r, JSON.stringify(baseUrl));
+  }
+});
+
+test("parity #5: run() maps the library's base-URL error to the usage exit code, not the network one", async () => {
+  const err: string[] = [];
+  const code = await run(["regionen"], {
+    io: { out: () => {}, err: (s) => err.push(s) },
+    // A library-side rejection, bypassing the CLI's --base-url parser.
+    createClient: (opts) => new lib.EntgeltatlasClient({ ...opts, baseUrl: "ftp://h.example" }),
+    env: {},
+  });
+  assert.equal(code, 2);
+  assert.deepEqual(err, ["Error: Invalid baseUrl: Only http: and https: base URLs are supported."]);
 });

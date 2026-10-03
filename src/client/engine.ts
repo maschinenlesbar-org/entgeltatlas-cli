@@ -6,11 +6,10 @@ import { MAX_TIMEOUT_MS, nodeHttpTransport, type HttpResponse, type Transport } 
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   EntgeltatlasApiError,
-  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
   redactUrl,
 } from "./errors.js";
-import { assertValid, baseUrlWhitespaceProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
+import { assertValid, baseUrlProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 /** The User-Agent sent when none is given (the API client and obtainKey()). */
@@ -24,8 +23,9 @@ export interface RawResponse {
 
 export interface EngineOptions {
   /**
-   * Base URL of the API. Defaults to https://rest.arbeitsagentur.de. Surrounding
-   * whitespace throws an EntgeltatlasValidationError.
+   * Base URL of the API. Defaults to https://rest.arbeitsagentur.de. A value that
+   * breaks a rule of {@link validateBaseUrl} (unparseable, not http(s), a query or
+   * fragment, surrounding whitespace) throws an EntgeltatlasValidationError.
    */
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
@@ -201,23 +201,17 @@ function sanitizeServerText(text: string): string {
 const CREDENTIAL_HEADERS = ["authorization", "x-api-key", "oauthaccesstoken", "cookie"];
 
 /**
- * Reject a base URL whose scheme is not http(s). The default transport already
- * gates this per hop, but the engine is exported as a library and may be handed a
- * custom transport that does no such check, so gate the configured base URL here
- * too (a `file:`/`ftp:` base URL fails fast with a typed error).
+ * Check a base URL against every rule of {@link baseUrlProblem} — unparseable
+ * (including `""`), a scheme other than `http:`/`https:`, a query or fragment,
+ * surrounding whitespace — and return it with trailing slashes stripped. A bad
+ * value throws an EntgeltatlasValidationError ("Invalid baseUrl: <reason>"): it is
+ * a configuration error, not a transport failure. The default transport still gates
+ * the scheme per hop (an EntgeltatlasNetworkError, as for a redirect target), but the
+ * engine may be handed a custom transport that does no such check, so the configured
+ * value is checked here, raw, before the slash strip.
  */
-export function assertHttpScheme(baseUrl: string): void {
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    throw new EntgeltatlasNetworkError(`Invalid base URL: ${redactUrl(baseUrl)}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new EntgeltatlasNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${redactUrl(baseUrl)}`,
-    );
-  }
+export function validateBaseUrl(raw: string): string {
+  return assertValid("baseUrl", raw, baseUrlProblem).replace(/\/+$/, "");
 }
 
 /**
@@ -275,22 +269,9 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    // The raw value is checked before the trailing-slash strip, so "https://h/ "
-    // cannot slip past it; only an omitted baseUrl selects the default.
-    const baseUrl =
-      options.baseUrl === undefined
-        ? DEFAULT_BASE_URL
-        : assertValid("baseUrl", options.baseUrl, baseUrlWhitespaceProblem);
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
-    assertHttpScheme(this.baseUrl);
-    // Request paths are appended to the base URL as a string, so a `?` or `#` in
-    // it would swallow every path: `http://h/?x=1` requests `/?x=1/infosysbub/...`
-    // and `http://h/#f` requests `/` with no service path and no filters.
-    if (/[?#]/.test(this.baseUrl)) {
-      throw new EntgeltatlasNetworkError(
-        `Base URL must not contain a query or fragment: ${redactUrl(this.baseUrl)}`,
-      );
-    }
+    // Only an omitted baseUrl selects the default; validateBaseUrl checks the raw
+    // value before the trailing-slash strip, so "https://h/ " cannot slip past it.
+    this.baseUrl = validateBaseUrl(options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent fallback, and a malformed one fails here rather than at request time.

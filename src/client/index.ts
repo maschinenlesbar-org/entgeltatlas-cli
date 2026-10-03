@@ -16,6 +16,7 @@ export {
   assertHeaderValue,
   parseRetryAfter,
   transientRetryDelay,
+  validateBaseUrl,
 } from "./engine.js";
 export type { EngineOptions, RawResponse } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";
@@ -25,9 +26,11 @@ export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
 export {
   assertValid,
+  baseUrlProblem,
   baseUrlWhitespaceProblem,
   headerNameProblem,
   headerValueProblem,
+  httpUrlProblem,
   intRangeProblem,
   normalizeApiKey,
 } from "./validate.js";
