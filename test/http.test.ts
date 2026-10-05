@@ -112,3 +112,13 @@ test("a header value Node refuses becomes EntgeltatlasNetworkError, not a TypeEr
     (err) => err instanceof EntgeltatlasNetworkError && /^Invalid request: /.test(err.message),
   );
 });
+
+test("P2: an unparseable URL is reported without its password", async () => {
+  for (const url of ["https://bob:Hunter2pw@rest.arbeitsagentur.de:443443/x", "https://bob:Hunter2pw@rest arbeitsagentur.de/x"]) {
+    await assert.rejects(
+      () => nodeHttpTransport({ method: "GET", url }),
+      (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("Hunter2pw") && err.message.includes("***@"),
+      url,
+    );
+  }
+});

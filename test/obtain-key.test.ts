@@ -283,3 +283,22 @@ test("P5: obtainKey holds its limits and reads headers for any transport", async
     await assert.rejects(() => obtainKey({ transport: transport as never, maxRetries: 0 }), EntgeltatlasNetworkError);
   }
 });
+
+test("P2: obtainKey names a source URL without its userinfo, in errors and in the result", async () => {
+  const sourceUrl = "http://alice:s3cret@mirror.example/entgeltatlas/";
+  const ok = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
+  assert.equal((await obtainKey({ transport: ok.transport, sourceUrl })).sourceUrl, "http://***@mirror.example/entgeltatlas/");
+  for (const doc of ["<html>no key</html>", page("first-key") + page("second-key"), page("YOUR-API-KEY")]) {
+    const mt = makeMockTransport(() => rawResponse(doc, "text/html"));
+    await assert.rejects(
+      () => obtainKey({ transport: mt.transport, sourceUrl }),
+      (err) => err instanceof EntgeltatlasError && !err.message.includes("s3cret") && err.message.includes("***@"),
+      doc,
+    );
+  }
+  // A transport that echoes the URL in its error.
+  await assert.rejects(
+    () => obtainKey({ transport: async (req) => { throw new TypeError(`Failed to fetch ${req.url}`); }, sourceUrl, maxRetries: 0 }),
+    (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
+  );
+});

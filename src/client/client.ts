@@ -64,7 +64,8 @@ function prune(params: Record<string, unknown>): QueryParams {
 }
 
 export class EntgeltatlasClient {
-  private readonly engine: RequestEngine;
+  // A real private field: logging a client never shows the engine (and its key).
+  readonly #engine: RequestEngine;
 
   constructor(options: EntgeltatlasClientOptions = {}) {
     const { apiKey, ...engineOptions } = options;
@@ -72,7 +73,7 @@ export class EntgeltatlasClient {
     // key is trimmed first (normalizeApiKey), then checked like any header value.
     const key = normalizeApiKey(apiKey);
     if (key !== undefined) assertValid("apiKey", key, headerValueProblem);
-    this.engine = new RequestEngine({
+    this.#engine = new RequestEngine({
       ...engineOptions,
       defaultHeaders: {
         ...(key ? { "X-API-Key": key } : {}),
@@ -102,7 +103,7 @@ export class EntgeltatlasClient {
       if (code !== undefined) assertValid(param, code, dimensionCodeProblem(param));
     }
     const path = `${SERVICE}/entgelte/${kldb}`;
-    const res = await this.engine.getJson<unknown>(path, prune({ ...params }));
+    const res = await this.#engine.getJson<unknown>(path, prune({ ...params }));
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
     return assertArrayOfObjects<EntgeltEntry>(res, path);
@@ -127,6 +128,6 @@ export class EntgeltatlasClient {
 
   private async reference(name: string): Promise<ReferenceItem[]> {
     const path = `${SERVICE}/${name}`;
-    return assertArrayOfObjects<ReferenceItem>(await this.engine.getJson<unknown>(path), path);
+    return assertArrayOfObjects<ReferenceItem>(await this.#engine.getJson<unknown>(path), path);
   }
 }

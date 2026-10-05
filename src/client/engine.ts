@@ -16,6 +16,9 @@ import {
   EntgeltatlasError,
   EntgeltatlasNetworkError,
   EntgeltatlasParseError,
+  credentialsIn,
+  redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 import { assertValid, baseUrlProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
@@ -435,11 +438,33 @@ function stripCredentialHeaders(headers: Record<string, string>): Record<string,
   return out;
 }
 
+/**
+ * The secret forms of a URL's userinfo, for scrubbing text: as written and
+ * percent-decoded (a server or transport may echo either).
+ */
+export function userinfoForms(url: string): string[] {
+  return credentialsIn(url).flatMap((raw) => {
+    try {
+      const decoded = decodeURIComponent(raw);
+      return decoded === raw ? [raw] : [raw, decoded];
+    } catch {
+      return [raw];
+    }
+  });
+}
+
 export class RequestEngine {
-  private readonly baseUrl: string;
+  // Real private fields (not TypeScript's `private`): util.inspect, console.log and
+  // JSON.stringify of a client never show them, so a password in the base URL or
+  // the API key in the default headers can't be logged by accident.
+  readonly #baseUrl: string;
+  readonly #defaultHeaders: Record<string, string>;
+  /** The base URL's userinfo, raw and percent-decoded, for scrubbing server and transport text. */
+  readonly #credentials: string[];
+  /** Secrets without an `@` to anchor on (the API key), for the same scrubbing. */
+  readonly #secrets: string[];
   private readonly transport: Transport;
   private readonly userAgent: string;
-  private readonly defaultHeaders: Record<string, string>;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
@@ -450,13 +475,18 @@ export class RequestEngine {
   constructor(options: EngineOptions = {}) {
     // Only an omitted baseUrl selects the default; validateBaseUrl checks the raw
     // value before the trailing-slash strip, so "https://h/ " cannot slip past it.
-    this.baseUrl = validateBaseUrl(options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl);
+    this.#baseUrl = validateBaseUrl(options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl);
+    this.#credentials = userinfoForms(this.#baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent fallback, and a malformed one fails here rather than at request time.
     this.userAgent =
       options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
-    this.defaultHeaders = headerOption(options.defaultHeaders);
+    this.#defaultHeaders = headerOption(options.defaultHeaders);
+    // The secret part of a credential header (`Bearer <token>` → the token), never echoed.
+    this.#secrets = Object.entries(this.#defaultHeaders)
+      .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
+      .map(([, value]) => value.replace(/^\S+\s+/, "").trim());
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES;
     this.retryDelayMs =
@@ -472,7 +502,7 @@ export class RequestEngine {
   buildUrl(path: string, query?: QueryParams): string {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
-    return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+    return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
   /** Perform a request with Accept negotiation and transient-error retries. */
@@ -485,7 +515,7 @@ export class RequestEngine {
     // The per-request `accept` and User-Agent are applied AFTER defaultHeaders so
     // a default cannot shadow per-endpoint negotiation.
     let headers: Record<string, string> = {
-      ...this.defaultHeaders,
+      ...this.#defaultHeaders,
       Accept: options.accept,
       "User-Agent": this.userAgent,
     };
@@ -519,10 +549,15 @@ export class RequestEngine {
           await this.sleep(this.retryDelayMs * attempt);
           continue;
         }
-        throw transportError(method, url, cause);
+        throw this.toNetworkError(method, url, cause);
       }
       // An injected transport may resolve with anything; check it before reading it.
-      const response = checkResponse(raw, method, url, this.maxResponseBytes);
+      let response: CheckedResponse;
+      try {
+        response = checkResponse(raw, method, url, this.maxResponseBytes);
+      } catch (err) {
+        throw this.toNetworkError(method, url, err);
+      }
 
       const status = response.status;
       // Honour Retry-After; without a usable one, back off linearly. A Retry-After
@@ -589,6 +624,49 @@ export class RequestEngine {
     }
   }
 
+  /**
+   * `text` without the base URL's credentials or the API key: server text (an error
+   * body that echoes the request URL or its headers) and transport text (fetch's
+   * "Failed to fetch <url>") can carry them.
+   */
+  private scrub(text: string): string {
+    return redactSecrets(redactCredentials(text, this.#credentials), this.#secrets);
+  }
+
+  /**
+   * A transport failure as the `cause` of the error the engine raises: the original
+   * when its text carries no secret, otherwise a copy with them scrubbed (message,
+   * `code` and the cause chain kept), so logging the error with its causes can't
+   * reveal the base URL's password or the key.
+   */
+  private scrubCause(cause: unknown, depth = 0): unknown {
+    if ((this.#credentials.length === 0 && this.#secrets.length === 0) || depth > 5) return cause;
+    if (typeof cause === "string") return this.scrub(cause);
+    if (!(cause instanceof Error)) return cause;
+    const inner = this.scrubCause(cause.cause, depth + 1);
+    const message = this.scrub(cause.message);
+    const stack = cause.stack ?? "";
+    if (message === cause.message && inner === cause.cause && this.scrub(stack) === stack) return cause;
+    const copy = new Error(message, inner === undefined ? undefined : { cause: inner });
+    copy.name = cause.name;
+    const code = (cause as { code?: unknown }).code;
+    if (code !== undefined) Object.assign(copy, { code });
+    return copy;
+  }
+
+  /**
+   * A transport failure as an EntgeltatlasError (transportError), with the base URL's
+   * credentials and the key scrubbed from its message and its cause chain.
+   */
+  private toNetworkError(method: string, url: string, cause: unknown): EntgeltatlasError {
+    const err = transportError(method, url, typeof cause === "string" ? this.scrub(cause) : cause);
+    if (!(err instanceof EntgeltatlasNetworkError)) return err;
+    const message = this.scrub(err.message);
+    const inner = this.scrubCause(err.cause);
+    if (message === err.message && inner === err.cause) return err;
+    return new EntgeltatlasNetworkError(message, inner === undefined ? undefined : { cause: inner });
+  }
+
   private toApiError(
     method: string,
     url: string,
@@ -597,7 +675,7 @@ export class RequestEngine {
     locationHeader?: string,
     redirectsFollowed?: number,
   ): EntgeltatlasApiError {
-    const text = body.toString("utf8");
+    const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
     try {
       const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown; error?: unknown };

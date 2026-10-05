@@ -31,7 +31,13 @@
 
 import type { Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
-import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
+import {
+  EntgeltatlasError,
+  EntgeltatlasKeySourceError,
+  EntgeltatlasNetworkError,
+  redactCredentials,
+  redactUrl,
+} from "./errors.js";
 import {
   DEFAULT_MAX_RESPONSE_BYTES,
   DEFAULT_MAX_RETRIES,
@@ -45,6 +51,7 @@ import {
   intOption,
   transientRetryDelay,
   transportError,
+  userinfoForms,
   type CheckedResponse,
 } from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
@@ -142,7 +149,7 @@ export interface ObtainKeyOptions {
 export interface ObtainedKey {
   /** The public key, ready to put in `API_KEY_ENV_VAR`. */
   key: string;
-  /** Where it was read from (after any redirect), so callers can cite it. */
+  /** Where it was read from (after any redirect), so callers can cite it (userinfo shown as `***@`). */
   sourceUrl: string;
 }
 
@@ -178,6 +185,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   };
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
+  const sourceCredentials = userinfoForms(sourceUrl);
   let url = sourceUrl;
   let response: CheckedResponse;
   let redirects = 0;
@@ -203,7 +211,12 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       );
       response = checkResponse(raw, "GET", url, maxResponseBytes);
     } catch (cause) {
-      throw transportError("GET", url, cause);
+      // A source behind Basic auth (a private mirror): its credentials are cut from
+      // transport text, as the API client does for its base URL.
+      const err = transportError("GET", url, cause);
+      const scrubbed = redactCredentials(err.message, sourceCredentials);
+      if (scrubbed === err.message || !(err instanceof EntgeltatlasNetworkError)) throw err;
+      throw new EntgeltatlasNetworkError(scrubbed);
     }
     const wait = transientRetryDelay(response, attempt, retry);
     if (wait !== undefined) {
@@ -225,7 +238,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       status: response.status,
       url,
       method: "GET",
-      body: response.body.toString("utf8"),
+      body: redactCredentials(response.body.toString("utf8"), sourceCredentials),
       detail:
         "could not read the key source. Retry, or copy the clientId from the page source of " +
         "https://web.arbeitsagentur.de/entgeltatlas/ by hand",
@@ -239,24 +252,24 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const values = findClientIds(text).filter((value) => !isPlaceholder(value));
   if (values.length > 1) {
     throw new EntgeltatlasError(
-      `The key source ${url} states conflicting keys (${values.length} different clientId values). ` +
+      `The key source ${redactUrl(url)} states conflicting keys (${values.length} different clientId values). ` +
         `Check it by hand before relying on this command.`,
     );
   }
   const key = values[0];
   if (key === undefined) {
     throw new EntgeltatlasError(
-      `No X-API-Key found at ${sourceUrl}: the page states no clientId. The web app may have ` +
+      `No X-API-Key found at ${redactUrl(sourceUrl)}: the page states no clientId. The web app may have ` +
         `changed format or stopped publishing the key — check it by hand before relying on this command.`,
     );
   }
   if (!KEY_FORMAT.test(key)) {
     throw new EntgeltatlasError(
-      `The key source ${url} states a clientId that is not shaped like a key (3–64 lower-case ` +
+      `The key source ${redactUrl(url)} states a clientId that is not shaped like a key (3–64 lower-case ` +
         `letters, digits and hyphens), so it is not used. Check the page by hand.`,
     );
   }
-  return { key, sourceUrl: url };
+  return { key, sourceUrl: redactUrl(url) };
 }
 
 /** Resolve a Location header against the request URL; undefined if missing or malformed. */

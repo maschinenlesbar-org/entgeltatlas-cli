@@ -117,6 +117,19 @@ escaped and JSON-escaped forms. `test/conformance-p1-cli-redaction.test.ts` is t
 shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
 by environment and typed without its flag).
 
+### Secrets in the library's objects and errors
+
+The engine keeps the base URL and the default headers (with the API key) in real
+`#private` fields, and the client its engine, so `console.log(client)`,
+`util.inspect` and `JSON.stringify` never show them. The base URL's userinfo (raw
+and percent-decoded, `userinfoForms`) and the key are scrubbed from error bodies and
+details, from transport error text and from the `cause` chain (`scrub` /
+`scrubCause`). `redactUrl` cuts the userinfo out of a URL that doesn't parse too, so a
+validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`) and the
+built-in transport's `Invalid URL: …` never repeat a password. `obtainKey` names a
+source URL without its userinfo, in its errors and in `ObtainedKey.sourceUrl`.
+`test/conformance-p2-library-redaction.test.ts` is the shared check.
+
 ### Input validation (library)
 
 [`validate.ts`](src/client/validate.ts): the library owns every rule about what a

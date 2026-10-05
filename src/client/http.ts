@@ -84,7 +84,7 @@ export const nodeHttpTransport: Transport = (request) =>
     try {
       url = new URL(request.url);
     } catch {
-      reject(new EntgeltatlasNetworkError(`Invalid URL: ${request.url}`));
+      reject(new EntgeltatlasNetworkError(`Invalid URL: ${redactUrl(request.url)}`));
       return;
     }
 
