@@ -45,7 +45,9 @@ import {
   DEFAULT_TIMEOUT_MS,
   DEFAULT_USER_AGENT,
   MAX_RETRIES,
+  MAX_RETRY_AFTER_MS,
   assertHeaderValue,
+  retryAfterTooLong,
   callWithDeadline,
   checkResponse,
   followedElsewhere,
@@ -133,10 +135,10 @@ export interface ObtainKeyOptions {
    * Retries for a transient 429/503 from the key source, 0 to `MAX_RETRIES`
    * (default `DEFAULT_MAX_RETRIES`, 2), with the API client's policy: each waits
    * the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
-   * retried), or else `retryDelayMs × attempt`.
+   * retried), and never less than `retryDelayMs × attempt`.
    */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (default 200); used without a Retry-After. */
+  /** Base backoff between retries in milliseconds (default 200, at most `MAX_RETRY_AFTER_MS`). */
   retryDelayMs?: number;
   /** Injectable sleep, primarily for deterministic tests. */
   sleep?: (ms: number) => Promise<void>;
@@ -183,7 +185,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const retry = {
     maxRetries: intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES,
     retryDelayMs:
-      intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? DEFAULT_RETRY_DELAY_MS,
+      intOption("retryDelayMs", options.retryDelayMs, 0, MAX_RETRY_AFTER_MS) ?? DEFAULT_RETRY_DELAY_MS,
   };
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
@@ -251,6 +253,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       url,
       method: "GET",
       body: redactCredentials(response.body.toString("utf8"), sourceCredentials),
+      ...(retryAfterTooLong(response) !== undefined ? { retryAfterMs: retryAfterTooLong(response) as number } : {}),
       detail:
         "could not read the key source. Retry, or copy the clientId from the page source of " +
         "https://web.arbeitsagentur.de/entgeltatlas/ by hand",

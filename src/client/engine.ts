@@ -80,7 +80,10 @@ export interface EngineOptions {
    * `MAX_RETRY_AFTER_MS`; a longer one is not retried), or else `retryDelayMs * attempt`.
    */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (grows linearly); used without a Retry-After. */
+  /**
+   * Base backoff between retries in milliseconds (grows linearly; default 200, 0 to
+   * `MAX_RETRY_AFTER_MS`). A Retry-After can lengthen a wait, never shorten it.
+   */
   retryDelayMs?: number;
   /**
    * Number of HTTP redirects (301/302/303/307/308) to follow, 0 to `MAX_REDIRECTS`.
@@ -187,9 +190,11 @@ export function parseRetryAfter(
  * The retry policy for one response, shared by the engine and obtainKey(): how
  * long to wait before the next try, or `undefined` when the response is not
  * retried. Only a transient 429/503 is retried, and only while `attempt` (retries
- * done so far) is below `maxRetries`. The wait is the response's `Retry-After`
- * when usable and at most `MAX_RETRY_AFTER_MS` — a longer one is not retried at
- * all, so the error surfaces at once — or else `retryDelayMs × (attempt + 1)`.
+ * done so far) is below `maxRetries`. The normal backoff, `retryDelayMs ×
+ * (attempt + 1)`, is the floor: a `Retry-After` can lengthen a wait, never shorten it
+ * (`Retry-After: 0` or a date in the past would turn the retries into a zero-delay
+ * burst against a server that has just asked for less load). A `Retry-After` above
+ * `MAX_RETRY_AFTER_MS` is not retried at all (see `retryAfterTooLong`).
  */
 export function transientRetryDelay(
   response: { status: number; headers: object },
@@ -198,8 +203,21 @@ export function transientRetryDelay(
 ): number | undefined {
   if ((response.status !== 429 && response.status !== 503) || attempt >= policy.maxRetries) return undefined;
   const retryAfter = parseRetryAfter(plainHeaders(response.headers)["retry-after"]);
-  if (retryAfter === undefined) return policy.retryDelayMs * (attempt + 1);
-  return retryAfter <= MAX_RETRY_AFTER_MS ? retryAfter : undefined;
+  const backoff = policy.retryDelayMs * (attempt + 1);
+  if (retryAfter === undefined) return backoff;
+  return retryAfter <= MAX_RETRY_AFTER_MS ? Math.max(retryAfter, backoff) : undefined;
+}
+
+/**
+ * The `Retry-After` of a 429/503 that asks for longer than `MAX_RETRY_AFTER_MS`, in
+ * milliseconds, or `undefined`. Such a response is not retried (retrying sooner would
+ * only land inside the window the server asked to be left alone); the error then names
+ * the requested wait, so a script or an agent knows to try again later, not at once.
+ */
+export function retryAfterTooLong(response: { status: number; headers: object }): number | undefined {
+  if (response.status !== 429 && response.status !== 503) return undefined;
+  const retryAfter = parseRetryAfter(plainHeaders(response.headers)["retry-after"]);
+  return retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_MS ? retryAfter : undefined;
 }
 
 /**
@@ -587,8 +605,9 @@ export class RequestEngine {
       .map(([, value]) => value.replace(/^\S+\s+/, "").trim());
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES;
+    // A base delay above MAX_RETRY_AFTER_MS would outlast any wait the server may ask for.
     this.retryDelayMs =
-      intOption("retryDelayMs", options.retryDelayMs, 0, Number.MAX_SAFE_INTEGER) ?? DEFAULT_RETRY_DELAY_MS;
+      intOption("retryDelayMs", options.retryDelayMs, 0, MAX_RETRY_AFTER_MS) ?? DEFAULT_RETRY_DELAY_MS;
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, 0, MAX_REDIRECTS) ?? 5;
     this.maxResponseBytes =
       intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
@@ -725,7 +744,7 @@ export class RequestEngine {
 
       const contentType = sanitizeServerText(String(headerValue(response.headers["content-type"]) ?? ""));
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, location, undefined, dropped);
+        throw this.toApiError(method, url, status, response.body, location, undefined, dropped, retryAfterTooLong(response));
       }
 
       return {
@@ -805,6 +824,7 @@ export class RequestEngine {
     locationHeader?: string,
     redirectsFollowed?: number,
     credentialsDropped?: CredentialsDropped,
+    retryAfterMs?: number,
   ): EntgeltatlasApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
@@ -831,6 +851,7 @@ export class RequestEngine {
       ...(location !== undefined ? { location } : {}),
       ...(redirectsFollowed !== undefined ? { redirectsFollowed } : {}),
       ...(credentialsDropped !== undefined ? { credentialsDropped } : {}),
+      ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
     });
   }
 }

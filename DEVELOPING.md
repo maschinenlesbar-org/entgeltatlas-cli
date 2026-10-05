@@ -251,9 +251,13 @@ the flag in the message.
 - Zero runtime HTTP dependencies (only `commander`); strict TS + ESM.
 - Exit codes (`run.ts`): 0 ok; 2 usage; 3 auth/WAF; 4 not-found; 6 network; 1 other.
 - Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
-  waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
-  value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
-  without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.
+  waits `retryDelayMs × attempt` (the floor; `retryDelayMs` 0..`MAX_RETRY_AFTER_MS`), or the
+  response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`) when that is
+  longer — `Retry-After: 0` or a past date never makes a zero-delay burst. A value above
+  `MAX_RETRY_AFTER_MS` (30 s) is not retried at all: the error surfaces at once and names the
+  requested wait (`retryAfterTooLong`, "the server asked to wait 120 s (Retry-After) … try
+  again later"). `obtainKey()` shares the policy (`transientRetryDelay`).
+  `test/conformance-p6-retry-policy.test.ts` is the shared check. Rate limits are undocumented.
 - `--base-url` (and the library's `baseUrl`) accepts only `http:`/`https:`; redirects (301/302/303/307/308 with a
   usable http(s) Location, up to `maxRedirects` = 5) are followed by the engine, never
   by the transport (`HttpRequest.redirect` is `"manual"`; a response whose `url` shows
