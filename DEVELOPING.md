@@ -250,6 +250,11 @@ the flag in the message.
 
 - Zero runtime HTTP dependencies (only `commander`); strict TS + ESM.
 - Exit codes (`run.ts`): 0 ok; 2 usage; 3 auth/WAF; 4 not-found; 6 network; 1 other.
+- Closed pipes (`handleOutputErrors` in `io.ts`, installed by the bin shim before
+  `run()`): an EPIPE on stdout (`| head`, a `jq` that exits early) exits 0 quietly; an
+  EPIPE on stderr is ignored, so a failed run keeps its own exit code (`2>&1 | true` no
+  longer turns a usage error into 0). `test/conformance-p7-pipes-exit-codes.test.ts`
+  spawns the built bin to check both.
 - Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
   waits `retryDelayMs × attempt` (the floor; `retryDelayMs` 0..`MAX_RETRY_AFTER_MS`), or the
   response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`) when that is

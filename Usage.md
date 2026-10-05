@@ -87,6 +87,9 @@ to look up the numbers for the `entgelte` flags.
 | `4` | 404 — not found |
 | `6` | network/transport failure (timeout, size cap) |
 
+A reader that stops early (`| head`, `| jq` exiting on the first match) ends the run
+quietly with `0`. If stderr's reader goes away, a failed run still exits with its own code.
+
 `obtain-key` talks only to the key source (the BA's Entgeltatlas web app,
 `https://web.arbeitsagentur.de/entgeltatlas/`), never to the API:
 it exits `4` when the source answers 404, `6` on a network failure, and `1` for any
