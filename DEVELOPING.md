@@ -35,6 +35,23 @@ Two seams keep everything testable in-process: **`Transport`** (the only HTTP
 seam; tests inject a mock) and **`CliDeps`** (client factory + I/O + `env`).
 `run.ts` returns an exit code rather than calling `process.exit`.
 
+**The transport contract is enforced by the engine (P5)**, so the documented limits
+hold for any transport a library user writes (fetch, a node:http wrapper, a test
+double), not only the built-in one. `callWithDeadline` races the transport against
+`timeoutMs` and passes an `AbortSignal` (`HttpRequest.signal`, honoured by the built-in
+transport) that fires at the deadline; `checkResponse` requires an integer status
+100–599 (a `NaN` status is never read as success), an object of headers (a `Headers`
+object, a `Map` or any name case is normalised by `plainHeaders`, so `Retry-After` and
+`Location` are always seen) and a byte body (any `ArrayBuffer` view, an `ArrayBuffer`
+or a string, from any realm), and applies `maxResponseBytes` to the body it got back
+(`sizeLimitMessage` names the option and `--max-response-bytes`). Whatever a transport
+throws becomes an `EntgeltatlasNetworkError` with the original as `cause`
+(`transportError`), and a reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's
+`UND_ERR_SOCKET`, anywhere in the `cause` chain) of a GET is retried like a 503. A
+redirect to a non-http(s) target (`file:`, `data:`, `javascript:`) is never handed to
+the transport. `obtainKey()` uses the same helpers.
+`test/conformance-p5-transport-contract.test.ts` is the shared check.
+
 ```bash
 npm install
 npm run build       # tsc -> dist/
@@ -220,7 +237,7 @@ the flag in the message.
 
 - Zero runtime HTTP dependencies (only `commander`); strict TS + ESM.
 - Exit codes (`run.ts`): 0 ok; 2 usage; 3 auth/WAF; 4 not-found; 6 network; 1 other.
-- Transient `429`/`503` retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
+- Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
   waits the response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`); a
   value above `MAX_RETRY_AFTER_MS` (30 s) is not retried at all, the error surfaces at once;
   without a usable header the backoff is `retryDelayMs × attempt`. Rate limits are undocumented.

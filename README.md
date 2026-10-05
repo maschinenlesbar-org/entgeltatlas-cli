@@ -110,7 +110,11 @@ const rows = await ea.entgelte("84304", { l: 4, r: 1 });
 ```
 
 Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
-`EntgeltatlasValidationError`, `EntgeltatlasParseError`).
+`EntgeltatlasValidationError`, `EntgeltatlasParseError`). A custom `transport` (e.g. one
+built on `fetch`) gets the same guarantees as the built-in one: the engine enforces
+`timeoutMs` (passing an `AbortSignal` in `request.signal`) and `maxResponseBytes`, reads
+`Headers` objects and any header case, accepts any byte-array body, and turns whatever
+the transport throws or returns malformed into an `EntgeltatlasNetworkError`.
 
 ## Read the numbers correctly
 

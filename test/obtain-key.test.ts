@@ -257,3 +257,29 @@ test("obtain-key exits 4 for a vanished key source and 1 (no API-key hint) for a
   assert.doesNotMatch(refused.err.join("\n"), /Hint:/);
   assert.deepEqual(refused.out, []);
 });
+
+test("P5: obtainKey holds its limits and reads headers for any transport", async () => {
+  // A transport that never answers is cut off at timeoutMs.
+  await assert.rejects(
+    () => obtainKey({ transport: () => new Promise<HttpResponse>(() => {}), timeoutMs: 100, maxRetries: 0 }),
+    EntgeltatlasNetworkError,
+  );
+  // A transport that read a body over the cap is refused, naming the flag.
+  await assert.rejects(
+    () => obtainKey({ transport: async () => rawResponse(SOURCE_DOC, "text/html"), maxResponseBytes: 10 }),
+    (err) => err instanceof EntgeltatlasNetworkError && /--max-response-bytes/.test(err.message),
+  );
+  // A capitalised Location (or a Headers object) is followed like a lower-case one.
+  for (const headers of [{ Location: "/entgeltatlas/start" }, new Headers({ Location: "/entgeltatlas/start" })]) {
+    const mt = makeMockTransport((req) =>
+      req.url === KEY_SOURCE_URL
+        ? ({ status: 301, headers, body: Buffer.alloc(0) } as unknown as HttpResponse)
+        : rawResponse(SOURCE_DOC, "text/html"),
+    );
+    assert.equal((await obtainKey({ transport: mt.transport })).key, EXPECTED_KEY);
+  }
+  // Whatever a transport throws or returns is a typed error.
+  for (const transport of [async () => { throw "nope"; }, async () => ({ status: Number.NaN, headers: {}, body: Buffer.alloc(0) })]) {
+    await assert.rejects(() => obtainKey({ transport: transport as never, maxRetries: 0 }), EntgeltatlasNetworkError);
+  }
+});

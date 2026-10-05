@@ -300,3 +300,16 @@ test("a 3xx without a usable Location, or a non-followed 3xx, names why it stopp
       err.message === "HTTP 302 for GET https://rest.test/x: redirect to http://[bad not followed",
   );
 });
+
+test("P5: a redirect to a non-http(s) target is not followed: the transport never sees it", async () => {
+  for (const location of ["file:///etc/passwd", "data:text/plain,x", "javascript:alert(1)"]) {
+    const mt = makeMockTransport(() => ({ status: 302, headers: { location }, body: Buffer.alloc(0) }));
+    const engine = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+    await assert.rejects(
+      () => engine.getJson("/x"),
+      (err) => err instanceof EntgeltatlasApiError && err.status === 302,
+      location,
+    );
+    assert.equal(mt.calls.length, 1, location);
+  }
+});

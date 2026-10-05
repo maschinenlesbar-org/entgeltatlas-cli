@@ -29,7 +29,7 @@
 // answers a wrong key and a refused network (WAF) with the same empty 403. The key
 // is not checked here, and the CLI's note says it was not checked.
 
-import type { HttpResponse, Transport } from "./http.js";
+import type { Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
 import { EntgeltatlasError, EntgeltatlasKeySourceError } from "./errors.js";
 import {
@@ -40,8 +40,12 @@ import {
   DEFAULT_USER_AGENT,
   MAX_RETRIES,
   assertHeaderValue,
+  callWithDeadline,
+  checkResponse,
   intOption,
   transientRetryDelay,
+  transportError,
+  type CheckedResponse,
 } from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
 import { assertValid, httpUrlProblem } from "./validate.js";
@@ -175,20 +179,32 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   let url = sourceUrl;
-  let response: HttpResponse;
+  let response: CheckedResponse;
   let redirects = 0;
   let attempt = 0;
   for (;;) {
-    response = await transport({
-      method: "GET",
-      url,
-      headers: {
-        Accept: "text/html, */*;q=0.8",
-        "User-Agent": userAgent,
-      },
-      ...(timeoutMs > 0 ? { timeoutMs } : {}),
-      ...(maxResponseBytes > 0 ? { maxResponseBytes } : {}),
-    });
+    // The engine's transport contract (P5): the time limit and the size cap hold for
+    // any transport, a malformed answer or a thrown value is a typed error, and the
+    // headers are read whatever their case or container.
+    try {
+      const raw = await callWithDeadline(
+        transport,
+        {
+          method: "GET",
+          url,
+          headers: {
+            Accept: "text/html, */*;q=0.8",
+            "User-Agent": userAgent,
+          },
+          ...(timeoutMs > 0 ? { timeoutMs } : {}),
+          ...(maxResponseBytes > 0 ? { maxResponseBytes } : {}),
+        },
+        timeoutMs,
+      );
+      response = checkResponse(raw, "GET", url, maxResponseBytes);
+    } catch (cause) {
+      throw transportError("GET", url, cause);
+    }
     const wait = transientRetryDelay(response, attempt, retry);
     if (wait !== undefined) {
       attempt += 1;

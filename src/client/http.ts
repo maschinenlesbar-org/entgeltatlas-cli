@@ -21,8 +21,22 @@ export interface HttpRequest {
   timeoutMs?: number;
   /** Hard cap on the response body size in bytes; the request aborts if exceeded. */
   maxResponseBytes?: number;
+  /**
+   * Aborted when the engine's time limit (`timeoutMs`) passes. A transport should stop
+   * the request then (`fetch(url, { signal })`); the engine rejects at the deadline
+   * either way, and enforces `maxResponseBytes` on the body it gets back, so neither
+   * limit depends on it.
+   */
+  signal?: AbortSignal;
 }
 
+/**
+ * What a transport resolves with. The engine checks it (an integer status 100–599, an
+ * object of headers, a byte body) and turns anything else into an
+ * EntgeltatlasNetworkError. `headers` may also be a `Headers` object or a `Map`, with
+ * names in any case; `body` may be any ArrayBuffer view (a Uint8Array from fetch), an
+ * ArrayBuffer, or a string (read as UTF-8).
+ */
 export interface HttpResponse {
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -30,6 +44,28 @@ export interface HttpResponse {
 }
 
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
+
+/** The message for a body over the size cap, naming the option on both sides. */
+export function sizeLimitMessage(maxBytes: number): string {
+  return `Response exceeded maxResponseBytes (${maxBytes} bytes; --max-response-bytes on the CLI)`;
+}
+
+/**
+ * The message for a connection-level error, never empty. With a host name that
+ * resolves to several addresses (`localhost` → ::1 and 127.0.0.1), Node >= 20 tries
+ * each and reports the failure as an AggregateError whose own message is empty; the
+ * reasons are in its `errors`. Falls back to the error code.
+ */
+export function describeNetworkError(err: Error): string {
+  if (err.message.trim() !== "") return err.message;
+  if (err instanceof AggregateError) {
+    const inner = err.errors.map((e: unknown) => (e instanceof Error ? e.message : String(e)));
+    const messages = [...new Set(inner.filter((m) => m.trim() !== ""))];
+    if (messages.length > 0) return messages.join("; ");
+  }
+  const code = (err as NodeJS.ErrnoException).code;
+  return typeof code === "string" && code !== "" ? code : "network error";
+}
 
 /**
  * The longest delay Node's timers support (2^31 - 1 ms, about 24.8 days). A longer one
@@ -95,7 +131,7 @@ export const nodeHttpTransport: Transport = (request) =>
             if (maxBytes !== undefined && received > maxBytes) {
               aborted = true;
               res.destroy();
-              fail(new EntgeltatlasNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+              fail(new EntgeltatlasNetworkError(sizeLimitMessage(maxBytes)));
               return;
             }
             chunks.push(chunk);
@@ -129,9 +165,22 @@ export const nodeHttpTransport: Transport = (request) =>
       }, Math.min(timeoutMs, MAX_TIMEOUT_MS));
     }
 
+    if (request.signal !== undefined) {
+      const abort = (): void => {
+        const reason = request.signal?.reason;
+        const err = reason instanceof EntgeltatlasNetworkError ? reason : new EntgeltatlasNetworkError("Request aborted");
+        fail(err);
+        req.destroy(err);
+      };
+      if (request.signal.aborted) abort();
+      else request.signal.addEventListener("abort", abort, { once: true });
+    }
+
     req.on("error", (err) => {
       fail(
-        err instanceof EntgeltatlasNetworkError ? err : new EntgeltatlasNetworkError(err.message, { cause: err }),
+        err instanceof EntgeltatlasNetworkError
+          ? err
+          : new EntgeltatlasNetworkError(describeNetworkError(err), { cause: err }),
       );
     });
 

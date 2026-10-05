@@ -2,10 +2,19 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
-import { MAX_TIMEOUT_MS, nodeHttpTransport, type HttpResponse, type Transport } from "./http.js";
+import {
+  MAX_TIMEOUT_MS,
+  nodeHttpTransport,
+  sizeLimitMessage,
+  type HttpRequest,
+  type HttpResponse,
+  type Transport,
+} from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   EntgeltatlasApiError,
+  EntgeltatlasError,
+  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
   redactUrl,
 } from "./errors.js";
@@ -40,12 +49,15 @@ export interface EngineOptions {
   defaultHeaders?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
-   * only idle gaps: 0 to `MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables it.
+   * only idle gaps: 0 to `MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables it. Enforced by
+   * the engine for every transport: the transport gets an AbortSignal that fires at
+   * the deadline, and the call rejects then whether the transport stops or not.
    */
   timeoutMs?: number;
   /**
-   * Number of automatic retries for transient (429/503) responses, 0 to
-   * `MAX_RETRIES` (default 2). Each waits the response's `Retry-After` (up to
+   * Number of automatic retries for transient (429/503) responses and reset
+   * connections (`isTransientNetworkError`; GET/HEAD only), 0 to `MAX_RETRIES`
+   * (default 2). Each waits the response's `Retry-After` (up to
    * `MAX_RETRY_AFTER_MS`; a longer one is not retried), or else `retryDelayMs * attempt`.
    */
   maxRetries?: number;
@@ -60,6 +72,7 @@ export interface EngineOptions {
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
+   * Checked on the body of every transport (the default one also aborts early).
    *
    * Every numeric option must be a safe integer within its range; the constructor
    * throws an EntgeltatlasValidationError otherwise (a negative or NaN timeout or
@@ -160,12 +173,12 @@ export function parseRetryAfter(
  * all, so the error surfaces at once — or else `retryDelayMs × (attempt + 1)`.
  */
 export function transientRetryDelay(
-  response: Pick<HttpResponse, "status" | "headers">,
+  response: { status: number; headers: object },
   attempt: number,
   policy: { maxRetries: number; retryDelayMs: number },
 ): number | undefined {
   if ((response.status !== 429 && response.status !== 503) || attempt >= policy.maxRetries) return undefined;
-  const retryAfter = parseRetryAfter(response.headers["retry-after"]);
+  const retryAfter = parseRetryAfter(plainHeaders(response.headers)["retry-after"]);
   if (retryAfter === undefined) return policy.retryDelayMs * (attempt + 1);
   return retryAfter <= MAX_RETRY_AFTER_MS ? retryAfter : undefined;
 }
@@ -244,6 +257,172 @@ function redirectTarget(requestUrl: string, location: string): string | undefine
   return clean === "" ? undefined : clean;
 }
 
+/** Response headers as the engine reads them: a plain record with lower-case names. */
+export type PlainHeaders = Record<string, string | string[] | undefined>;
+
+/** A transport's answer after the engine's checks: a status, plain headers and bytes. */
+export interface CheckedResponse {
+  status: number;
+  headers: PlainHeaders;
+  body: Buffer;
+}
+
+/**
+ * The response headers as a plain record with lower-case names, as the engine reads
+ * them. A transport built on `fetch` naturally returns its `Headers` object, which
+ * passes as an object but has no plain properties: the engine then saw no
+ * Retry-After and no Location at all. Such an object (anything with `get` and
+ * `forEach`, a `Map` included) is copied into a record; a plain record gets its names
+ * lower-cased (Node's transport does that already, a custom one may not).
+ */
+export function plainHeaders(headers: object): PlainHeaders {
+  const h = headers as { get?: unknown; forEach?: unknown };
+  const record: PlainHeaders = {};
+  if (typeof h.get === "function" && typeof h.forEach === "function") {
+    (h.forEach as (cb: (value: string, name: string) => void) => void).call(headers, (value, name) => {
+      record[String(name).toLowerCase()] = String(value);
+    });
+    return record;
+  }
+  for (const [name, value] of Object.entries(headers as PlainHeaders)) {
+    record[name.toLowerCase()] = value;
+  }
+  return record;
+}
+
+/** A single header value (the first of a repeated one), or undefined. */
+export function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * The response body as a Buffer (a view, no copy): a Buffer, any ArrayBuffer view (a
+ * Uint8Array from fetch, a DataView) or an ArrayBuffer/SharedArrayBuffer — checked by
+ * internal slot, not `instanceof`, so a value from another realm (a vm context, a Jest
+ * test) counts. A string is read as UTF-8. Undefined for anything else.
+ */
+function bodyBytes(value: unknown): Buffer | undefined {
+  if (Buffer.isBuffer(value)) return value;
+  if (typeof value === "string") return Buffer.from(value, "utf8");
+  if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  const tag = Object.prototype.toString.call(value);
+  if (tag === "[object ArrayBuffer]" || tag === "[object SharedArrayBuffer]") {
+    return Buffer.from(value as ArrayBuffer);
+  }
+  return undefined;
+}
+
+/** Why `value` is not a usable HttpResponse, or undefined when it is. */
+function responseProblem(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return "not an object";
+  const r = value as Partial<Record<"status" | "headers" | "body", unknown>>;
+  if (typeof r.status !== "number" || !Number.isInteger(r.status) || r.status < 100 || r.status > 599) {
+    return "status is not an HTTP status code";
+  }
+  if (typeof r.headers !== "object" || r.headers === null || Array.isArray(r.headers)) return "headers is not an object";
+  if (bodyBytes(r.body) === undefined) {
+    return "body is not a Buffer, Uint8Array, other ArrayBuffer view, ArrayBuffer or string";
+  }
+  return undefined;
+}
+
+/**
+ * Error codes of a connection that broke off mid-request: Node's (`socket hang up` is
+ * ECONNRESET) and undici's (`fetch failed` with cause UND_ERR_SOCKET, "other side closed").
+ */
+const TRANSIENT_NETWORK_CODES = new Set(["ECONNRESET", "EPIPE", "ECONNABORTED", "UND_ERR_SOCKET"]);
+
+/** True when `err` or an error in its `cause` chain has a transient connection code. */
+function hasTransientCode(err: unknown, depth = 0): boolean {
+  if (typeof err !== "object" || err === null || depth > 4) return false;
+  const code = (err as { code?: unknown }).code;
+  if (typeof code === "string" && TRANSIENT_NETWORK_CODES.has(code)) return true;
+  return hasTransientCode((err as { cause?: unknown }).cause, depth + 1);
+}
+
+/**
+ * True for a failure caused by a reset or aborted connection (`ECONNRESET`, `EPIPE`,
+ * `ECONNABORTED`, undici's `UND_ERR_SOCKET`, anywhere in the `cause` chain), which the
+ * engine retries like a 503 — whichever transport raised it. A refused connection, a
+ * DNS failure or a timeout is not transient in that sense and is not retried.
+ */
+export function isTransientNetworkError(err: unknown): boolean {
+  return hasTransientCode(err);
+}
+
+/**
+ * Call `transport` under the time limit `timeoutMs` (0 = none): the request gets an
+ * AbortSignal that fires at the deadline, and the call rejects then (an
+ * EntgeltatlasNetworkError) whether the transport stops or not — a custom transport
+ * (fetch, a node:http wrapper) that ignores `timeoutMs` can't hang the caller. A
+ * synchronous throw becomes a rejection. Shared with obtainKey().
+ */
+export async function callWithDeadline(
+  transport: Transport,
+  request: HttpRequest,
+  timeoutMs: number,
+): Promise<HttpResponse> {
+  const call = (signal?: AbortSignal): Promise<HttpResponse> =>
+    Promise.resolve().then(() => transport(signal === undefined ? request : { ...request, signal }));
+  if (timeoutMs === 0) return call();
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new EntgeltatlasNetworkError(`Request timed out after ${timeoutMs}ms`);
+      controller.abort(err);
+      reject(err);
+    }, Math.min(timeoutMs, MAX_TIMEOUT_MS));
+  });
+  try {
+    return await Promise.race([call(controller.signal), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * A transport's answer, checked: an integer status 100–599, an object of headers
+ * (normalised by plainHeaders) and a byte body (bodyBytes) within `maxResponseBytes`
+ * (0 = no cap). Anything else is an EntgeltatlasNetworkError naming the request, never
+ * a raw TypeError, and a status of NaN is never read as success. Shared with obtainKey().
+ */
+export function checkResponse(raw: unknown, method: string, url: string, maxResponseBytes: number): CheckedResponse {
+  const invalid = responseProblem(raw);
+  if (invalid !== undefined) {
+    throw new EntgeltatlasNetworkError(
+      `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+    );
+  }
+  const r = raw as HttpResponse;
+  const body = bodyBytes(r.body) as Buffer;
+  // The size cap holds whatever the transport did: the default one aborts early, a
+  // custom one may have read everything.
+  if (maxResponseBytes > 0 && body.byteLength > maxResponseBytes) {
+    throw new EntgeltatlasNetworkError(sizeLimitMessage(maxResponseBytes));
+  }
+  return { status: r.status, headers: plainHeaders(r.headers), body };
+}
+
+/**
+ * A transport failure as an EntgeltatlasError. The default transport rejects with an
+ * EntgeltatlasNetworkError already (passed through); an injected one may throw
+ * anything (a TypeError from fetch, a string, null), which is wrapped naming the
+ * request, with the original as `cause`. Shared with obtainKey().
+ */
+export function transportError(method: string, url: string, cause: unknown): EntgeltatlasError {
+  if (cause instanceof EntgeltatlasError) return cause;
+  const reason =
+    cause instanceof Error && cause.message.trim() !== ""
+      ? cause.message
+      : typeof cause === "string" && cause.trim() !== ""
+        ? cause
+        : "the transport failed without a message";
+  return new EntgeltatlasNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}`, {
+    cause,
+  });
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -311,34 +490,61 @@ export class RequestEngine {
       "User-Agent": this.userAgent,
     };
 
+    // Only an idempotent request is sent again: request() is public, and a POST re-sent
+    // after a reset may be applied twice. The client itself sends GETs only.
+    const idempotent = /^(GET|HEAD)$/i.test(method);
     let attempt = 0;
     let redirects = 0;
     // attempts = initial try + maxRetries (redirects are counted separately)
     for (;;) {
-      const response = await this.transport({
-        method,
-        url,
-        headers,
-        timeoutMs: this.timeoutMs,
-        ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
-      });
+      let raw: HttpResponse;
+      try {
+        raw = await callWithDeadline(
+          this.transport,
+          {
+            method,
+            url,
+            headers,
+            timeoutMs: this.timeoutMs,
+            ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
+          },
+          this.timeoutMs,
+        );
+      } catch (cause) {
+        // A connection the server (or a gateway) reset is the network-level twin of a
+        // 503: retry the GET like one, whichever transport reported it. Timeouts are
+        // not retried — a slow upstream should not be asked again at once.
+        if (idempotent && hasTransientCode(cause) && attempt < this.maxRetries) {
+          attempt += 1;
+          await this.sleep(this.retryDelayMs * attempt);
+          continue;
+        }
+        throw transportError(method, url, cause);
+      }
+      // An injected transport may resolve with anything; check it before reading it.
+      const response = checkResponse(raw, method, url, this.maxResponseBytes);
 
       const status = response.status;
       // Honour Retry-After; without a usable one, back off linearly. A Retry-After
       // beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at once.
-      const wait = transientRetryDelay(response, attempt, {
-        maxRetries: this.maxRetries,
-        retryDelayMs: this.retryDelayMs,
-      });
+      const wait = idempotent
+        ? transientRetryDelay(response, attempt, {
+            maxRetries: this.maxRetries,
+            retryDelayMs: this.retryDelayMs,
+          })
+        : undefined;
       if (wait !== undefined) {
         attempt += 1;
         await this.sleep(wait);
         continue;
       }
 
-      // Follow redirects, resolving the Location relative to the current URL.
-      const location = response.headers["location"];
-      const next = FOLLOWED_REDIRECTS.has(status) ? resolveLocation(location, url) : undefined;
+      // Follow redirects, resolving the Location relative to the current URL. Only an
+      // http(s) target is followed: a file:, data: or javascript: one never reaches the
+      // transport, and surfaces below as an EntgeltatlasApiError naming it.
+      const location = headerValue(response.headers["location"]);
+      const target = FOLLOWED_REDIRECTS.has(status) ? resolveLocation(location, url) : undefined;
+      const next = target !== undefined && /^https?:$/.test(target.protocol) ? target : undefined;
       if (next !== undefined && redirects >= this.maxRedirects) {
         // A loop (or a long chain): say how far it got rather than a bare 3xx.
         // (With maxRedirects 0 nothing was followed; the plain text says enough.)
@@ -358,7 +564,7 @@ export class RequestEngine {
       // Any other 3xx — not a followed status, or no usable Location — falls
       // through and surfaces as an EntgeltatlasApiError naming the target.
 
-      const contentType = String(response.headers["content-type"] ?? "");
+      const contentType = sanitizeServerText(String(headerValue(response.headers["content-type"]) ?? ""));
       if (status < 200 || status >= 300) {
         throw this.toApiError(method, url, status, response.body, location);
       }
