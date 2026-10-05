@@ -186,7 +186,7 @@ test("a wrong-shaped 2xx body exits 1 with a shape error, not exit 0", async () 
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);
   assert.equal(code, 1);
   assert.deepEqual(cli.out, []);
-  assert.match(cli.err.join("\n"), /Unexpected response shape from .*expected a JSON array of objects/);
+  assert.match(cli.err.join("\n"), /Unexpected response shape from .*expected a JSON array of salary rows/);
 });
 
 test("--max-retries is bounded to 0..10 (usage error, no request)", async () => {
@@ -241,10 +241,11 @@ test("a header-invalid ENTGELTATLAS_API_KEY is a usage error, not 'Unexpected er
 });
 
 test("a deeply nested response fails pretty-printing cleanly and still prints with --compact", async () => {
-  // Deep nesting inside an observation object (a bare nested array is already a
-  // shape error): [{"x":[[[...]]]}]
+  // Deep nesting inside an extra field of a valid observation (a bare nested array is
+  // already a shape error): [{...row, "x":[[[...]]]}]
   const depth = 200_000;
-  const body = '[{"x":' + "[".repeat(depth) + "]".repeat(depth) + "}]";
+  const row = JSON.stringify(fx.entgelteResult[0]);
+  const body = "[" + row.slice(0, -1) + ',"x":' + "[".repeat(depth) + "]".repeat(depth) + "}]";
   const deep = () => rawResponse(body, "application/json");
   const pretty = makeCli(deep);
   assert.equal(await run([...KEY, "entgelte", "84304"], pretty.deps), 1);

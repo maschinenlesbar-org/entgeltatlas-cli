@@ -184,10 +184,14 @@ request, or both send the identical request.
 `GET /infosysbub/entgeltatlas/pc/v1/entgelte/{kldb}` with optional integer query
 dims `l,r,g,a,b`. It returns a **bare JSON array** (no envelope) of
 `EntgeltEntry`. `client.entgelte()` validates the KldB (3–5 digits) and checks the
-top-level shape: every endpoint (data and reference) must answer a JSON **array of
-objects**. Anything else — a single object, an error object sent with a 200, a string,
-a HAL `_embedded` envelope — is an `EntgeltatlasParseError` (`Unexpected response shape
-from <path>: expected a JSON array of objects.`), and an empty or 204 body is one too
+documented shape (P9): `entgelte` must answer a JSON array of **salary rows** (each
+with a `kldb` string and the five dimension objects `region`, `gender`, `ageCategory`,
+`performanceLevel`, `branche`, each `{ id: <integer>, bezeichnung: <string> }`), and a
+reference endpoint a **non-empty** array of such codes. Anything else — a single
+object, an error object sent with a 200, a string, a HAL `_embedded` envelope, a salary
+row where a code was expected, an empty reference list — is an `EntgeltatlasParseError`
+(`Unexpected response shape from <path>: expected a JSON array of salary rows; element 0
+has no kldb text.`), and an empty or 204 body is one too
 (`Empty response body from <path>`), never `[]`: an empty array is the documented
 "suppressed" answer, so the client must not produce one by coercion. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.

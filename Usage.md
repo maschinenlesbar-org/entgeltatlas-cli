@@ -81,7 +81,7 @@ to look up the numbers for the `entgelte` flags.
 | Code | Meaning |
 |---|---|
 | `0` | success (help/version/bare invocation included) |
-| `1` | other API or parse error (incl. a response that is not a JSON array of objects, or an empty body) |
+| `1` | other API or parse error (incl. a 2xx answer without the documented shape — not an array of salary rows or of `{id, bezeichnung}` codes, an empty reference list — or an empty body) |
 | `2` | usage error (bad KldB code, bad flag) |
 | `3` | 401/403 — no key sent, a wrong or stale key (re-run `obtain-key`), **or** a WAF/IP block (see README) |
 | `4` | 404 — not found |

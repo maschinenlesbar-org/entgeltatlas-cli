@@ -110,7 +110,12 @@ export async function parity(
   libCall: (transport: Transport) => unknown,
   options: ParityOptions = {},
 ): Promise<{ cli: CliOutcome; lib: LibOutcome }> {
-  const mt = makeMockTransport(options.responder ?? (() => jsonResponse([])));
+  // A valid answer for either endpoint kind: an empty (suppressed) salary list, or a
+  // reference list, which is never empty.
+  const mt = makeMockTransport(
+    options.responder ??
+      ((req) => jsonResponse(req.url.includes("/entgelte/") ? [] : [{ id: 1, bezeichnung: "Deutschland" }])),
+  );
   const out: string[] = [];
   const err: string[] = [];
   const code = await run(argv, {

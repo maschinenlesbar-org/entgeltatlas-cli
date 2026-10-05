@@ -54,8 +54,9 @@ test("entgelte rejects a body that is not an array of objects", async () => {
       () => c.entgelte("84304"),
       (err) =>
         err instanceof EntgeltatlasParseError &&
-        err.message ===
-          "Unexpected response shape from /infosysbub/entgeltatlas/pc/v1/entgelte/84304: expected a JSON array of objects.",
+        err.message.startsWith(
+          "Unexpected response shape from /infosysbub/entgeltatlas/pc/v1/entgelte/84304: expected a JSON array of salary rows",
+        ),
       JSON.stringify(body),
     );
   }
@@ -100,7 +101,7 @@ test("a reference endpoint returning a non-array is a parse error, not []", asyn
       () => c.branchen(),
       (err) =>
         err instanceof EntgeltatlasParseError &&
-        /^Unexpected response shape from \/infosysbub\/entgeltatlas\/pc\/v1\/branchen: expected a JSON array of objects\.$/.test(err.message),
+        /^Unexpected response shape from \/infosysbub\/entgeltatlas\/pc\/v1\/branchen: expected a JSON array of codes/.test(err.message),
       JSON.stringify(body),
     );
   }
@@ -124,4 +125,27 @@ test("the client rejects an apiKey an HTTP header cannot carry", () => {
   for (const apiKey of ["abc\ndef", "ключ", "a\u007fb"]) {
     assert.throws(() => new EntgeltatlasClient({ apiKey }), EntgeltatlasValidationError, JSON.stringify(apiKey));
   }
+});
+
+test("P9: a salary row or a code without the documented fields is a parse error, and a reference list is never empty", async () => {
+  const row = fx.entgelteResult[0]!;
+  const badRows: unknown[] = [
+    [{ ...row, kldb: 84304 }],
+    [{ ...row, region: undefined }],
+    [{ ...row, gender: { id: "3", bezeichnung: "Frauen" } }],
+    [{ ...row, branche: { id: 1 } }],
+    [{ error: "boom" }],
+    [{ id: 1, bezeichnung: "Deutschland" }],
+  ];
+  for (const body of badRows) {
+    const { c } = client(() => jsonResponse(body), { apiKey: "K" });
+    await assert.rejects(() => c.entgelte("84304"), EntgeltatlasParseError, JSON.stringify(body));
+  }
+  for (const body of [[], [{ id: 1 }], [{ bezeichnung: "x" }], [{ id: 1.5, bezeichnung: "x" }], [row]]) {
+    const { c } = client(() => jsonResponse(body), { apiKey: "K" });
+    await assert.rejects(() => c.regionen(), EntgeltatlasParseError, JSON.stringify(body));
+  }
+  // An empty salary list is the documented suppressed answer, not an error.
+  const { c } = client(() => jsonResponse([]), { apiKey: "K" });
+  assert.deepEqual(await c.entgelte("84304"), []);
 });

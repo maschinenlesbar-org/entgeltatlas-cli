@@ -39,17 +39,56 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Why `value` is not a labelled code (`{ id: <integer>, bezeichnung: <string> }`), or undefined. */
+function labelledCodeProblem(value: unknown): string | undefined {
+  if (!isObject(value)) return "is not an object";
+  if (!Number.isSafeInteger(value["id"])) return "has no integer id";
+  if (typeof value["bezeichnung"] !== "string") return "has no bezeichnung text";
+  return undefined;
+}
+
+/** The dimension objects every salary row carries. */
+const ROW_DIMENSIONS = ["region", "gender", "ageCategory", "performanceLevel", "branche"] as const;
+
+/** Why `value` is not a salary row (the documented shape), or undefined. */
+function entgeltRowProblem(value: unknown): string | undefined {
+  if (!isObject(value)) return "is not an object";
+  if (typeof value["kldb"] !== "string") return "has no kldb text";
+  for (const name of ROW_DIMENSIONS) {
+    const problem = labelledCodeProblem(value[name]);
+    if (problem !== undefined) return `${name} ${problem}`;
+  }
+  return undefined;
+}
+
 /**
- * Check the top-level shape the CLI relies on: every endpoint answers a JSON
- * array of objects. Anything else (an error object with a 200, a string, a HAL
- * envelope) is not data and must not be printed as an observation or turned into
- * an empty — i.e. "suppressed" — result.
+ * Check the documented shape of an answer: a JSON array whose every element passes
+ * `itemProblem`, and — for a reference list, which is never empty — at least one
+ * element. Anything else (an error object with a 200, a string, a HAL envelope, a
+ * salary row where a code was expected) is not data and must not be printed as an
+ * observation or turned into an empty — i.e. "suppressed" — result: it is an
+ * EntgeltatlasParseError (CLI exit 1).
  */
-function assertArrayOfObjects<T>(body: unknown, path: string): T[] {
-  if (!Array.isArray(body) || !body.every(isObject)) {
-    throw new EntgeltatlasParseError(
-      `Unexpected response shape from ${path}: expected a JSON array of objects.`,
-    );
+function assertArrayOf<T>(
+  body: unknown,
+  path: string,
+  what: string,
+  itemProblem: (value: unknown) => string | undefined,
+  allowEmpty: boolean,
+): T[] {
+  if (!Array.isArray(body)) {
+    throw new EntgeltatlasParseError(`Unexpected response shape from ${path}: expected a JSON array of ${what}.`);
+  }
+  if (!allowEmpty && body.length === 0) {
+    throw new EntgeltatlasParseError(`Unexpected response from ${path}: an empty list (this list is never empty).`);
+  }
+  for (let i = 0; i < body.length; i++) {
+    const problem = itemProblem(body[i]);
+    if (problem !== undefined) {
+      throw new EntgeltatlasParseError(
+        `Unexpected response shape from ${path}: expected a JSON array of ${what}; element ${i} ${problem}.`,
+      );
+    }
   }
   return body as T[];
 }
@@ -106,7 +145,7 @@ export class EntgeltatlasClient {
     const res = await this.#engine.getJson<unknown>(path, prune({ ...params }));
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
-    return assertArrayOfObjects<EntgeltEntry>(res, path);
+    return assertArrayOf<EntgeltEntry>(res, path, "salary rows", entgeltRowProblem, true);
   }
 
   /** Reference list of region codes (`r`). */
@@ -128,6 +167,12 @@ export class EntgeltatlasClient {
 
   private async reference(name: string): Promise<ReferenceItem[]> {
     const path = `${SERVICE}/${name}`;
-    return assertArrayOfObjects<ReferenceItem>(await this.#engine.getJson<unknown>(path), path);
+    return assertArrayOf<ReferenceItem>(
+      await this.#engine.getJson<unknown>(path),
+      path,
+      "codes ({id, bezeichnung})",
+      labelledCodeProblem,
+      false,
+    );
   }
 }
