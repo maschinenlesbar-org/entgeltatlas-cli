@@ -48,36 +48,38 @@ npm run obtain-key  # print the published X-API-Key (network; needs a build)
 ### Auth — a static `X-API-Key`, not "none"
 
 The candidate list marked this API `auth=none`; that is **wrong**. Every call
-needs an `X-API-Key` header whose value is the BA's published community
-`client_id` UUID (`c4f0d292-…`). It flows through `EngineOptions.defaultHeaders`
+needs an `X-API-Key` header whose value is the public `clientId` the BA's own
+Entgeltatlas web app configures (`infosysbub-ega` on 2026-10-06). The UUID
+`client_id` (`c4f0d292-…`) that the bundesAPI README and OpenAPI still publish is
+refused with an empty 403 since 2026 (investigated on 2026-10-06, see
+`.reviews/2026-10-05-exploratory/entgeltatlas-cli/auth-investigation-2026-10-06.md` in
+the workspace). It flows through `EngineOptions.defaultHeaders`
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
 `ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. Flag, env var and
 `apiKey` share one rule: `normalizeApiKey` trims the key (blank = no key), then
 `headerValueProblem` checks the trimmed value (`Invalid apiKey: Value contains control
 characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
 would override the env key. No key is bundled —
-`obtain-key` (src/client/obtain-key.ts) reads it from the bundesAPI README at
-run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
+`obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
+(`KEY_SOURCE_URL`, `https://web.arbeitsagentur.de/entgeltatlas/`) at run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
 `DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared
 `transientRetryDelay`, all range-checked like the client's; the CLI passes `--timeout`,
 `--max-response-bytes`, `--max-retries` and `--user-agent`) and up to `MAX_KEY_SOURCE_REDIRECTS`
 (5) same-origin redirects — a redirect to another host is not followed. It takes the
-documented `client_id` (`**client_id:** <uuid>`, `"client_id": "<uuid>"`,
-`client_id=<uuid>`); an `X-API-Key: <uuid>` is only a fallback. One-digit placeholders
-(`00000000-…`) are ignored, and a document stating two different keys (two
-`client_id`s, or an `X-API-Key` that contradicts the `client_id`) is an error. The
-engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
+value of the inline configuration's `clientId: '…'` (also double-quoted or with a
+quoted name). The value must match `KEY_FORMAT` (3–64 lower-case letters, digits and
+inner hyphens; a UUID fits too); a page stating no `clientId`, two different ones, or
+one that isn't shaped like a key is an error, never a guess. One-digit placeholder UUIDs
+(`00000000-…`) are ignored. The engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
 cross-origin redirect.
 
-> **OAuth fallback (not implemented).** BA `infosysbub` also supports OAuth2
+> **OAuth (not needed, not implemented).** BA `infosysbub` also supports OAuth2
 > client-credentials (POST `client_id`/`client_secret` to `/oauth/gettoken_cc`,
 > then send the JWT in a **non-standard `OAuthAccessToken`** header — *not*
-> `Authorization: Bearer`). The upstream README now presents it as the primary way
-> in. It is still not implemented (an auth-design decision, deferred in the
-> 2026-09-26 exploratory review): on 2026-09-26 the published static key got an
-> empty 403 on every Entgeltatlas endpoint (see below), so the static path may no
-> longer be accepted. The credential-header set already lists `oauthaccesstoken`
-> for the day it's added.
+> `Authorization: Bearer`). The bundesAPI README presents it as the primary way in,
+> with the UUID credentials the gateway now refuses. The `X-API-Key` path works with
+> the web app's `clientId`, so OAuth stays unimplemented. The credential-header set
+> lists `oauthaccesstoken` anyway, for a library user who sends one.
 
 ### Input validation (library)
 
@@ -167,9 +169,16 @@ if it ignored the parameter, the caller would silently get the unfiltered slice.
 CLI's `--level/--region/--gender/--age/--branch` parsers call the same rule, with
 the flag in the message.
 
-## Live verification status (2026-07-03)
+## Live verification status
 
-- `obtain-key` correctly reads the published key from the bundesAPI README.
+- **2026-10-06:** the cause of the empty 403s below is found: the BA replaced the
+  UUID key. With the web app's `clientId` as `X-API-Key`, `regionen` and `entgelte`
+  answer 200 with data from the same machine, and `obtain-key` now reads that value.
+  The response shape is live-verified: `entgelte` returns one row per slice, an
+  omitted dimension can return several rows (all age bands for an omitted `-a`), every
+  row carries the dimension ids, and the figures are JSON numbers — negative ones are
+  markers, not amounts (see GLOSSARY.md).
+- 2026-07-03: `obtain-key` read the then-published key from the bundesAPI README.
 - The client builds the correct request (path, dims, `X-API-Key` header) —
   confirmed against the live gateway.
 - **Response shape NOT live-verified.** `rest.arbeitsagentur.de` is behind an
@@ -182,11 +191,9 @@ the flag in the message.
 - **2026-09-26:** the obtained key (it matches the upstream README's `client_id`)
   got an empty 403 on `entgelte`, `regionen` and `geschlechter`; a wrong UUID and a
   browser User-Agent got the same, while the Ausbildungssuche API on the same
-  gateway answered 200 from the same IP. So a network-wide block is not the likely
-  cause; the static `X-API-Key` path is probably no longer accepted for this service
-  (OAuth, above, untested). `obtain-key` therefore says in its stderr note that it
-  did not check the key. Verify the response shape once a working auth path exists.
-  Tests use the mock `Transport` only — never the live API in CI.
+  gateway answered 200 from the same IP — the UUID was no longer accepted (confirmed
+  2026-10-06, above). `obtain-key` says in its stderr note that it did not check the
+  key. Tests use the mock `Transport` only — never the live API in CI.
 
 ## Conventions matched from the blueprint
 

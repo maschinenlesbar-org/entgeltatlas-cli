@@ -49,16 +49,16 @@ and CLI preserve `null` faithfully; do not treat it as zero earnings.
 ## Auth terms
 
 - **X-API-Key** — the static header this API authenticates with. Its value is the
-  BA's published community **`client_id`** UUID (an access identifier, not a
-  per-user grant). Obtain it with `entgeltatlas obtain-key`; never commit it — not even
-  the public community key. Tests use an obvious dummy UUID
-  (`00000000-0000-4000-8000-000000000000`) so the repo holds zero real credentials.
+  public **`clientId`** the BA's own Entgeltatlas web app configures (an access
+  identifier, not a per-user grant; a short name such as `infosysbub-ega`, no longer
+  the UUID `client_id` the bundesAPI README still publishes — the gateway refuses that
+  one since 2026). Obtain it with `entgeltatlas obtain-key`; never commit it — not even
+  the public community key. Tests use obvious dummy values so the repo holds zero real
+  credentials.
 - **WAF / 403** — `rest.arbeitsagentur.de` answers with an **empty-body HTTP 403**
-  for a wrong or missing key, for a network its WAF refuses (datacenter/VPN/cloud
-  IPs), and — observed on 2026-09-26 on every Entgeltatlas endpoint — for the
-  published static key itself, while a sibling BA API on the same gateway answered.
-  The response alone can't tell these apart. Upstream now documents an OAuth
-  client-credentials flow, which this CLI does not implement. Re-check the key
-  first — see [DEVELOPING.md](DEVELOPING.md).
+  for a wrong, stale or missing key and for a network its WAF refuses
+  (datacenter/VPN/cloud IPs). The response alone can't tell these apart. Re-check the
+  key with `entgeltatlas obtain-key` first — see [DEVELOPING.md](DEVELOPING.md). The
+  upstream's OAuth client-credentials flow is not needed: the `X-API-Key` works.
 
 See [DATA_LICENSE.md](DATA_LICENSE.md) for attribution and reuse terms.

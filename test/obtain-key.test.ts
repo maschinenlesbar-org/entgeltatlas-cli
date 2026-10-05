@@ -23,8 +23,20 @@ import {
 } from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
-const SOURCE_DOC = ["# entgeltatlas-api", "", "```bash", 'curl -H "X-API-Key: c4f0d292-9d0f-4763-87dd-d3f9e78fb006" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
-const EXPECTED_KEY = "c4f0d292-9d0f-4763-87dd-d3f9e78fb006";
+/** The web app's page, in the shape it states the key (a dummy value, not the real key). */
+const page = (clientId: string): string =>
+  [
+    "<!doctype html><html><head>",
+    '<script type="text/javascript">',
+    "  globalThis.egaConfig = { backendHost: 'https://rest.arbeitsagentur.de/infosysbub/entgeltatlas' };",
+    "  globalThis.infosysbubLibConfig = {",
+    `    clientId: '${clientId}',`,
+    "    redirecturi: 'https://web.arbeitsagentur.de/entgeltatlas/',",
+    "  };",
+    "</script></head><body></body></html>",
+  ].join("\n");
+const EXPECTED_KEY = "dummy-test-key";
+const SOURCE_DOC = page(EXPECTED_KEY);
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   const out: string[] = [];
@@ -40,7 +52,7 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse) {
 }
 
 test("obtainKey reads the key from the published source", async () => {
-  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
   const result = await obtainKey({ transport: mt.transport });
   assert.equal(result.key, EXPECTED_KEY);
   assert.equal(result.sourceUrl, KEY_SOURCE_URL);
@@ -59,13 +71,13 @@ test("obtainKey throws when the source is unreachable, after the client's retrie
 });
 
 test("obtainKey throws when the source no longer states a key", async () => {
-  const mt = makeMockTransport(() => rawResponse("# readme with no key", "text/plain"));
+  const mt = makeMockTransport(() => rawResponse("<html>no key here</html>", "text/html"));
   await assert.rejects(() => obtainKey({ transport: mt.transport }), EntgeltatlasError);
 });
 
 test("obtainKey rejects a non-http(s) source URL before any request", async () => {
   for (const sourceUrl of ["file:///etc/passwd", "ftp://example.org"]) {
-    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
     await assert.rejects(
       () => obtainKey({ transport: mt.transport, sourceUrl }),
       EntgeltatlasValidationError,
@@ -76,7 +88,7 @@ test("obtainKey rejects a non-http(s) source URL before any request", async () =
 });
 
 test("obtain-key prints only the key on stdout, provenance on stderr", async () => {
-  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/html"));
   const code = await run(["obtain-key"], cli.deps);
   assert.equal(code, 0);
   assert.deepEqual(cli.out, [EXPECTED_KEY]);
@@ -85,14 +97,14 @@ test("obtain-key prints only the key on stdout, provenance on stderr", async () 
 });
 
 test("obtain-key --export emits a quoted, eval-safe export line", async () => {
-  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/html"));
   const code = await run(["obtain-key", "--export"], cli.deps);
   assert.equal(code, 0);
   assert.deepEqual(cli.out, [`export ${API_KEY_ENV_VAR}='${EXPECTED_KEY}'`]);
 });
 
 test("obtain-key needs no configured key and sends none", async () => {
-  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/html"));
   const code = await run(["obtain-key"], cli.deps);
   assert.equal(code, 0);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], undefined);
@@ -106,14 +118,14 @@ test("a failing obtain-key exits non-zero rather than printing a guess", async (
 });
 
 test("obtainKey applies the client's default timeout and size cap", async () => {
-  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
   await obtainKey({ transport: mt.transport });
   assert.equal(mt.last().timeoutMs, 30_000);
   assert.equal(mt.last().maxResponseBytes, 100 * 1024 * 1024);
 });
 
 test("obtainKey passes explicit limits, and 0 turns a limit off", async () => {
-  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
   await obtainKey({ transport: mt.transport, timeoutMs: 1234, maxResponseBytes: 5678 });
   assert.equal(mt.last().timeoutMs, 1234);
   assert.equal(mt.last().maxResponseBytes, 5678);
@@ -123,7 +135,7 @@ test("obtainKey passes explicit limits, and 0 turns a limit off", async () => {
 });
 
 test("obtainKey sends the default User-Agent, and rejects a blank one like the API client", async () => {
-  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
   await obtainKey({ transport: mt.transport });
   assert.equal(mt.last().headers?.["User-Agent"], "entgeltatlas-cli");
   await assert.rejects(
@@ -134,7 +146,7 @@ test("obtainKey sends the default User-Agent, and rejects a blank one like the A
 });
 
 test("obtain-key forwards --timeout and --max-response-bytes", async () => {
-  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/plain"));
+  const cli = makeCli(() => rawResponse(SOURCE_DOC, "text/html"));
   const code = await run(["--timeout", "500", "--max-response-bytes", "10000", "obtain-key"], cli.deps);
   assert.equal(code, 0);
   assert.equal(cli.mt.last().timeoutMs, 500);
@@ -146,7 +158,7 @@ test("obtain-key fails on a source larger than --max-response-bytes", async () =
     if (req.maxResponseBytes !== undefined && SOURCE_DOC.length > req.maxResponseBytes) {
       throw new EntgeltatlasNetworkError(`Response exceeded maxResponseBytes (${req.maxResponseBytes})`);
     }
-    return rawResponse(SOURCE_DOC, "text/plain");
+    return rawResponse(SOURCE_DOC, "text/html");
   });
   const code = await run(["--max-response-bytes", "10", "obtain-key"], cli.deps);
   assert.equal(code, 6);
@@ -154,11 +166,11 @@ test("obtain-key fails on a source larger than --max-response-bytes", async () =
 });
 
 test("obtainKey follows same-origin redirects and cites the final URL", async () => {
-  const moved = "https://raw.githubusercontent.com/bundesAPI/renamed/main/README.md";
+  const moved = "https://web.arbeitsagentur.de/entgeltatlas/start";
   const mt = makeMockTransport((req) =>
     req.url === KEY_SOURCE_URL
-      ? { status: 301, headers: { location: "/bundesAPI/renamed/main/README.md" }, body: Buffer.alloc(0) }
-      : rawResponse(SOURCE_DOC, "text/plain"),
+      ? { status: 301, headers: { location: "/entgeltatlas/start" }, body: Buffer.alloc(0) }
+      : rawResponse(SOURCE_DOC, "text/html"),
   );
   const result = await obtainKey({ transport: mt.transport });
   assert.equal(result.key, EXPECTED_KEY);
@@ -169,7 +181,7 @@ test("obtainKey follows same-origin redirects and cites the final URL", async ()
 test("obtainKey does not follow a redirect to another host, nor a loop past the limit", async () => {
   const cross = makeMockTransport(() => ({
     status: 302,
-    headers: { location: "https://evil.example/README.md" },
+    headers: { location: "https://evil.example/entgeltatlas/" },
     body: Buffer.alloc(0),
   }));
   await assert.rejects(() => obtainKey({ transport: cross.transport }), /HTTP 302/);
@@ -185,37 +197,41 @@ test("obtainKey does not follow a redirect to another host, nor a loop past the 
 });
 
 async function keyFrom(doc: string): Promise<string> {
-  const mt = makeMockTransport(() => rawResponse(doc, "text/plain"));
+  const mt = makeMockTransport(() => rawResponse(doc, "text/html"));
   return (await obtainKey({ transport: mt.transport })).key;
 }
 
-test("obtainKey reads the README's **client_id:** line, JSON and query forms", async () => {
+test("obtainKey reads the web app's clientId, in single or double quotes", async () => {
+  assert.equal(await keyFrom(page("infosysbub-test")), "infosysbub-test");
+  assert.equal(await keyFrom(`<script>cfg = { "clientId": "abc-def-1" }</script>`), "abc-def-1");
+  assert.equal(await keyFrom(`clientId:'x9z'`), "x9z");
+  // A UUID fits the format too (the old key shape).
   const uuid = "11111111-2222-3333-4444-555555555555";
-  assert.equal(await keyFrom(`# API\n\n**client_id:** ${uuid}\n`), uuid);
-  assert.equal(await keyFrom(`{"client_id": "${uuid}"}`), uuid);
-  assert.equal(await keyFrom(`curl -d "client_id=${uuid}&grant_type=client_credentials"`), uuid);
-  // The upstream layout: the key twice, as **client_id:** and in a curl example.
-  assert.equal(await keyFrom(`**client_id:** ${uuid}\n\ncurl -d "client_id=${uuid.toUpperCase()}"`), uuid);
+  assert.equal(await keyFrom(page(uuid)), uuid);
+  // The same value twice is one key.
+  assert.equal(await keyFrom(page("abc-def") + page("abc-def")), "abc-def");
 });
 
-test("obtainKey prefers client_id and ignores an all-zero placeholder", async () => {
-  const uuid = "11111111-2222-3333-4444-555555555555";
-  const zero = "00000000-0000-0000-0000-000000000000";
-  assert.equal(await keyFrom(`curl -H "X-API-Key: ${zero}"\n**client_id:** ${uuid}`), uuid);
-  assert.equal(await keyFrom(`curl -H "X-API-Key: ${uuid}"\n**client_id:** ${uuid}`), uuid);
-  await assert.rejects(() => keyFrom(`curl -H "X-API-Key: ${zero}"`), /No X-API-Key found/);
+test("obtainKey ignores a label that only ends in clientId, and an all-zero placeholder UUID", async () => {
+  await assert.rejects(() => keyFrom(`my_clientId: 'not-this-one'`), /No X-API-Key found/);
+  await assert.rejects(() => keyFrom(page("00000000-0000-0000-0000-000000000000")), /No X-API-Key found/);
+});
+
+test("obtainKey refuses a clientId that is not shaped like a key", async () => {
+  for (const value of ["YOUR-API-KEY", "--help", "a b", "x", "key;rm -rf", "\u001b[2Jkey", "${clientId}", "-leading"]) {
+    await assert.rejects(
+      () => keyFrom(page(value)),
+      (err) => err instanceof EntgeltatlasError && /not shaped like a key/.test(err.message) && !err.message.includes(value),
+      value,
+    );
+  }
 });
 
 test("obtainKey fails on a source that states conflicting keys", async () => {
-  const a = "11111111-2222-3333-4444-555555555555";
-  const b = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-  for (const doc of [`**client_id:** ${a}\nclient_id=${b}`, `curl -H "X-API-Key: ${b}"\n**client_id:** ${a}`]) {
-    await assert.rejects(
-      () => keyFrom(doc),
-      (err) => err instanceof EntgeltatlasError && /states conflicting keys/.test(err.message),
-      doc,
-    );
-  }
+  await assert.rejects(
+    () => keyFrom(page("first-key") + page("second-key")),
+    (err) => err instanceof EntgeltatlasError && /states conflicting keys/.test(err.message),
+  );
 });
 
 test("a key-source HTTP failure is a typed EntgeltatlasApiError with status and url", async () => {
@@ -229,7 +245,7 @@ test("a key-source HTTP failure is a typed EntgeltatlasApiError with status and 
       err.url === KEY_SOURCE_URL &&
       err.message ===
         `HTTP 404 for GET ${KEY_SOURCE_URL}: could not read the key source. ` +
-          "Retry, or copy the key from github.com/bundesAPI/entgeltatlas-api by hand",
+          "Retry, or copy the clientId from the page source of https://web.arbeitsagentur.de/entgeltatlas/ by hand",
   );
 });
 

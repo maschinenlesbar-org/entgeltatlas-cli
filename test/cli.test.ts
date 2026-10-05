@@ -126,8 +126,8 @@ test("a 403 exits 3 with a hint that names both a wrong key and a refused networ
   assert.equal(code, 3);
   const err = cli.err.join("\n");
   assert.match(err, /ENTGELTATLAS_API_KEY env var against `entgeltatlas obtain-key`/);
-  assert.match(err, /looks the same for a wrong key, a refused network \(WAF\/IP block\) and a key the API no longer accepts/);
-  assert.match(err, /OAuth client-credentials flow this CLI does not implement/);
+  assert.match(err, /looks the same for a wrong key, a stale one and a refused network \(WAF\/IP block\)/);
+  assert.match(err, /UUID client_id the bundesAPI README still publishes is refused/);
   assert.doesNotMatch(err, /not a bad key/);
 });
 

@@ -50,16 +50,17 @@ und CLI geben `null` unverändert weiter; werten Sie es nicht als Entgelt von nu
 ## Begriffe zur Authentifizierung
 
 - **X-API-Key** – der statische Header, über den sich diese API authentifiziert. Sein Wert ist
-  die von der BA veröffentlichte Community-UUID **`client_id`** (eine Zugangskennung, keine
-  Berechtigung pro Nutzer). Abrufen mit `entgeltatlas obtain-key`; committen Sie ihn nie – auch nicht
-  den öffentlichen Community-Schlüssel. Tests verwenden eine offensichtliche Dummy-UUID
-  (`00000000-0000-4000-8000-000000000000`), damit das Repo keinerlei echte Zugangsdaten enthält.
+  die öffentliche **`clientId`**, die die Entgeltatlas-Webanwendung der BA selbst konfiguriert
+  (eine Zugangskennung, keine Berechtigung pro Nutzer; ein kurzer Name wie `infosysbub-ega`,
+  nicht mehr die UUID `client_id`, die das bundesAPI-README noch nennt – die lehnt das Gateway
+  seit 2026 ab). Abrufen mit `entgeltatlas obtain-key`; committen Sie ihn nie – auch nicht den
+  öffentlichen Community-Schlüssel. Tests verwenden offensichtliche Dummy-Werte, damit das Repo
+  keinerlei echte Zugangsdaten enthält.
 - **WAF / 403** – `rest.arbeitsagentur.de` antwortet mit einem **HTTP 403 mit leerem Body**
-  bei falschem oder fehlendem Schlüssel, bei einem Netz, das die WAF abweist (IP-Adressen aus
-  Rechenzentren, VPNs und Clouds), und – am 26.09.2026 auf allen Entgeltatlas-Endpunkten
-  beobachtet – auch beim veröffentlichten statischen Schlüssel selbst, während eine
-  Schwester-API der BA auf demselben Gateway antwortete. Die Antwort allein unterscheidet diese
-  Fälle nicht. Upstream dokumentiert inzwischen einen OAuth-Client-Credentials-Ablauf, den
-  diese CLI nicht umsetzt. Prüfen Sie zuerst den Schlüssel – siehe [DEVELOPING.md](DEVELOPING.md).
+  bei falschem, veraltetem oder fehlendem Schlüssel und bei einem Netz, das die WAF abweist
+  (IP-Adressen aus Rechenzentren, VPNs und Clouds). Die Antwort allein unterscheidet diese
+  Fälle nicht. Prüfen Sie zuerst den Schlüssel mit `entgeltatlas obtain-key` – siehe
+  [DEVELOPING.md](DEVELOPING.md). Den OAuth-Client-Credentials-Ablauf von Upstream braucht es
+  nicht: Der `X-API-Key` funktioniert.
 
 Namensnennung und Bedingungen zur Weiterverwendung: siehe [DATA_LICENSE.md](DATA_LICENSE.md).

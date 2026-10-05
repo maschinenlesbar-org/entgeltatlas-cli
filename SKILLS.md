@@ -18,17 +18,16 @@ They compose: **code-finder → lookup**, or **code-finder → gap-analyzer**.
 - The `entgeltatlas` CLI on PATH: `npm install -g @maschinenlesbar.org/entgeltatlas-cli`.
 - **An X-API-Key** for the data commands (not `codes`): the BA's published
   community key. Set `ENTGELTATLAS_API_KEY` or pass `--api-key`. No key is bundled
-  — the CLI obtains it for you from
-  [github.com/bundesAPI/entgeltatlas-api](https://github.com/bundesAPI/entgeltatlas-api):
+  — the CLI obtains it for you from the BA's own
+  [Entgeltatlas web app](https://web.arbeitsagentur.de/entgeltatlas/):
   ```bash
   eval "$(entgeltatlas obtain-key --export)"        # this shell
   entgeltatlas obtain-key --export >> ~/.zshrc      # or keep it for later
   ```
-- **Note:** a **403** with an empty body looks the same for a wrong key, a network
-  `rest.arbeitsagentur.de` refuses, and a static key the API no longer accepts (the
-  published key got one on every endpoint on 2026-09-26; upstream now documents an
-  OAuth flow this CLI does not implement). Re-check the key with `entgeltatlas
-  obtain-key` first; see the README's 403 heads-up.
+- **Note:** a **403** with an empty body looks the same for a wrong or stale key and
+  a network `rest.arbeitsagentur.de` refuses. The BA changed the key in 2026 (the UUID
+  `client_id` in the bundesAPI README is refused); re-run `entgeltatlas obtain-key`
+  first; see the README's 403 heads-up.
 
 ## Installing the plugin
 

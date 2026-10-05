@@ -82,19 +82,19 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       if (err.status === 404) return EXIT.NOT_FOUND;
       if (err.status === 401 || err.status === 403) {
         // An empty-body 403 is ambiguous: the rest.arbeitsagentur.de gateway sends the
-        // same text/plain one-space 403 for a wrong or missing X-API-Key, for a
-        // refused network (WAF), and — seen on every Entgeltatlas endpoint in
-        // 2026-09, while a sibling BA API on the same gateway answered — for the
-        // published static key itself. Say which key situation applies and name
-        // every cause without ruling one out.
+        // same text/plain 403 for a wrong, stale or missing X-API-Key and for a refused
+        // network (WAF). The stale case is real: in 2026 the BA replaced the UUID
+        // client_id the bundesAPI README still publishes, and the gateway refuses it
+        // (investigated 2026-10-06). Say which key situation applies and name every
+        // cause without ruling one out.
         const sentKey = typeof program.opts()["apiKey"] === "string";
         deps.io.err(
           sentKey
             ? `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
                 `${API_KEY_ENV_VAR} env var against \`entgeltatlas obtain-key\`. An empty 403 ` +
-                "looks the same for a wrong key, a refused network (WAF/IP block) and a key the " +
-                "API no longer accepts: the published static key has been answered this way, and " +
-                "upstream documents an OAuth client-credentials flow this CLI does not implement. " +
+                "looks the same for a wrong key, a stale one and a refused network (WAF/IP block). " +
+                "The BA changed the key in 2026: the UUID client_id the bundesAPI README still " +
+                "publishes is refused, and `obtain-key` reads the current one from the BA web app. " +
                 "See the README's 403 heads-up."
             : `Hint: the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
                 `Pass --api-key or set ${API_KEY_ENV_VAR} (\`entgeltatlas obtain-key\` prints ` +

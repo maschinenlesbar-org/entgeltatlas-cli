@@ -13,7 +13,8 @@ compatibility: >
   Requires the `entgeltatlas` CLI (npm package
   @maschinenlesbar.org/entgeltatlas-cli) on PATH, installed by the user; the
   skill never installs it. Uses jq for JSON filtering. Network access to
-  rest.arbeitsagentur.de. Needs the public API key via --api-key or
+  rest.arbeitsagentur.de (and web.arbeitsagentur.de, where obtain-key reads the
+  key). Needs the public API key via --api-key or
   ENTGELTATLAS_API_KEY (`entgeltatlas obtain-key` prints it).
 ---
 
@@ -30,7 +31,7 @@ This skill drives the `entgeltatlas` command. **Before anything else, validate i
 
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
-**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from github.com/bundesAPI/entgeltatlas-api at run time. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. The key is public — name it when you report back — but never guess one if `obtain-key` fails. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong or missing key, for a refused network (WAF/IP block), and for a static key it no longer accepts — the published key got one on every Entgeltatlas endpoint on 2026-09-26, and upstream now documents an OAuth client-credentials flow this CLI does not implement. Have the user re-check the key with `entgeltatlas obtain-key` first; if it matches, tell them the API may no longer accept the published key (trying another network is only a secondary check), and never present a 403 as "no data". Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
+**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from the BA's own Entgeltatlas web app (web.arbeitsagentur.de/entgeltatlas) at run time. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. The key is public — name it when you report back — but never guess one if `obtain-key` fails. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong, stale or missing key and for a refused network (WAF/IP block). The BA changed the key in 2026 — the UUID `client_id` the bundesAPI README still prints is refused — so re-run `entgeltatlas obtain-key` first and retry with the value it prints; if a freshly obtained key still gets the 403, tell the user their network may be refused, and never present a 403 as "no data". Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
 
 ## Step 1 — Fix the occupation, vary ONE dimension
 
@@ -81,7 +82,7 @@ Compute the gap only between two **present** medians. Report absolute and percen
   computed across different regions or levels is meaningless.
 - **It's a median, not a mean.** Frame results as "median gross monthly", and note
   it does not account for hours beyond full-time, bonuses, or occupation mix.
-- **403 with an empty body is ambiguous** — a wrong key, a refused network and a static
-  key the API no longer accepts look the same (see the API-key paragraph above).
+- **403 with an empty body is ambiguous** — a wrong or stale key and a refused network
+  look the same (see the API-key paragraph above).
 - Don't over-claim causation — these are descriptive statistics, not adjusted for
   qualification, tenure, or hours.

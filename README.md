@@ -20,7 +20,8 @@ npm install -g @maschinenlesbar.org/entgeltatlas-cli
 
 ## API key
 
-The API needs a static **`X-API-Key`** (the BA's published community `client_id`).
+The API needs a static **`X-API-Key`** (the public `clientId` of the BA's own
+Entgeltatlas web app).
 No key is bundled with this tool — see **[Obtain key](#obtain-key)** below.
 
 Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
@@ -28,15 +29,19 @@ Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
 
 ## Obtain key
 
-The Bundesagentur für Arbeit publishes one community `client_id` for public use.
-It is **not a secret** — the same value for everyone, printed in the upstream
-[bundesAPI/entgeltatlas-api](https://github.com/bundesAPI/entgeltatlas-api)
-README — but finding and copying it shouldn't be your job either. `obtain-key`
-reads it from that published source at run time and prints it:
+The Bundesagentur für Arbeit publishes one community key for public use. It is
+**not a secret** — the same value for everyone, stated as `clientId` in the page of
+its own [Entgeltatlas web app](https://web.arbeitsagentur.de/entgeltatlas/) — but
+finding and copying it shouldn't be your job either. `obtain-key` reads it from that
+page at run time and prints it:
 
 ```bash
-entgeltatlas obtain-key      # -> a UUID  (provenance note on stderr)
+entgeltatlas obtain-key      # -> a short name such as infosysbub-ega  (provenance note on stderr)
 ```
+
+The UUID `client_id` that the community docs at
+[bundesAPI/entgeltatlas-api](https://github.com/bundesAPI/entgeltatlas-api) still
+print is **no longer accepted** (an empty 403 since 2026); don't use it.
 
 **From obtaining the key to having it where it is used, in one line:**
 
@@ -62,18 +67,15 @@ release of this CLI. If the source is unreachable or stops publishing a key,
 `obtain-key` does not check the key against the API, so a successfully obtained key
 is no guarantee the API will answer: see the 403 heads-up below.
 
-> **Heads-up — the published key may no longer be accepted.** `rest.arbeitsagentur.de`
-> answers with **HTTP 403 (empty body)** for a wrong or missing key, for a network its
-> WAF refuses (datacenter/cloud/VPN IPs), and — observed on 2026-09-26 — for the
-> published static key itself: every Entgeltatlas endpoint answered it with an empty
-> 403, while the Ausbildungssuche API on the same gateway answered 200 from the same
-> machine, and a browser User-Agent changed nothing. The upstream README now presents
-> an OAuth client-credentials flow (a token in an `OAuthAccessToken` header) as the
-> primary way in; **this CLI does not implement it** and only sends the static
-> `X-API-Key`. If you get an empty 403 (exit code `3`), re-check the key with
-> `entgeltatlas obtain-key`; if it matches, the likeliest cause is that the static key
-> is no longer accepted, and trying another network is a secondary check. `codes`
-> keeps working offline.
+> **Heads-up — an empty 403.** `rest.arbeitsagentur.de` answers with **HTTP 403 (empty
+> body)** for a wrong, stale or missing key and for a network its WAF refuses
+> (datacenter/cloud/VPN IPs). The stale case is real: in 2026 the BA replaced the UUID
+> `client_id` (still printed by the bundesAPI README and in releases of this CLI up to
+> 0.1.0, which read the key from there) with the short `clientId` its web app uses, and
+> the gateway refuses the UUID. If you get an empty 403 (exit code `3`), re-run
+> `entgeltatlas obtain-key` and retry with what it prints; if a freshly obtained key
+> still gets the 403, your network is the likelier cause. The upstream's OAuth
+> client-credentials flow is not needed. `codes` keeps working offline.
 
 ## Quickstart
 

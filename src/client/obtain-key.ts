@@ -1,8 +1,10 @@
 // Obtain the public `X-API-Key` the Entgeltatlas API requires.
 //
-// No key ships with this package (see client.ts). the Bundesagentur für Arbeit publishes a
-// single static key for public use, and this module reads it at run time from the
-// document that publishes it — so a rotated key needs no release of this CLI.
+// No key ships with this package (see client.ts). The Bundesagentur für Arbeit
+// publishes a single static key for public use: its own Entgeltatlas web app
+// (https://web.arbeitsagentur.de/entgeltatlas/) states it in its inline
+// configuration as `clientId: '…'`, and this module reads it from there at run
+// time — so a rotated key needs no release of this CLI.
 //
 // The value is deliberately *public*, not a secret: printing it, putting it in an
 // environment variable and showing it to the user are all intended. What this
@@ -15,14 +17,17 @@
 // size cap by default, so a stalled source cannot hang
 // `eval "$(entgeltatlas obtain-key --export)"`, it retries a transient 429/503 with
 // the client's policy (transientRetryDelay), and it follows a few same-origin
-// redirects (GitHub raw answers a renamed repository with one).
+// redirects.
 //
-// NOTE: obtaining the key is no guarantee a later request succeeds. The gateway
-// answers a wrong key, a refused network (WAF) and — seen on every Entgeltatlas
-// endpoint on 2026-09-26 — the published static key itself with the same empty
-// 403, and upstream now documents an OAuth client-credentials flow this package
-// does not implement. The key is therefore not checked here (an empty 403 would
-// not say why), and the CLI's note says it was not checked.
+// Why the web app and not the bundesAPI README: in 2026 the BA replaced the UUID
+// `client_id` (c4f0d292-…) that the bundesAPI README and OpenAPI still publish with
+// the name the web app now configures; the gateway answers the UUID with an empty
+// 403 (investigated 2026-10-06). The README itself names the web app as the place the
+// credentials come from.
+//
+// NOTE: obtaining the key is no guarantee a later request succeeds — the gateway
+// answers a wrong key and a refused network (WAF) with the same empty 403. The key
+// is not checked here, and the CLI's note says it was not checked.
 
 import type { HttpResponse, Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
@@ -44,38 +49,37 @@ import { assertValid, httpUrlProblem } from "./validate.js";
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
 
-/** Authoritative, plain-text source of the public key. */
-export const KEY_SOURCE_URL =
-  "https://raw.githubusercontent.com/bundesAPI/entgeltatlas-api/main/README.md";
-
-/** The key is a UUID. */
-const UUID = String.raw`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`;
+/** Authoritative source of the public key: the BA's own Entgeltatlas web app. */
+export const KEY_SOURCE_URL = "https://web.arbeitsagentur.de/entgeltatlas/";
 
 /**
- * Between a label and its value: Markdown emphasis, quotes, `:`/`=` and blanks —
- * so `**client_id:** <uuid>`, `"client_id": "<uuid>"`, `client_id=<uuid>` and
- * `X-API-Key: <uuid>` all match.
+ * The shape of the key: 3–64 lower-case ASCII letters, digits and inner hyphens, as
+ * the web app's `infosysbub-ega` (a UUID fits too). Anything else the page might put
+ * after `clientId` — a placeholder such as `YOUR-API-KEY`, punctuation, a template
+ * expression, escape sequences — is not a key and is never returned.
  */
-const SEPARATOR = String.raw`[\s"'\x60*:=]+`;
+export const KEY_FORMAT = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 
-/** The documented value: the BA `client_id`. */
-const CLIENT_ID_PATTERN = new RegExp(String.raw`client_id${SEPARATOR}(${UUID})`, "gi");
-/** Fallback only: a UUID sent as an `X-API-Key` header in an example. */
-const X_API_KEY_PATTERN = new RegExp(String.raw`X-API-Key${SEPARATOR}(${UUID})`, "gi");
+/**
+ * `clientId: '…'` (the web app's inline `infosysbubLibConfig`), also with double
+ * quotes or a quoted name (`"clientId": "…"`). The value is captured as written, up
+ * to its closing quote, and checked against KEY_FORMAT afterwards.
+ */
+const CLIENT_ID_PATTERN = /["']?\bclientId["']?\s*[:=]\s*(["'])([^"'\r\n]{0,200})\1/g;
 
-/** A placeholder such as 00000000-0000-0000-0000-000000000000: one repeated hex digit. */
-function isPlaceholder(uuid: string): boolean {
-  return /^([0-9a-f])(?:\1|-)*$/i.test(uuid);
+/** A placeholder UUID such as 00000000-0000-0000-0000-000000000000: one repeated hex digit. */
+function isPlaceholder(key: string): boolean {
+  return /^([0-9a-f])(?:\1|-)*$/i.test(key);
 }
 
-/** Distinct non-placeholder UUIDs the pattern finds, lower-cased, in document order. */
-function findKeys(text: string, pattern: RegExp): string[] {
-  const keys: string[] = [];
-  for (const match of text.matchAll(pattern)) {
-    const key = match[1]?.toLowerCase();
-    if (key !== undefined && !isPlaceholder(key) && !keys.includes(key)) keys.push(key);
+/** Every distinct `clientId` value the text states, in document order, as written. */
+function findClientIds(text: string): string[] {
+  const values: string[] = [];
+  for (const match of text.matchAll(CLIENT_ID_PATTERN)) {
+    const value = match[2];
+    if (value !== undefined && !values.includes(value)) values.push(value);
   }
-  return keys;
+  return values;
 }
 
 /** Same-origin redirects the key-source request follows (e.g. a renamed repository). */
@@ -169,7 +173,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       method: "GET",
       url,
       headers: {
-        Accept: "text/plain, text/markdown;q=0.9, */*;q=0.8",
+        Accept: "text/html, */*;q=0.8",
         "User-Agent": userAgent,
       },
       ...(timeoutMs > 0 ? { timeoutMs } : {}),
@@ -197,32 +201,33 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
       method: "GET",
       body: response.body.toString("utf8"),
       detail:
-        "could not read the key source. Retry, or copy the key from " +
-        "github.com/bundesAPI/entgeltatlas-api by hand",
+        "could not read the key source. Retry, or copy the clientId from the page source of " +
+        "https://web.arbeitsagentur.de/entgeltatlas/ by hand",
     });
   }
 
   const text = response.body.toString("utf8");
-  // The `client_id` is the documented value and wins; an `X-API-Key` UUID is
-  // only a fallback, since an example may show a placeholder or another API's
-  // key. When the document states more than one distinct key — two client_ids,
-  // or an X-API-Key that contradicts the client_id — it is ambiguous, and
-  // guessing would be worse than failing.
-  const clientIds = findKeys(text, CLIENT_ID_PATTERN);
-  const headerKeys = findKeys(text, X_API_KEY_PATTERN);
-  const candidates = clientIds.length > 0 ? clientIds : headerKeys;
-  const conflicting = [...new Set([...candidates, ...(clientIds.length > 0 ? headerKeys : [])])];
-  if (conflicting.length > 1) {
+  // The page states the key once. Two different values make it ambiguous, and a
+  // value that isn't shaped like a key (a placeholder, a template expression) is not
+  // one: guessing would be worse than failing.
+  const values = findClientIds(text).filter((value) => !isPlaceholder(value));
+  if (values.length > 1) {
     throw new EntgeltatlasError(
-      `The key source ${url} states conflicting keys (${conflicting.join(", ")}). ` +
+      `The key source ${url} states conflicting keys (${values.length} different clientId values). ` +
         `Check it by hand before relying on this command.`,
     );
   }
-  const key = candidates[0];
-  if (!key) {
+  const key = values[0];
+  if (key === undefined) {
     throw new EntgeltatlasError(
-      `No X-API-Key found at ${sourceUrl}. The upstream document may have changed ` +
-        `format or stopped publishing the key — check it by hand before relying on this command.`,
+      `No X-API-Key found at ${sourceUrl}: the page states no clientId. The web app may have ` +
+        `changed format or stopped publishing the key — check it by hand before relying on this command.`,
+    );
+  }
+  if (!KEY_FORMAT.test(key)) {
+    throw new EntgeltatlasError(
+      `The key source ${url} states a clientId that is not shaped like a key (3–64 lower-case ` +
+        `letters, digits and hyphens), so it is not used. Check the page by hand.`,
     );
   }
   return { key, sourceUrl: url };

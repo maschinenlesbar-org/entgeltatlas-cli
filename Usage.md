@@ -82,11 +82,12 @@ to look up the numbers for the `entgelte` flags.
 | `0` | success (help/version/bare invocation included) |
 | `1` | other API or parse error (incl. a response that is not a JSON array of objects, or an empty body) |
 | `2` | usage error (bad KldB code, bad flag) |
-| `3` | 401/403 — no key sent, key rejected (the published static key may no longer be accepted), **or** a WAF/IP block (see README) |
+| `3` | 401/403 — no key sent, a wrong or stale key (re-run `obtain-key`), **or** a WAF/IP block (see README) |
 | `4` | 404 — not found |
 | `6` | network/transport failure (timeout, size cap) |
 
-`obtain-key` talks only to the key source (the bundesAPI README), never to the API:
+`obtain-key` talks only to the key source (the BA's Entgeltatlas web app,
+`https://web.arbeitsagentur.de/entgeltatlas/`), never to the API:
 it exits `4` when the source answers 404, `6` on a network failure, and `1` for any
 other failure (another status, no key stated, conflicting keys) — never `3`. Library
 users get an `EntgeltatlasKeySourceError` (an `EntgeltatlasApiError` with `status`/`url`).
@@ -99,8 +100,7 @@ users get an `EntgeltatlasKeySourceError` (an `EntgeltatlasApiError` with `statu
   ceiling — see [GLOSSARY.md](GLOSSARY.md).
 - **Region numbering is irregular** (Bund/Ost/West + 16 states + 11 cities), not
   1..16 — check `codes`/`regionen`.
-- **An empty 403 is ambiguous** — a wrong key, a WAF block of your network and a
-  static key the API no longer accepts look the same. The published key got an empty
-  403 on every endpoint on 2026-09-26 (upstream now documents an OAuth
-  client-credentials flow this CLI does not implement). Re-check the key with
-  `entgeltatlas obtain-key`; see the README's 403 heads-up.
+- **An empty 403 is ambiguous** — a wrong or stale key and a WAF block of your network
+  look the same. The BA changed the key in 2026: the UUID `client_id` the bundesAPI
+  README still prints is refused. Re-run `entgeltatlas obtain-key`; see the README's
+  403 heads-up.

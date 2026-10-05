@@ -51,8 +51,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       "CLI for the Bundesagentur für Arbeit Entgeltatlas API " +
         "(rest.arbeitsagentur.de/infosysbub/entgeltatlas) — median gross-monthly " +
         "salary statistics by KldB-2010 occupation. Requires an X-API-Key: pass " +
-        `--api-key or set ${API_KEY_ENV_VAR} (a public key is published at ` +
-        "github.com/bundesAPI/entgeltatlas-api; run `entgeltatlas obtain-key` to fetch it). " +
+        `--api-key or set ${API_KEY_ENV_VAR} (the BA's Entgeltatlas web app publishes a public ` +
+        "key; run `entgeltatlas obtain-key` to fetch it). " +
         "This API takes numeric KldB codes, not occupation names, and has no name search.",
     )
     .version(VERSION)

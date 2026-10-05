@@ -174,7 +174,7 @@ test("parity #6: a key an HTTP header cannot carry is rejected by flag, env and 
 });
 
 /** The published key, in the shape the key source states it. */
-const KEY_DOC = "**client_id:** c4f0d292-9d0f-4763-87dd-d3f9e78fb006\n";
+const KEY_DOC = "<script>globalThis.infosysbubLibConfig = { clientId: 'dummy-test-key' };</script>\n";
 
 /** Answers each side's first request with `first`, its second with the key document. */
 function flaky(first: lib.HttpResponse): () => lib.HttpResponse {
@@ -203,7 +203,7 @@ test("parity #7: obtain-key and obtainKey() retry a transient 429/503 like the A
         responder: flaky(busy(status, "0")),
       });
       assert.equal(r.cli.code, 0, `${status} ${flags.join(" ")}: ${r.cli.err}`);
-      assert.equal(r.cli.out, "c4f0d292-9d0f-4763-87dd-d3f9e78fb006");
+      assert.equal(r.cli.out, "dummy-test-key");
       assert.equal(r.lib.ok, true, String(r.lib.error));
       assert.equal(r.cli.requests.length, 2);
       assert.deepEqual(r.lib.requests, r.cli.requests);
