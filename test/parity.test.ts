@@ -168,8 +168,11 @@ test("parity #6: a key an HTTP header cannot carry is rejected by flag, env and 
     assertBothReject(await parity(["--api-key", raw, "regionen"], lib6), `flag ${JSON.stringify(raw)}`);
     const env = await parity(["regionen"], lib6, { env: { ENTGELTATLAS_API_KEY: raw } });
     assertBothReject(env, `env ${JSON.stringify(raw)}`);
-    // One rule, one message: the env path prints the library's error.
-    assert.equal(env.cli.err, `Error: ${(env.lib.error as Error).message}`);
+    // One rule, one reason: the env path prints the library's reason, naming the variable.
+    assert.equal(
+      env.cli.err,
+      `Error: ${(env.lib.error as Error).message.replace("Invalid apiKey:", "Invalid ENTGELTATLAS_API_KEY:")}`,
+    );
   }
 });
 

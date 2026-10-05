@@ -25,7 +25,9 @@ Entgeltatlas web app).
 No key is bundled with this tool — see **[Obtain key](#obtain-key)** below.
 
 Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
-`codes` command works with no key at all.
+`codes` command works with no key at all — and, like `--help` and `obtain-key`, also
+when `ENTGELTATLAS_API_KEY` holds something malformed; only the commands that send a
+request check the variable (`Invalid ENTGELTATLAS_API_KEY: …`, exit 2).
 
 ## Obtain key
 

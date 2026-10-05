@@ -5,7 +5,7 @@ import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import type { EntgeltatlasClient } from "../../client/client.js";
 import type { EntgelteParams } from "../../client/types.js";
-import { DIMENSION_FLAGS, action, parseDimensionCode, parseKldb, renderJson } from "../shared.js";
+import { DIMENSION_FLAGS, action, parseDimensionCode, parseKldb, renderJson, type GlobalOptions } from "../shared.js";
 import { DIMENSIONS } from "../../client/codes.js";
 
 const REFERENCES: { name: string; desc: string; run: (c: EntgeltatlasClient) => Promise<unknown> }[] = [
@@ -51,14 +51,16 @@ export function registerCommands(program: Command, deps: CliDeps): void {
   program
     .command("codes")
     .description("Print the dimension code tables (l/r/g/a/b) — works offline, no API key")
-    .action(
-      action(deps, async ({ global }) => {
-        // The library's tables, with each dimension's CLI flag after its param.
-        renderJson(
-          deps,
-          global,
-          DIMENSIONS.map(({ param, label, values }) => ({ param, flag: DIMENSION_FLAGS[param], label, values })),
-        );
-      }),
-    );
+    // No client and no key: `codes` is offline, so a malformed ENTGELTATLAS_API_KEY
+    // (or any other client option) must not stop it.
+    .action((...args: unknown[]) => {
+      const command = args[args.length - 1] as Command;
+      const global = command.optsWithGlobals() as GlobalOptions;
+      // The library's tables, with each dimension's CLI flag after its param.
+      renderJson(
+        deps,
+        global,
+        DIMENSIONS.map(({ param, label, values }) => ({ param, flag: DIMENSION_FLAGS[param], label, values })),
+      );
+    });
 }

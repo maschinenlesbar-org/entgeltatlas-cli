@@ -11,6 +11,7 @@ import type { HttpResponse } from "../src/client/http.js";
 import { run } from "../src/cli/run.js";
 import { EntgeltatlasClient as Client } from "../src/client/client.js";
 import { EntgeltatlasValidationError as ValidationError } from "../src/client/errors.js";
+const BASE_URL_ENV: string | undefined = undefined; // entgeltatlas reads no base-URL variable
 const SIMPLE_COMMAND = ["regionen"];
 const USAGE_EXIT = 2;
 /** The members this repo's CliIO has besides out/err. */
@@ -18,6 +19,32 @@ const IO_EXTRAS = {};
 /** P4: what the rejection of a '%' in the userinfo says, and whether an escaped one (%25) is accepted. */
 const P4_MESSAGE = /%25/;
 const P4_ESCAPED_OK = true;
+/**
+ * P19, keyed repos: the variables holding a credential, the commands that never use one,
+ * a command that does, and a flag that overrides each variable (with a valid value).
+ * `codes` is offline and documented as working with no key.
+ */
+const KEY_ENVS: string[] = ["ENTGELTATLAS_API_KEY"];
+const KEYLESS_ARGVS: string[][] = [
+  ["--help"],
+  ["--version"],
+  ["help"],
+  ["help", "regionen"],
+  ["regionen", "--help"],
+  ["codes"],
+  ["obtain-key", "--help"],
+];
+const KEYED_COMMAND = ["regionen"];
+const OVERRIDES: Record<string, string[]> = {
+  ENTGELTATLAS_API_KEY: ["--api-key", "flag-key-0001"],
+};
+/** What else a variable needs to be used (the other half of a username/password pair). */
+const COMPANIONS: Record<string, Record<string, string>> = {};
+/**
+ * P19: malformed values of a credential variable. Not destatis' trailing-space value: the
+ * key is trimmed by design (a key read from a CRLF file), so "k " is a valid key here.
+ */
+const BAD_ENV_VALUES = ["TOKEN€", "a\nb-0001", "abc\u0001def"];
 /** A body every command used here accepts. */
 const okBody = [{ id: 1, bezeichnung: "Deutschland" }];
 // --------------------------------------------------------------------------------------
@@ -51,4 +78,40 @@ test("P4: a '%' that isn't an escape in the userinfo is a usage error before any
   const escaped = () => new Client({ baseUrl: "https://alice:100%25@mirror.example" });
   if (P4_ESCAPED_OK) assert.doesNotThrow(escaped);
   else assert.throws(escaped, ValidationError);
+});
+
+test("P19: help works whatever the base-URL variable holds", async (t) => {
+  if (BASE_URL_ENV === undefined) return t.skip("this CLI reads no base-URL variable");
+  for (const value of ["not a url", "http://x:99999", "ftp://h", " "]) {
+    for (const argv of [["--help"], ["help"], ["help", ...SIMPLE_COMMAND], [...SIMPLE_COMMAND, "--help"]]) {
+      const c = cli({ [BASE_URL_ENV]: value });
+      const code = await run(argv, c.deps);
+      assert.equal(code, 0, `${BASE_URL_ENV}=${JSON.stringify(value)} ${argv.join(" ")}: ${c.err.join("\n")}`);
+    }
+    // A command that uses it still fails as a usage error.
+    const c = cli({ [BASE_URL_ENV]: value });
+    assert.equal(await run(SIMPLE_COMMAND, c.deps), USAGE_EXIT);
+  }
+});
+
+test("P19 (keyed): a malformed credential variable stops only the commands that use it", async (t) => {
+  if (KEY_ENVS.length === 0) return t.skip("this CLI reads no credential variable");
+  for (const name of KEY_ENVS) {
+    for (const value of BAD_ENV_VALUES) {
+      for (const argv of KEYLESS_ARGVS) {
+        const c = cli({ [name]: value });
+        const code = await run(argv, c.deps);
+        assert.equal(code, 0, `${name}=${JSON.stringify(value)} ${argv.join(" ")}: ${c.err.join("\n")}`);
+      }
+      // A flag that overrides the variable wins, so the variable is never read.
+      const flagged = cli({ [name]: value });
+      const override = OVERRIDES[name] ?? [];
+      assert.equal(await run([...override, ...KEYED_COMMAND], flagged.deps), 0, `${name} overridden: ${flagged.err.join("\n")}`);
+      // A command that uses it fails as a usage error naming the variable, before any request.
+      const used = cli({ [name]: value, ...(COMPANIONS[name] ?? {}) });
+      assert.equal(await run(KEYED_COMMAND, used.deps), USAGE_EXIT, `${name} used: ${used.err.join("\n")}`);
+      assert.equal(used.requests(), 0);
+      assert.match(used.err.join("\n"), new RegExp(name));
+    }
+  }
 });

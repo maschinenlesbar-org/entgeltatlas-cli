@@ -59,7 +59,10 @@ the workspace). It flows through `EngineOptions.defaultHeaders`
 `apiKey` share one rule: `normalizeApiKey` trims the key (blank = no key), then
 `headerValueProblem` checks the trimmed value (`Invalid apiKey: Value contains control
 characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
-would override the env key. No key is bundled —
+would override the env key. The CLI seeds the env key with the source `"env"` and checks
+it only in a command that builds a client (`assertEnvKey` in `shared.ts`, the library's
+rule, the message naming `ENTGELTATLAS_API_KEY`), so help, `codes` (which builds no
+client) and `obtain-key` work whatever the variable holds (P19). No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
 (`KEY_SOURCE_URL`, `https://web.arbeitsagentur.de/entgeltatlas/`) at run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
 `DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared

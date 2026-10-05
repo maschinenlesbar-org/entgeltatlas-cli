@@ -86,11 +86,13 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .showHelpAfterError();
 
   // Seed --api-key from ENTGELTATLAS_API_KEY (the library's normalizeApiKey: trimmed,
-  // blank treated as unset); the client checks it. commander treats this as the
-  // option's value, which an explicit --api-key on the command line overrides
-  // during parse: flag > env var > none.
+  // blank treated as unset), marked with the source "env". commander treats this as
+  // the option's value, which an explicit --api-key on the command line overrides
+  // during parse: flag > env var > none. The value is checked only by a command that
+  // builds a client (see `action` in shared.ts), so help, `codes` and `obtain-key`
+  // work whatever the variable holds.
   const envKey = normalizeApiKey(deps.env[API_KEY_ENV_VAR]);
-  if (envKey !== undefined) program.setOptionValue("apiKey", envKey);
+  if (envKey !== undefined) program.setOptionValueWithSource("apiKey", envKey, "env");
 
   registerObtainKeyCommands(program, deps);
   registerCommands(program, deps);

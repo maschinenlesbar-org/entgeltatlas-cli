@@ -236,7 +236,8 @@ test("a header-invalid ENTGELTATLAS_API_KEY is a usage error, not 'Unexpected er
   const code = await run(["regionen"], cli.deps);
   assert.equal(code, 2);
   assert.equal(cli.mt.calls.length, 0);
-  assert.equal(cli.err.join("\n"), "Error: Invalid apiKey: Value contains control characters.");
+  // The env path names the variable to fix; the reason is the library's.
+  assert.equal(cli.err.join("\n"), "Error: Invalid ENTGELTATLAS_API_KEY: Value contains control characters.");
 });
 
 test("a deeply nested response fails pretty-printing cleanly and still prints with --compact", async () => {

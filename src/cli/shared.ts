@@ -5,7 +5,8 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
-import { EntgeltatlasError } from "../client/errors.js";
+import { EntgeltatlasError, EntgeltatlasValidationError } from "../client/errors.js";
+import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 import {
   baseUrlProblem,
@@ -219,6 +220,19 @@ export interface ActionContext {
 }
 
 /**
+ * A key that came from ENTGELTATLAS_API_KEY (not from --api-key) is checked by the
+ * library's rule (headerValueProblem) here, before the client is built, so the error
+ * names the variable the user has to fix — `Invalid ENTGELTATLAS_API_KEY: …` rather
+ * than the client's `Invalid apiKey: …` — and never repeats the value. Only commands
+ * that build a client call this: help, `codes` and `obtain-key` never read the key.
+ */
+export function assertEnvKey(command: Command, global: GlobalOptions): void {
+  if (global.apiKey === undefined || command.getOptionValueSourceWithGlobals("apiKey") !== "env") return;
+  const reason = headerValueProblem(global.apiKey);
+  if (reason !== undefined) throw new EntgeltatlasValidationError(`Invalid ${API_KEY_ENV_VAR}: ${reason}`);
+}
+
+/**
  * Wrap an async command action with consistent global-option resolution and
  * client construction. The callback receives a context (client + resolved global
  * options + this command's options) and the command's positional arguments.
@@ -234,6 +248,7 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
+    assertEnvKey(command, global);
     const client = deps.createClient(toEngineOptions(global));
     await fn({ client, global, opts: command.opts() }, positionals);
   };
