@@ -105,6 +105,12 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
   readonly method: string;
   readonly body: string;
   readonly location: string | undefined;
+  /**
+   * Set when a redirect led to another origin, so the credentials (the API key, the
+   * base URL's userinfo) were not sent to the server that answered. A 401/403 then
+   * says nothing about the key; the message says what happened.
+   */
+  readonly credentialsDropped: { from: string; to: string } | undefined;
 
   constructor(args: {
     status: number;
@@ -115,6 +121,8 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
     location?: string;
     /** Set when the redirect limit stopped the request: the redirects followed. */
     redirectsFollowed?: number;
+    /** Set when a redirect to another origin dropped the credentials. */
+    credentialsDropped?: { from: string; to: string };
   }) {
     // The URL is shown without userinfo: a credential in --base-url must not leak.
     const url = redactUrl(args.url);
@@ -131,8 +139,13 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
           : "redirect not followed (no Location header)",
       );
     }
+    const dropped = args.credentialsDropped;
+    if (dropped !== undefined && (args.status === 401 || args.status === 403)) {
+      parts.push(credentialsDroppedHint(dropped));
+    }
     const detailPart = parts.length > 0 ? `: ${parts.join("; ")}` : "";
     super(`HTTP ${args.status} for ${args.method} ${url}${detailPart}`);
+    this.credentialsDropped = dropped;
     this.status = args.status;
     this.url = url;
     this.method = args.method;
@@ -145,6 +158,32 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
   get isRetryable(): boolean {
     return this.status === 429 || this.status === 503;
   }
+}
+
+/**
+ * Why a 401/403 after a cross-origin redirect is not about the credentials: they were
+ * never sent to the server that answered. An http→https redirect on the same host gets
+ * its own advice (use the https base URL), since that is the usual way to get here.
+ */
+export function credentialsDroppedHint(dropped: { from: string; to: string }): string {
+  let from: URL | undefined;
+  let to: URL | undefined;
+  try {
+    from = new URL(dropped.from);
+    to = new URL(dropped.to);
+  } catch {
+    // fall through to the general text
+  }
+  if (from !== undefined && to !== undefined && from.protocol === "http:" && to.protocol === "https:" && from.hostname === to.hostname) {
+    return (
+      `the server redirected ${dropped.from} to ${dropped.to}, and the API key is not sent across ` +
+      `a change of scheme, so the request arrived without it: use an https base URL (${dropped.to})`
+    );
+  }
+  return (
+    `the request was redirected from ${dropped.from} to ${dropped.to}, another origin, which ` +
+    `does not get the API key or the base URL's credentials`
+  );
 }
 
 /**

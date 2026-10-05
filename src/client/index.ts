@@ -14,11 +14,13 @@ export {
   MAX_RETRIES,
   MAX_RETRY_AFTER_MS,
   assertHeaderValue,
+  cleartextCredentialsProblem,
+  isTransientNetworkError,
   parseRetryAfter,
   transientRetryDelay,
   validateBaseUrl,
 } from "./engine.js";
-export type { EngineOptions, RawResponse } from "./engine.js";
+export type { CredentialsDropped, EngineOptions, RawResponse } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { obtainKey, API_KEY_ENV_VAR, KEY_FORMAT, KEY_SOURCE_URL, MAX_KEY_SOURCE_REDIRECTS } from "./obtain-key.js";
@@ -46,6 +48,7 @@ export {
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
   EntgeltatlasParseError,
+  credentialsDroppedHint,
   credentialsIn,
   redactCredentials,
   redactSecrets,

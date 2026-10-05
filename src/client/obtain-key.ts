@@ -48,7 +48,9 @@ import {
   assertHeaderValue,
   callWithDeadline,
   checkResponse,
+  followedElsewhere,
   intOption,
+  splitUserinfo,
   transientRetryDelay,
   transportError,
   userinfoForms,
@@ -186,7 +188,11 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   const sourceCredentials = userinfoForms(sourceUrl);
-  let url = sourceUrl;
+  // A source behind Basic auth (a private mirror) gets its userinfo as an Authorization
+  // header, never in the URL the transport sees; with same-origin redirects only, it
+  // never leaves that origin.
+  const start = splitUserinfo(sourceUrl);
+  let url = start.url;
   let response: CheckedResponse;
   let redirects = 0;
   let attempt = 0;
@@ -203,13 +209,19 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
           headers: {
             Accept: "text/html, */*;q=0.8",
             "User-Agent": userAgent,
+            ...(start.basic !== undefined ? { Authorization: start.basic } : {}),
           },
+          redirect: "manual",
           ...(timeoutMs > 0 ? { timeoutMs } : {}),
           ...(maxResponseBytes > 0 ? { maxResponseBytes } : {}),
         },
         timeoutMs,
       );
       response = checkResponse(raw, "GET", url, maxResponseBytes);
+      // A transport that followed a redirect to another host itself read the key from
+      // a document this function would not trust (and would cite the wrong source).
+      const elsewhere = followedElsewhere("GET", url, (raw as { url?: unknown }).url);
+      if (elsewhere !== undefined) throw elsewhere;
     } catch (cause) {
       // A source behind Basic auth (a private mirror): its credentials are cut from
       // transport text, as the API client does for its base URL.

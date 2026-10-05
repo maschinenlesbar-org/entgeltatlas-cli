@@ -114,7 +114,9 @@ Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
 built on `fetch`) gets the same guarantees as the built-in one: the engine enforces
 `timeoutMs` (passing an `AbortSignal` in `request.signal`) and `maxResponseBytes`, reads
 `Headers` objects and any header case, accepts any byte-array body, and turns whatever
-the transport throws or returns malformed into an `EntgeltatlasNetworkError`.
+the transport throws or returns malformed into an `EntgeltatlasNetworkError`. A transport
+must not follow redirects (`request.redirect` is `"manual"`): the engine follows them and
+sends the key only to the base URL's origin.
 
 ## Read the numbers correctly
 

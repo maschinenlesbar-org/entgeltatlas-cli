@@ -286,3 +286,12 @@ test("--help states the --max-retries range and default", async () => {
   assert.equal(await run(["--help"], cli.deps), 0);
   assert.match(cli.out.join("\n").replace(/\s+/g, " "), /--max-retries <n> retries for transient 429\/503 responses \(0\.\.10, default 2;/);
 });
+
+test("P3: a key sent to a plain-http host other than loopback gets a warning", async () => {
+  const remote = makeCli(() => jsonResponse(fx.regionen));
+  assert.equal(await run(["--base-url", "http://mirror.example", ...KEY, "regionen"], remote.deps), 0);
+  assert.match(remote.err.join("\n"), /^warning: The API key is sent unencrypted to mirror\.example/m);
+  const loopback = makeCli(() => jsonResponse(fx.regionen));
+  assert.equal(await run(["--base-url", "http://127.0.0.1:20230", ...KEY, "regionen"], loopback.deps), 0);
+  assert.deepEqual(loopback.err, []);
+});

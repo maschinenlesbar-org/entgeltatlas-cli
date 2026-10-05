@@ -170,6 +170,10 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       deps.io.err(`Error: ${err.message}`);
       if (err.status === 404) return EXIT.NOT_FOUND;
       if (err.status === 401 || err.status === 403) {
+        // A redirect to another origin (an http: base URL answered with https: is the
+        // usual case) dropped the key: the message says so and what to do, and the
+        // key itself is fine, so no key hint.
+        if (err.credentialsDropped !== undefined) return EXIT.AUTH;
         // An empty-body 403 is ambiguous: the rest.arbeitsagentur.de gateway sends the
         // same text/plain 403 for a wrong, stale or missing X-API-Key and for a refused
         // network (WAF). The stale case is real: in 2026 the BA replaced the UUID

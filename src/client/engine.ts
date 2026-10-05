@@ -31,6 +31,22 @@ export interface RawResponse {
   data: Buffer;
   contentType: string;
   status: number;
+  /** The URL that answered, after any redirects, without userinfo. */
+  url: string;
+  /**
+   * Set when a redirect led to another origin (another scheme, host or port), so the
+   * credentials (the API key, the base URL's userinfo) were not sent to the server
+   * that answered: the origins before and after that hop.
+   */
+  credentialsDropped?: CredentialsDropped;
+}
+
+/** Where a redirect left the origin the credentials belong to. */
+export interface CredentialsDropped {
+  /** The origin that received the credentials. */
+  from: string;
+  /** The other origin the redirect led to, which did not. */
+  to: string;
 }
 
 export interface EngineOptions {
@@ -429,6 +445,88 @@ export function transportError(method: string, url: string, cause: unknown): Ent
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * `url` without its userinfo, and the `Authorization: Basic` value the userinfo
+ * stands for (undefined without one). The engine attaches credentials per hop
+ * itself, so a transport never sees a URL with userinfo: Node's http would turn it
+ * into a Basic header on every hop, and `fetch` refuses such a URL. A URL that does
+ * not parse is returned as is, for the transport to report.
+ */
+export function splitUserinfo(url: string): { url: string; basic: string | undefined } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { url, basic: undefined };
+  }
+  if (parsed.username === "" && parsed.password === "") return { url, basic: undefined };
+  const decode = (part: string): string => {
+    try {
+      return decodeURIComponent(part);
+    } catch {
+      return part;
+    }
+  };
+  const pair = `${decode(parsed.username)}:${decode(parsed.password)}`;
+  parsed.username = "";
+  parsed.password = "";
+  return { url: parsed.href, basic: `Basic ${Buffer.from(pair, "latin1").toString("base64")}` };
+}
+
+/** The origin of `url` (scheme, host and port), or undefined when it does not parse. */
+export function originOf(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The error for a transport that followed a redirect itself (fetch's default) to
+ * another origin, as its response `url` shows, or undefined when it didn't. Such a
+ * request went to a host the engine never checked, credential headers and all: fetch
+ * strips Authorization across origins, but not X-API-Key or Cookie. Shared with
+ * obtainKey().
+ */
+export function followedElsewhere(method: string, url: string, reported: unknown): EntgeltatlasNetworkError | undefined {
+  if (typeof reported !== "string" || reported === "" || originOf(reported) === originOf(url)) return undefined;
+  return new EntgeltatlasNetworkError(
+    `${method} ${redactUrl(url)} failed: the transport followed a redirect to ` +
+      `${originOf(reported) ?? "an unparseable URL"}, another origin. A transport must not ` +
+      `follow redirects (HttpRequest.redirect is "manual"); the engine follows them and ` +
+      `decides where credentials may go.`,
+  );
+}
+
+/**
+ * Why credentials would cross the network unencrypted, or `undefined`: the base URL
+ * is plain `http:` to a host other than the loopback interface, and an API key or a
+ * `user:password@` would be sent to it. Not an error (a mirror on a trusted network
+ * is a legitimate setup), so the CLI prints it as a warning; a missing "s" is an easy
+ * slip.
+ */
+export function cleartextCredentialsProblem(baseUrl: string, hasKey: boolean): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== "http:") return undefined;
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host === "::1" || /^127\./.test(host)) return undefined;
+  const userinfo = url.username !== "" || url.password !== "";
+  if (!hasKey && !userinfo) return undefined;
+  const what =
+    hasKey && userinfo
+      ? "The API key and the base URL's credentials are"
+      : hasKey
+        ? "The API key is"
+        : "The base URL's credentials are";
+  return `${what} sent unencrypted to ${url.host} (http:, not https:).`;
+}
+
 /** Return a copy of `headers` with any credential-bearing header removed. */
 function stripCredentialHeaders(headers: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -511,14 +609,30 @@ export class RequestEngine {
     path: string,
     options: { query?: QueryParams; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
-    let url = this.buildUrl(path, options.query);
     // The per-request `accept` and User-Agent are applied AFTER defaultHeaders so
     // a default cannot shadow per-endpoint negotiation.
-    let headers: Record<string, string> = {
+    const all: Record<string, string> = {
       ...this.#defaultHeaders,
       Accept: options.accept,
       "User-Agent": this.userAgent,
     };
+    // Credentials — the credential headers (X-API-Key, Authorization, OAuthAccessToken,
+    // Cookie) and the base URL's userinfo, sent as `Authorization: Basic` unless an
+    // Authorization header is already set — are attached per hop, never baked into the
+    // URL the transport sees. They go to the start URL's origin only: a redirect to the
+    // same origin (a relative or an absolute Location) keeps them; one to another
+    // scheme, host or port drops them for the rest of the chain, and the result says so.
+    const plain = stripCredentialHeaders(all);
+    const credentials: Record<string, string> = {};
+    for (const [name, value] of Object.entries(all)) if (!(name in plain)) credentials[name] = value;
+    const start = splitUserinfo(this.buildUrl(path, options.query));
+    if (start.basic !== undefined && !Object.keys(credentials).some((n) => n.toLowerCase() === "authorization")) {
+      credentials["Authorization"] = start.basic;
+    }
+    const hasCredentials = Object.keys(credentials).length > 0;
+    const credentialOrigin = originOf(start.url);
+    let dropped: CredentialsDropped | undefined;
+    let url = start.url;
 
     // Only an idempotent request is sent again: request() is public, and a POST re-sent
     // after a reset may be applied twice. The client itself sends GETs only.
@@ -527,6 +641,8 @@ export class RequestEngine {
     let redirects = 0;
     // attempts = initial try + maxRetries (redirects are counted separately)
     for (;;) {
+      const sendCredentials = dropped === undefined && originOf(url) === credentialOrigin;
+      const headers = sendCredentials ? { ...plain, ...credentials } : plain;
       let raw: HttpResponse;
       try {
         raw = await callWithDeadline(
@@ -535,6 +651,7 @@ export class RequestEngine {
             method,
             url,
             headers,
+            redirect: "manual",
             timeoutMs: this.timeoutMs,
             ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
           },
@@ -558,6 +675,10 @@ export class RequestEngine {
       } catch (err) {
         throw this.toNetworkError(method, url, err);
       }
+      // A transport that followed a redirect itself took the request to a host the
+      // engine never checked: don't trust its answer.
+      const elsewhere = followedElsewhere(method, url, (raw as { url?: unknown }).url);
+      if (elsewhere !== undefined) throw elsewhere;
 
       const status = response.status;
       // Honour Retry-After; without a usable one, back off linearly. A Retry-After
@@ -583,16 +704,19 @@ export class RequestEngine {
       if (next !== undefined && redirects >= this.maxRedirects) {
         // A loop (or a long chain): say how far it got rather than a bare 3xx.
         // (With maxRedirects 0 nothing was followed; the plain text says enough.)
-        throw this.toApiError(method, url, status, response.body, location, redirects || undefined);
+        throw this.toApiError(method, url, status, response.body, location, redirects || undefined, dropped);
       }
       if (next !== undefined) {
-        // SECURITY: when the redirect crosses an origin boundary, strip
-        // credential-bearing headers so the X-API-Key (including a user's own
-        // --api-key) is never forwarded to a different host.
-        if (next.origin !== new URL(url).origin) {
-          headers = stripCredentialHeaders(headers);
+        // SECURITY: the credentials belong to the start URL's origin. A redirect to
+        // another scheme, host or port drops them for the rest of the chain — http→https
+        // on the same host included, as the key must not be re-sent on a hop the user
+        // did not choose. A Location's own userinfo is never used.
+        next.username = "";
+        next.password = "";
+        if (hasCredentials && dropped === undefined && next.origin !== credentialOrigin) {
+          dropped = { from: originOf(url) ?? "", to: next.origin };
         }
-        url = next.toString();
+        url = next.href;
         redirects += 1;
         continue;
       }
@@ -601,10 +725,16 @@ export class RequestEngine {
 
       const contentType = sanitizeServerText(String(headerValue(response.headers["content-type"]) ?? ""));
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, location);
+        throw this.toApiError(method, url, status, response.body, location, undefined, dropped);
       }
 
-      return { data: response.body, contentType, status };
+      return {
+        data: response.body,
+        contentType,
+        status,
+        url,
+        ...(dropped !== undefined ? { credentialsDropped: dropped } : {}),
+      };
     }
   }
 
@@ -674,6 +804,7 @@ export class RequestEngine {
     body: Buffer,
     locationHeader?: string,
     redirectsFollowed?: number,
+    credentialsDropped?: CredentialsDropped,
   ): EntgeltatlasApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
@@ -699,6 +830,7 @@ export class RequestEngine {
       detail,
       ...(location !== undefined ? { location } : {}),
       ...(redirectsFollowed !== undefined ? { redirectsFollowed } : {}),
+      ...(credentialsDropped !== undefined ? { credentialsDropped } : {}),
     });
   }
 }

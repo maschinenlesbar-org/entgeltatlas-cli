@@ -7,6 +7,7 @@ import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError, EntgeltatlasValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
+import { DEFAULT_BASE_URL, cleartextCredentialsProblem } from "../client/engine.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 import {
   baseUrlProblem,
@@ -249,7 +250,11 @@ export function action(
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
     assertEnvKey(command, global);
-    const client = deps.createClient(toEngineOptions(global));
+    const options = toEngineOptions(global);
+    const client = deps.createClient(options);
+    // Built first, so a key the client rejects is a usage error before any warning.
+    const cleartext = cleartextCredentialsProblem(options.baseUrl ?? DEFAULT_BASE_URL, options.apiKey !== undefined);
+    if (cleartext !== undefined) deps.io.err(`warning: ${cleartext} Use an https base URL.`);
     await fn({ client, global, opts: command.opts() }, positionals);
   };
 }

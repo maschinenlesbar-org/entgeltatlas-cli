@@ -287,12 +287,15 @@ test("P5: obtainKey holds its limits and reads headers for any transport", async
 test("P2: obtainKey names a source URL without its userinfo, in errors and in the result", async () => {
   const sourceUrl = "http://alice:s3cret@mirror.example/entgeltatlas/";
   const ok = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/html"));
-  assert.equal((await obtainKey({ transport: ok.transport, sourceUrl })).sourceUrl, "http://***@mirror.example/entgeltatlas/");
+  assert.ok(!(await obtainKey({ transport: ok.transport, sourceUrl })).sourceUrl.includes("s3cret"));
+  // The userinfo is sent as Basic auth, never in the URL the transport sees.
+  assert.equal(ok.last().url, "http://mirror.example/entgeltatlas/");
+  assert.equal(ok.last().headers?.["Authorization"], `Basic ${Buffer.from("alice:s3cret").toString("base64")}`);
   for (const doc of ["<html>no key</html>", page("first-key") + page("second-key"), page("YOUR-API-KEY")]) {
     const mt = makeMockTransport(() => rawResponse(doc, "text/html"));
     await assert.rejects(
       () => obtainKey({ transport: mt.transport, sourceUrl }),
-      (err) => err instanceof EntgeltatlasError && !err.message.includes("s3cret") && err.message.includes("***@"),
+      (err) => err instanceof EntgeltatlasError && !err.message.includes("s3cret"),
       doc,
     );
   }
@@ -301,4 +304,12 @@ test("P2: obtainKey names a source URL without its userinfo, in errors and in th
     () => obtainKey({ transport: async (req) => { throw new TypeError(`Failed to fetch ${req.url}`); }, sourceUrl, maxRetries: 0 }),
     (err) => err instanceof EntgeltatlasNetworkError && !err.message.includes("s3cret"),
   );
+});
+
+test("P3: obtainKey tells the transport not to follow redirects, and refuses an answer from another origin", async () => {
+  const mt = makeMockTransport(() => ({ ...rawResponse(SOURCE_DOC, "text/html"), url: "https://elsewhere.example/page" }));
+  await assert.rejects(() => obtainKey({ transport: mt.transport }), EntgeltatlasNetworkError);
+  assert.equal(mt.last().redirect, "manual");
+  const same = makeMockTransport(() => ({ ...rawResponse(SOURCE_DOC, "text/html"), url: KEY_SOURCE_URL }));
+  assert.equal((await obtainKey({ transport: same.transport })).key, EXPECTED_KEY);
 });
