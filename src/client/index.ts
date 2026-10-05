@@ -15,6 +15,7 @@ export {
   MAX_RETRY_AFTER_MS,
   assertHeaderValue,
   cleartextCredentialsProblem,
+  decodeBody,
   isTransientNetworkError,
   parseRetryAfter,
   transientRetryDelay,

@@ -315,3 +315,24 @@ test("P5: a redirect to a non-http(s) target is not followed: the transport neve
     assert.equal(mt.calls.length, 1, location);
   }
 });
+
+test("P8: a body is decoded by its declared charset, and a BOM is dropped", async () => {
+  const text = "Baden-Württemberg";
+  const latin1 = makeMockTransport(() => ({
+    status: 200,
+    headers: { "content-type": "application/json; charset=ISO-8859-1" },
+    body: Buffer.from(JSON.stringify([{ id: 11, bezeichnung: text }]), "latin1"),
+  }));
+  assert.deepEqual(await new RequestEngine({ transport: latin1.transport }).getJson("/x"), [{ id: 11, bezeichnung: text }]);
+  const bom = makeMockTransport(() => ({
+    status: 200,
+    headers: { "content-type": "application/json" },
+    body: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(JSON.stringify([{ id: 1 }]))]),
+  }));
+  assert.deepEqual(await new RequestEngine({ transport: bom.transport }).getJson("/x"), [{ id: 1 }]);
+  const unknown = makeMockTransport(() => rawResponse("[]", "application/json; charset=x-no-such"));
+  await assert.rejects(
+    () => new RequestEngine({ transport: unknown.transport }).getJson("/x"),
+    (err) => err instanceof EntgeltatlasParseError && /x-no-such/.test(err.message),
+  );
+});

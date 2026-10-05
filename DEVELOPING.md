@@ -263,6 +263,9 @@ the flag in the message.
   requested wait (`retryAfterTooLong`, "the server asked to wait 120 s (Retry-After) … try
   again later"). `obtainKey()` shares the policy (`transientRetryDelay`).
   `test/conformance-p6-retry-policy.test.ts` is the shared check. Rate limits are undocumented.
+- A body is decoded by the charset its Content-Type declares (`decodeBody`, UTF-8 when it
+  names none; a leading BOM is dropped; an unknown label is an `EntgeltatlasParseError`
+  naming it), in the client and in `obtainKey()`.
 - `--base-url` (and the library's `baseUrl`) accepts only `http:`/`https:`; redirects (301/302/303/307/308 with a
   usable http(s) Location, up to `maxRedirects` = 5) are followed by the engine, never
   by the transport (`HttpRequest.redirect` is `"manual"`; a response whose `url` shows

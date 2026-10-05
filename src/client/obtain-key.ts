@@ -50,6 +50,8 @@ import {
   retryAfterTooLong,
   callWithDeadline,
   checkResponse,
+  decodeBody,
+  headerValue,
   followedElsewhere,
   intOption,
   splitUserinfo,
@@ -260,7 +262,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
     });
   }
 
-  const text = response.body.toString("utf8");
+  const text = decodeBody(response.body, String(headerValue(response.headers["content-type"]) ?? ""), redactUrl(url));
   // The page states the key once. Two different values make it ambiguous, and a
   // value that isn't shaped like a key (a placeholder, a template expression) is not
   // one: guessing would be worse than failing.
