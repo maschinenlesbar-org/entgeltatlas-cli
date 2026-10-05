@@ -93,16 +93,40 @@ function schemeProblem(value: string, what: string): string | undefined {
 export const httpUrlProblem: Problem = (value) => schemeProblem(value, "URLs");
 
 /**
+ * A `%` in the user name or password must start a valid escape (`%25` for a literal
+ * one): Node decodes the userinfo for the Authorization header and throws "URI
+ * malformed" otherwise — at request time, as a network error. Checked here instead,
+ * so it is a usage error before any request. The reason never echoes the value.
+ */
+export const userinfoEscapeProblem: Problem = (value) => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return undefined; // schemeProblem reports an unparseable value
+  }
+  for (const part of [url.username, url.password]) {
+    try {
+      decodeURIComponent(part);
+    } catch {
+      return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
+    }
+  }
+  return undefined;
+};
+
+/**
  * A base URL: an absolute `http:`/`https:` URL (a path prefix is fine) without a
  * query or fragment — request paths are appended to it as a string, so `http://h/?x=1`
- * would request `/?x=1/infosysbub/...` and `http://h/#f` would request `/` — and
- * without surrounding whitespace (baseUrlWhitespaceProblem). The reasons are the
- * CLI's `--base-url` messages.
+ * would request `/?x=1/infosysbub/...` and `http://h/#f` would request `/` — with a
+ * decodable userinfo (userinfoEscapeProblem), and without surrounding whitespace
+ * (baseUrlWhitespaceProblem). The reasons are the CLI's `--base-url` messages.
  */
 export const baseUrlProblem: Problem = (value) =>
   (typeof value === "string" ? undefined : `Invalid URL "${String(value)}".`) ??
   schemeProblem(value, "base URLs") ??
   (/[?#]/.test(value) ? "A base URL cannot have a query (?) or fragment (#)." : undefined) ??
+  userinfoEscapeProblem(value) ??
   baseUrlWhitespaceProblem(value);
 
 /**

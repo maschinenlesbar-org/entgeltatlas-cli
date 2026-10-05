@@ -130,7 +130,9 @@ same rule.
 
 The `RequestEngine` constructor checks `baseUrl` with `validateBaseUrl` /
 `baseUrlProblem` on the raw value, before the trailing-slash strip: unparseable
-(including `""`), a scheme other than `http:`/`https:`, a query or fragment, or
+(including `""`), a scheme other than `http:`/`https:`, a query or fragment, a `%`
+in the user name or password that isn't an escape (`userinfoEscapeProblem`: Node would
+throw "URI malformed" at request time; a literal `%` is `%25`), or
 surrounding whitespace (rejected, not trimmed: `new URL()` would trim it silently
 while the engine joins the raw string to every path) throws an
 `EntgeltatlasValidationError` (`Invalid baseUrl: Only http: and https: base URLs are
