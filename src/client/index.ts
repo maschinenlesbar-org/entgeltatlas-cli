@@ -45,6 +45,9 @@ export {
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
   EntgeltatlasParseError,
+  credentialsIn,
+  redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 

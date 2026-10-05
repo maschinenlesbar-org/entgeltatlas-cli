@@ -81,6 +81,22 @@ cross-origin redirect.
 > the web app's `clientId`, so OAuth stays unimplemented. The credential-header set
 > lists `oauthaccesstoken` anyway, for a library user who sends one.
 
+### Secrets in the CLI's output
+
+`withRedactedOutput` in `run.ts`: commander echoes a rejected value in its usage
+error and names an unknown command or option as typed, so `run()` wraps `deps.io`
+first. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
+(`credentialsIn`, which finds it whether the value parses or not, then
+`redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value, the
+`ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
+(`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
+`obtain-key` prints the key. Commander's error message is terminal-escaped first
+(`escapeTerminalText`: C0, DEL, C1 and format characters become `\uXXXX`), so an ESC
+in `--user-agent` can't reach the terminal; the secrets are matched in their raw,
+escaped and JSON-escaped forms. `test/conformance-p1-cli-redaction.test.ts` is the
+shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
+by environment and typed without its flag).
+
 ### Input validation (library)
 
 [`validate.ts`](src/client/validate.ts): the library owns every rule about what a

@@ -67,6 +67,16 @@ export const KEY_FORMAT = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
  */
 const CLIENT_ID_PATTERN = /["']?\bclientId["']?\s*[:=]\s*(["'])([^"'\r\n]{0,200})\1/g;
 
+/**
+ * True for a value shaped like a UUID key (the BA's former key shape, and a common one
+ * for keys): the CLI keeps such a value out of its stderr even when it was typed
+ * without `--api-key`. The current key is a short name (`infosysbub-ega`) that can't
+ * be told from an ordinary word, so only the UUID shape is recognised on its own.
+ */
+export function looksLikeApiKey(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
 /** A placeholder UUID such as 00000000-0000-0000-0000-000000000000: one repeated hex digit. */
 function isPlaceholder(key: string): boolean {
   return /^([0-9a-f])(?:\1|-)*$/i.test(key);

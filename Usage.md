@@ -8,8 +8,8 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 
 | Flag | Meaning |
 |---|---|
-| `--api-key <key>` | X-API-Key (env `ENTGELTATLAS_API_KEY`); a blank value is a usage error, not "no key" |
-| `--base-url <url>` | API base (default `https://rest.arbeitsagentur.de`); `http:`/`https:` only, a path prefix is fine, a query (`?`), fragment (`#`) or surrounding whitespace is a usage error |
+| `--api-key <key>` | X-API-Key (env `ENTGELTATLAS_API_KEY`); a blank value is a usage error, not "no key"; an error never repeats the key |
+| `--base-url <url>` | API base (default `https://rest.arbeitsagentur.de`); `http:`/`https:` only, a path prefix is fine, a query (`?`), fragment (`#`) or surrounding whitespace is a usage error. A `user:password@` part is sent as Basic auth but shown as `***@` in everything the CLI prints, usage errors included |
 | `--timeout <ms>` · `--max-response-bytes <n>` | transport tuning |
 | `--max-retries <n>` | retries for a transient 429/503, `0`–`10` (default 2); each waits the server's `Retry-After` (seconds or HTTP-date, up to 30 s — a longer one is not retried), else 200 ms × attempt |
 | `--user-agent <ua>` | User-Agent header |
@@ -18,7 +18,8 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 header: a blank value, a control character (CR/LF, DEL; tab is fine) or a character above
 U+00FF is a usage error (exit 2) before any request. The key, from the flag or the env var,
 is trimmed first, as the library does, so a trailing CR/LF from a key file is dropped
-rather than rejected.
+rather than rejected. A rejected value is never echoed raw: the key is shown as `***`,
+and control characters in any echoed value as `\uXXXX`.
 | `--compact` | single-line JSON |
 
 ## entgelte — salary statistics
