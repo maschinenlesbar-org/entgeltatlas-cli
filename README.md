@@ -8,7 +8,7 @@
 
 A TypeScript **API client and CLI** for the **Bundesagentur für Arbeit
 Entgeltatlas API** — German **median gross-monthly salary statistics** by
-occupation ([KldB-2010](GLOSSARY.md)), sliced by requirement level, region,
+occupation ([KldB-2010](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md)), sliced by requirement level, region,
 gender, age, and industry.
 
 Read-only, zero runtime HTTP dependencies (built on `node:http`/`https`), strict
@@ -110,8 +110,8 @@ slice).
 this API has **no name search**. Resolve a name to a code via the BERUFENET/DKZ
 sibling APIs or the [KldB catalogue](https://www.klassifikationsserver.de/).
 
-See **[Usage.md](Usage.md)** for the full command reference and
-**[GLOSSARY.md](GLOSSARY.md)** for the dimensions, the KldB system, and how to
+See **[Usage.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/Usage.md)** for the full command reference and
+**[GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md)** for the dimensions, the KldB system, and how to
 read censored/suppressed figures.
 
 ## Library use
@@ -144,7 +144,7 @@ sends the key only to the base URL's origin.
 - **A negative figure is a marker, not an amount.** Recorded live, a suppressed slice
   (too few observations) comes back as `-1` (`besetzung` negative too), and a quartile
   above the contribution ceiling as `-2`. `null` or an empty array mean the same: no
-  figure. Never report these as € or treat them as `0`; see [GLOSSARY.md](GLOSSARY.md).
+  figure. Never report these as € or treat them as `0`; see [GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md).
 - High earners are **censored** at the social-insurance ceiling
   (`region.beitragsBemessungsGrenze`), so the top can look artificially flat.
 
@@ -159,7 +159,7 @@ sends the key only to the base URL's origin.
 
 ## Claude Code skills
 
-Three [Agent Skills](SKILLS.md) teach Claude Code to use this CLI for real questions:
+Three [Agent Skills](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/SKILLS.md) teach Claude Code to use this CLI for real questions:
 look up what an occupation earns (**entgelt-lookup**), compare salaries by gender, region or
 level (**entgelt-gap-analyzer**), and resolve the codes the API needs
 (**entgelt-code-finder**). Install them from the maschinenlesbar.org marketplace:
@@ -169,7 +169,7 @@ level (**entgelt-gap-analyzer**), and resolve the codes the API needs
 /plugin install entgeltatlas@maschinenlesbar
 ```
 
-See **[SKILLS.md](SKILLS.md)** for details.
+See **[SKILLS.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/SKILLS.md)** for details.
 
 ## Development
 
@@ -180,4 +180,4 @@ npm test           # builds, then node --test on dist/test
 npm run typecheck
 ```
 
-See [DEVELOPING.md](DEVELOPING.md) for architecture and API specifics.
+See [DEVELOPING.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/DEVELOPING.md) for architecture and API specifics.

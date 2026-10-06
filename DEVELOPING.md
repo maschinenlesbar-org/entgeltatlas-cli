@@ -303,6 +303,10 @@ shared check.
   EPIPE on stderr is ignored, so a failed run keeps its own exit code (`2>&1 | true` no
   longer turns a usage error into 0). `test/conformance-p7-pipes-exit-codes.test.ts`
   spawns the built bin to check both.
+- The README ships in the npm tarball and is what npmjs.com shows, so a relative link in it
+  points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
+  `LICENSE`); every other document is linked by its absolute GitHub URL.
+  `test/conformance-p21-readme-links.test.ts` is the shared check (P21).
 - Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
   waits `retryDelayMs × attempt` (the floor; `retryDelayMs` 0..`MAX_RETRY_AFTER_MS`), or the
   response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`) when that is
