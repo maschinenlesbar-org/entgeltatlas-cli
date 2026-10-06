@@ -45,7 +45,8 @@ live-verified), so pass the dimensions you mean and check each row's labels. Run
 
 A code outside these tables (the ones `codes` prints) is a usage error (exit 2) before
 any request: what the API does with an unknown code is not live-verified, and if it
-ignored the parameter you would silently get the unfiltered slice.
+ignored the parameter you would silently get the unfiltered slice. Each flag takes one
+value: giving one twice (`-g 2 -g 3`) is a usage error too — run one call per slice.
 
 ```bash
 entgeltatlas entgelte 84304 -l 4 -r 11 -g 2      # Experte, Baden-Württemberg, Männer

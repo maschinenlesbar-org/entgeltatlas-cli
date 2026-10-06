@@ -13,10 +13,9 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
-import type { QueryParams } from "./query.js";
-import { DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
+import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import { assertValid, describeType, headerValueProblem, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
-import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
+import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
 
@@ -93,15 +92,6 @@ function assertArrayOf<T>(
   return body as T[];
 }
 
-/** Drop undefined values so only the parameters the caller set are sent. */
-function prune(params: Record<string, unknown>): QueryParams {
-  const out: QueryParams = {};
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined) out[k] = v as QueryParams[string];
-  }
-  return out;
-}
-
 export class EntgeltatlasClient {
   // A real private field: logging a client never shows the engine (and its key).
   readonly #engine: RequestEngine;
@@ -134,7 +124,7 @@ export class EntgeltatlasClient {
    * code that is not 3–5 digits and for a dimension code outside its table in
    * DIMENSIONS (see dimensionCodeProblem).
    */
-  async entgelte(kldb: string, params: EntgelteParams = {}): Promise<EntgeltEntry[]> {
+  async entgelte(kldb: string, params: EntgelteParams = {}, options: EntgelteOptions = {}): Promise<EntgeltEntry[]> {
     if (typeof kldb !== "string") {
       throw new EntgeltatlasValidationError(
         `Invalid KldB code: Expected a string of 3–5 digits (e.g. "84304"), got ${describeType(kldb)}.`,
@@ -151,12 +141,31 @@ export class EntgeltatlasClient {
           "This API takes the numeric KldB-2010 code, not an occupation name.",
       );
     }
-    for (const param of DIMENSION_PARAMS) {
-      const code = params[param];
-      if (code !== undefined) assertValid(param, code, dimensionCodeProblem(param));
+    const { allowUnknownFilters = false } = optionsObject("options", options);
+    // Every key the caller set, own and enumerable — a JSON-parsed "__proto__" included.
+    const query: Record<string, string | number | boolean> = {};
+    for (const key of Object.keys(params)) {
+      assertValid("params", key, (k) => filterKeyProblem(k, allowUnknownFilters === true));
+      const value = (params as Record<string, unknown>)[key];
+      if (value === undefined) continue;
+      if ((DIMENSION_PARAMS as readonly string[]).includes(key)) {
+        // One integer code from the dimension's table: an array, NaN, a string or null
+        // is rejected (the API takes one value, and might ignore a bad one).
+        query[key] = assertValid(key, value as number, dimensionCodeProblem(key as DimensionParam));
+      } else if (
+        typeof value === "string" ||
+        typeof value === "boolean" ||
+        (typeof value === "number" && Number.isFinite(value))
+      ) {
+        query[key] = value;
+      } else {
+        throw new EntgeltatlasValidationError(
+          `Invalid ${JSON.stringify(key)}: Expected a string, a finite number or a boolean, got ${describeType(value)}.`,
+        );
+      }
     }
     const path = `${SERVICE}/entgelte/${kldb}`;
-    const res = await this.#engine.getJson<unknown>(path, prune({ ...params }));
+    const res = await this.#engine.getJson<unknown>(path, query);
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
     return assertArrayOf<EntgeltEntry>(res, path, "salary rows", entgeltRowProblem, true);

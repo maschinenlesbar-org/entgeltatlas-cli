@@ -62,6 +62,16 @@ export interface EntgelteParams {
   b?: number;
 }
 
+/** Options for `EntgeltatlasClient.entgelte()`. */
+export interface EntgelteOptions {
+  /**
+   * Send params keys other than l/r/g/a/b instead of rejecting them (for a parameter
+   * the API adds after this release). Their values must be a string, a finite number or
+   * a boolean; `__proto__`, `constructor` and `prototype` are never sent.
+   */
+  allowUnknownFilters?: boolean;
+}
+
 /** An item from a reference/catalogue endpoint (/regionen, /geschlechter, ...). */
 export interface ReferenceItem {
   id: number;

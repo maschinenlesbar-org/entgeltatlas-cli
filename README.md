@@ -91,6 +91,11 @@ entgeltatlas entgelte 84304 -l 4 -r 1 -g 1 -a 1 -b 1 --compact \
   | jq '.[] | {level: .performanceLevel.bezeichnung, region: .region.bezeichnung, entgelt}'
 ```
 
+Each dimension flag takes one value; a repeated one (`-g 2 -g 3`) is a usage error, so
+compare slices with one call each. In the library, `entgelte()` rejects any params key
+other than `l`, `r`, `g`, `a`, `b` (the API would ignore it and answer the unfiltered
+slice).
+
 `entgelte <kldb>` takes the **numeric KldB-2010 code**, not an occupation name —
 this API has **no name search**. Resolve a name to a code via the BERUFENET/DKZ
 sibling APIs or the [KldB catalogue](https://www.klassifikationsserver.de/).

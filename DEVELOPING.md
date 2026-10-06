@@ -236,6 +236,19 @@ if it ignored the parameter, the caller would silently get the unfiltered slice.
 CLI's `--level/--region/--gender/--age/--branch` parsers call the same rule, with
 the flag in the message.
 
+**Strict filters (P10).** `client.entgelte(kldb, params, options)` takes only the five
+documented keys: any other key — `{ region: 11 }` (the CLI's flag name), `{ L: 4 }`,
+`constructor`, a JSON-parsed `__proto__` — is an `EntgeltatlasValidationError`
+(`filterKeyProblem`) before any request, because the API ignores an unknown parameter
+and answers the unfiltered slice with HTTP 200. `{ allowUnknownFilters: true }` (dip-bundestag's
+shape) sends a parameter the API adds later, as a string, finite number or boolean;
+`__proto__`, `constructor` and `prototype` never go out. A dimension value must be one
+integer code (an array, `NaN`, a string or `null` is rejected). In the CLI, a single-value
+option given twice (`-g 2 -g 3`, `--timeout 1 --timeout 2`) is a usage error naming the
+option (`rejectRepeatedOptions` in `run.ts`), not "last one wins".
+`test/conformance-p10-strict-filters.test.ts` (from marktstammdatenregister-cli) is the
+shared check.
+
 ## Live verification status
 
 - **2026-10-06:** the cause of the empty 403s below is found: the BA replaced the

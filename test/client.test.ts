@@ -149,3 +149,16 @@ test("P9: a salary row or a code without the documented fields is a parse error,
   const { c } = client(() => jsonResponse([]), { apiKey: "K" });
   assert.deepEqual(await c.entgelte("84304"), []);
 });
+
+test("P10: allowUnknownFilters sends an extra parameter, never __proto__ and never an array", async () => {
+  const { c, mt } = client(() => jsonResponse([]), { apiKey: "K" });
+  await c.entgelte("84304", { l: 4, x: "1" } as never, { allowUnknownFilters: true });
+  assert.equal(new URL(mt.last().url).search, "?l=4&x=1");
+  for (const params of [JSON.parse('{"__proto__": 1}'), { constructor: 1 }, { x: [1, 2] }, { x: { y: 1 } }]) {
+    await assert.rejects(
+      () => c.entgelte("84304", params as never, { allowUnknownFilters: true }),
+      EntgeltatlasValidationError,
+      JSON.stringify(params),
+    );
+  }
+});

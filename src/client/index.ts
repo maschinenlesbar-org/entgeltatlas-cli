@@ -40,7 +40,7 @@ export {
   normalizeApiKey,
   userinfoEscapeProblem,
 } from "./validate.js";
-export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
+export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem } from "./codes.js";
 export type { CodeEntry, Dimension, DimensionCodeWording, DimensionParam } from "./codes.js";
 export type { Problem } from "./validate.js";
 export type { QueryParams, QueryValue } from "./query.js";

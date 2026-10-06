@@ -112,6 +112,27 @@ export const DIMENSIONS: readonly Dimension[] = [
   },
 ];
 
+/** Keys that must never be sent or read as a filter (they reach Object.prototype). */
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Why a key of `entgelte()`'s params is not a filter the API takes, or undefined. The
+ * API documents five: `l`, `r`, `g`, `a`, `b`. It ignores any other parameter and
+ * answers the unfiltered slice — so `{ region: 11 }` (the CLI's flag name) or `{ L: 4 }`
+ * would silently return Deutschland / Gesamt with HTTP 200. `allowUnknown` (the
+ * `allowUnknownFilters` option) lets a parameter the API adds later through; `__proto__`,
+ * `constructor` and `prototype` never pass.
+ */
+export function filterKeyProblem(key: string, allowUnknown = false): string | undefined {
+  if (FORBIDDEN_KEYS.has(key)) return `${JSON.stringify(key)} is not a filter.`;
+  if ((DIMENSION_PARAMS as readonly string[]).includes(key) || allowUnknown) return undefined;
+  return (
+    `Unknown filter ${JSON.stringify(key)}: the API takes l, r, g, a and b (see DIMENSIONS), and ` +
+    "ignores any other parameter, answering the unfiltered slice. Pass { allowUnknownFilters: true } " +
+    "to send a parameter the API added after this release."
+  );
+}
+
 /** How a dimension-code reason names the code: a label (e.g. a CLI flag) and a hint. */
 export interface DimensionCodeWording {
   /** Put before "code" ("Unknown --region code 31"); omitted by default. */

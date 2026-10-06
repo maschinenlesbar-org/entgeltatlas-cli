@@ -42,6 +42,7 @@ const EXIT = {
  */
 function configureTree(command: Command, deps: CliDeps): void {
   command.exitOverride();
+  rejectRepeatedOptions(command);
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
     writeErr: (str) => deps.io.err(str.replace(/\n$/, "")),
@@ -50,6 +51,31 @@ function configureTree(command: Command, deps: CliDeps): void {
     outputError: (str, write) => write(escapeCommanderError(str.replace(/\n$/, ""))),
   });
   for (const child of command.commands) configureTree(child, deps);
+}
+
+/**
+ * Make a repeated single-value option a usage error (P10). Commander keeps the last
+ * value of `-g 2 -g 3` without a word, so a user comparing Männer and Frauen in one
+ * call silently gets one slice. Every option of `command` that takes a value counts its
+ * occurrences (commander emits `option:<name>` once per occurrence, after its value
+ * parser); the second one throws — naming the option, never the value.
+ */
+function rejectRepeatedOptions(command: Command): void {
+  for (const option of command.options) {
+    if (!(option.required || option.optional) || option.variadic) continue;
+    let seen = 0;
+    command.on(`option:${option.name()}`, () => {
+      seen += 1;
+      if (seen > 1) {
+        throw new EntgeltatlasValidationError(
+          `option '${option.flags}' was given more than once; it takes one value` +
+            (["level", "region", "gender", "age", "branch"].includes(option.name())
+              ? " (run one call per slice)."
+              : "."),
+        );
+      }
+    });
+  }
 }
 
 /**

@@ -296,3 +296,10 @@ test("P3: a key sent to a plain-http host other than loopback gets a warning", a
   assert.equal(await run(["--base-url", "http://127.0.0.1:20230", ...KEY, "regionen"], loopback.deps), 0);
   assert.deepEqual(loopback.err, []);
 });
+
+test("P10: a repeated dimension flag is a usage error naming the flag, before any request", async () => {
+  const cli = makeCli(() => jsonResponse([]));
+  assert.equal(await run([...KEY, "entgelte", "84304", "-g", "2", "-g", "3"], cli.deps), 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /option '-g, --gender <code>' was given more than once; it takes one value \(run one call per slice\)/);
+});
