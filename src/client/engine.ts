@@ -22,7 +22,17 @@ import {
   redactSecrets,
   redactUrl,
 } from "./errors.js";
-import { assertValid, baseUrlProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
+import {
+  assertValid,
+  baseUrlProblem,
+  functionOption,
+  headerNameProblem,
+  headerValueProblem,
+  intRangeProblem,
+  isPlainObject,
+  optionsObject,
+} from "./validate.js";
+import { EntgeltatlasValidationError } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 /** The User-Agent sent when none is given (the API client and obtainKey()). */
@@ -145,6 +155,9 @@ export function assertHeaderValue(name: string, value: string): string {
 /** Check every name and value of `defaultHeaders`, returning a copy. */
 function headerOption(headers: Record<string, string> | undefined): Record<string, string> {
   if (headers === undefined) return {};
+  if (!isPlainObject(headers)) {
+    throw new EntgeltatlasValidationError("Invalid defaultHeaders: Expected an object of header names and values.");
+  }
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     assertValid("defaultHeaders name", name, headerNameProblem);
@@ -474,9 +487,22 @@ export function transportError(method: string, url: string, cause: unknown): Ent
       : typeof cause === "string" && cause.trim() !== ""
         ? cause
         : "the transport failed without a message";
-  return new EntgeltatlasNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}`, {
+  return new EntgeltatlasNetworkError(`${method} ${redactUrl(url)} failed: ${cleanDetail(reason)}`, {
     cause,
   });
+}
+
+/**
+ * Longest server text (in characters) kept for an error message (a `detail`). A longer
+ * one is cut and ends in "…", so a hostile or buggy body cannot flood stderr or a CI
+ * log with one huge line. `EntgeltatlasApiError.body` keeps the full text.
+ */
+const MAX_DETAIL_LENGTH = 500;
+
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+function cleanDetail(text: string): string {
+  const clean = sanitizeServerText(text);
+  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
 }
 
 const realSleep = (ms: number): Promise<void> =>
@@ -607,12 +633,14 @@ export class RequestEngine {
   private readonly maxResponseBytes: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
-  constructor(options: EngineOptions = {}) {
+  constructor(rawOptions: EngineOptions = {}) {
+    // A JavaScript caller may pass null for "no options"; anything else but an object is an error.
+    const options = optionsObject("options", rawOptions);
     // Only an omitted baseUrl selects the default; validateBaseUrl checks the raw
     // value before the trailing-slash strip, so "https://h/ " cannot slip past it.
     this.#baseUrl = validateBaseUrl(options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl);
     this.#credentials = userinfoForms(this.#baseUrl);
-    this.transport = options.transport ?? nodeHttpTransport;
+    this.transport = functionOption("transport", options.transport, nodeHttpTransport);
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent fallback, and a malformed one fails here rather than at request time.
     this.userAgent =
@@ -631,7 +659,7 @@ export class RequestEngine {
     this.maxResponseBytes =
       intOption("maxResponseBytes", options.maxResponseBytes, 0, Number.MAX_SAFE_INTEGER) ??
       DEFAULT_MAX_RESPONSE_BYTES;
-    this.sleep = options.sleep ?? realSleep;
+    this.sleep = functionOption("sleep", options.sleep, realSleep);
   }
 
   /** Build a fully-qualified URL from a path and optional query parameters. */
@@ -857,7 +885,7 @@ export class RequestEngine {
     }
     // `detail` came from the response body; strip control characters so a hostile
     // endpoint cannot inject terminal escape sequences via the stderr error message.
-    if (detail !== undefined) detail = sanitizeServerText(detail);
+    if (detail !== undefined) detail = cleanDetail(detail);
     // Name the target of a redirect that was not followed.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;

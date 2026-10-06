@@ -101,6 +101,18 @@ cross-origin redirect.
 > the web app's `clientId`, so OAuth stays unimplemented. The credential-header set
 > lists `oauthaccesstoken` anyway, for a library user who sends one.
 
+### Error classes (P13)
+
+Every rejected input is an `EntgeltatlasValidationError`, never a raw `TypeError`: an
+options argument that isn't an object (`optionsObject`; `null` counts as none), a
+`transport` or `sleep` that isn't a function (`functionOption`), `defaultHeaders` that
+isn't an object, a header value that isn't a string (`Expected a string, got number.`),
+a KldB that isn't a string, `entgelte()` params that aren't an object. Every failure is
+an `EntgeltatlasError` subclass. Server text in a message (`detail`, a transport's
+error text) is cut at 500 characters; `EntgeltatlasApiError.body` keeps it all.
+`test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
+P8 charset and P9 shape cases).
+
 ### Secrets in the CLI's output
 
 `withRedactedOutput` in `run.ts`: commander echoes a rejected value in its usage

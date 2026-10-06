@@ -112,7 +112,7 @@ test("headerValueProblem: blank, control characters and non-Latin-1 are invalid;
   assert.equal(p("a\r\nb"), "Value contains control characters.");
   assert.equal(p("a" + String.fromCharCode(0x7f)), "Value contains control characters.");
   assert.equal(p("Bot €"), "Value contains characters outside Latin-1 (above U+00FF).");
-  assert.equal(p(42 as unknown as string), "Expected a non-empty value.");
+  assert.equal(p(42 as unknown as string), "Expected a string, got number.");
 });
 
 test("the engine checks userAgent and every defaultHeaders name and value", () => {

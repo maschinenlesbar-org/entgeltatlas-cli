@@ -26,6 +26,48 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   return value;
 }
 
+/** `typeof`, with `null` and arrays named as such, for messages about a wrong type. */
+export function describeType(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "an array";
+  return typeof value;
+}
+
+/** True for a plain object (`{…}`, not null, an array, a Map, a class instance or a primitive). */
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const proto = Object.getPrototypeOf(value) as unknown;
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Check that an options argument is a plain object (or `undefined`, meaning none) and
+ * return it as one. Anything else — `5`, `"x"`, an array — is an
+ * EntgeltatlasValidationError naming `name`, not a destructuring that silently reads
+ * nothing or a raw TypeError later. `null` counts as "no options".
+ */
+export function optionsObject<T extends object>(name: string, value: T | null | undefined): Partial<T> {
+  if (value === undefined || value === null) return {};
+  if (!isPlainObject(value)) {
+    throw new EntgeltatlasValidationError(`Invalid ${name}: Expected an object, got ${describeType(value)}.`);
+  }
+  return value;
+}
+
+/**
+ * Read a function option: `undefined` gives the fallback; anything else that is not a
+ * function is an EntgeltatlasValidationError. A string `transport` used to fail at the
+ * first request as a TypeError wrapped into a network error, and a bad `sleep` on the
+ * first retry.
+ */
+export function functionOption<F>(name: string, value: F | undefined, fallback: F): F {
+  if (value === undefined) return fallback;
+  if (typeof value !== "function") {
+    throw new EntgeltatlasValidationError(`Invalid ${name}: Expected a function, got ${describeType(value)}.`);
+  }
+  return value;
+}
+
 /**
  * A rule for a safe integer within `[min, max]`. The messages are the CLI's
  * (`Must be >= 0.`), so a flag and a client option report the same reason.
@@ -48,7 +90,8 @@ export function intRangeProblem(min: number, max: number): Problem<number> {
  * of control bytes.
  */
 export const headerValueProblem: Problem = (value) => {
-  if (typeof value !== "string" || value.trim() === "") return "Expected a non-empty value.";
+  if (typeof value !== "string") return `Expected a string, got ${describeType(value)}.`;
+  if (value.trim() === "") return "Expected a non-empty value.";
   for (let i = 0; i < value.length; i++) {
     const c = value.charCodeAt(i);
     if ((c < 0x20 && c !== 0x09) || c === 0x7f) return "Value contains control characters.";

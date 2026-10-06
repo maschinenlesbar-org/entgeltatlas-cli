@@ -15,7 +15,7 @@ import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem } from "./codes.js";
-import { assertValid, headerValueProblem, normalizeApiKey } from "./validate.js";
+import { assertValid, describeType, headerValueProblem, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
 import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
@@ -107,7 +107,11 @@ export class EntgeltatlasClient {
   readonly #engine: RequestEngine;
 
   constructor(options: EntgeltatlasClientOptions = {}) {
-    const { apiKey, ...engineOptions } = options;
+    const { apiKey, ...engineOptions } = optionsObject("options", options);
+    // Checked before the spread below, which would turn a string into { 0: "x" }.
+    if (engineOptions.defaultHeaders !== undefined && !isPlainObject(engineOptions.defaultHeaders as unknown)) {
+      throw new EntgeltatlasValidationError("Invalid defaultHeaders: Expected an object of header names and values.");
+    }
     // Only send X-API-Key when a non-blank key was supplied; never default one. The
     // key is trimmed first (normalizeApiKey), then checked like any header value.
     const key = normalizeApiKey(apiKey);
@@ -131,6 +135,16 @@ export class EntgeltatlasClient {
    * DIMENSIONS (see dimensionCodeProblem).
    */
   async entgelte(kldb: string, params: EntgelteParams = {}): Promise<EntgeltEntry[]> {
+    if (typeof kldb !== "string") {
+      throw new EntgeltatlasValidationError(
+        `Invalid KldB code: Expected a string of 3–5 digits (e.g. "84304"), got ${describeType(kldb)}.`,
+      );
+    }
+    if (!isPlainObject(params as unknown)) {
+      throw new EntgeltatlasValidationError(
+        `Invalid params: Expected an object of dimension filters ({ l, r, g, a, b }), got ${describeType(params)}.`,
+      );
+    }
     if (!KLDB_PATTERN.test(kldb)) {
       throw new EntgeltatlasValidationError(
         `Invalid KldB code "${kldb}": expected 3–5 digits (e.g. 84304). ` +

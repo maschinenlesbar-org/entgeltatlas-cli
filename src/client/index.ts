@@ -31,6 +31,8 @@ export {
   assertValid,
   baseUrlProblem,
   baseUrlWhitespaceProblem,
+  describeType,
+  isPlainObject,
   headerNameProblem,
   headerValueProblem,
   httpUrlProblem,

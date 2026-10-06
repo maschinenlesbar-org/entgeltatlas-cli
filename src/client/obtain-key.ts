@@ -61,7 +61,7 @@ import {
   type CheckedResponse,
 } from "./engine.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
-import { assertValid, httpUrlProblem } from "./validate.js";
+import { assertValid, functionOption, httpUrlProblem, optionsObject } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "ENTGELTATLAS_API_KEY";
@@ -165,9 +165,10 @@ export interface ObtainedKey {
  * Throws (rather than returning a placeholder) when the source is unreachable or
  * no longer states a key, so a caller never proceeds with a made-up value.
  */
-export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
+export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<ObtainedKey> {
+  const options = optionsObject("options", rawOptions);
   const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
-  const transport = options.transport ?? nodeHttpTransport;
+  const transport = functionOption("transport", options.transport, nodeHttpTransport);
   // A custom transport may do no scheme check of its own; never hand it a
   // file:/ftp: source URL (a configuration error: EntgeltatlasValidationError).
   assertValid("sourceUrl", sourceUrl, httpUrlProblem);
@@ -189,7 +190,11 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
     retryDelayMs:
       intOption("retryDelayMs", options.retryDelayMs, 0, MAX_RETRY_AFTER_MS) ?? DEFAULT_RETRY_DELAY_MS,
   };
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep = functionOption(
+    "sleep",
+    options.sleep,
+    (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  );
 
   const sourceCredentials = userinfoForms(sourceUrl);
   // A source behind Basic auth (a private mirror) gets its userinfo as an Authorization

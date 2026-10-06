@@ -336,3 +336,12 @@ test("P8: a body is decoded by its declared charset, and a BOM is dropped", asyn
     (err) => err instanceof EntgeltatlasParseError && /x-no-such/.test(err.message),
   );
 });
+
+test("P13: server text in an error message is cut at 500 characters; the body keeps it all", async () => {
+  const long = "x".repeat(2000);
+  const mt = makeMockTransport(() => jsonResponse({ message: long }, 500));
+  await assert.rejects(
+    () => new RequestEngine({ transport: mt.transport, maxRetries: 0 }).getJson("/x"),
+    (err) => err instanceof EntgeltatlasApiError && err.detail?.length === 501 && err.detail.endsWith("…") && err.body.includes(long),
+  );
+});
