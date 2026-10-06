@@ -13,6 +13,7 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 | `--timeout <ms>` · `--max-response-bytes <n>` | time limit for a whole request (default 30 s, `0` = none) · cap on a response body (default 100 MiB, `0` = none) |
 | `--max-retries <n>` | retries for a transient 429/503 or a reset connection, `0`–`10` (default 2); each waits 200 ms × attempt, or the server's `Retry-After` (seconds or HTTP-date) when that is longer — never less, so `Retry-After: 0` can't cause a burst. A `Retry-After` above 30 s is not retried: the error names the requested wait and says to try again later |
 | `--user-agent <ua>` | User-Agent header |
+| `--compact` | single-line JSON |
 
 `--api-key` and `--user-agent` (and `ENTGELTATLAS_API_KEY`) must be sendable as an HTTP
 header: a blank value, a control character (CR/LF, DEL; tab is fine) or a character above
@@ -20,7 +21,6 @@ U+00FF is a usage error (exit 2) before any request. The key, from the flag or t
 is trimmed first, as the library does, so a trailing CR/LF from a key file is dropped
 rather than rejected. A rejected value is never echoed raw: the key is shown as `***`,
 and control characters in any echoed value as `\uXXXX`.
-| `--compact` | single-line JSON |
 
 ## entgelte — salary statistics
 
