@@ -93,8 +93,11 @@ Quelle: © Statistik der Bundesagentur für Arbeit.
 
 Rules — state these when they apply:
 - **It's a median, not a mean**, in EUR gross per month, full-time.
-- **`null` (or an empty array) = suppressed** (too few cases) — say "keine
-  Angabe / Fallzahl zu klein", **never** report it as 0 €.
+- **A negative figure is a marker, not an amount.** `-1` (with a negative
+  `besetzung`) = suppressed, too few cases — say "keine Angabe / Fallzahl zu klein";
+  `-2` on a quartile = above the contribution ceiling, value unknown — say "über der
+  Beitragsbemessungsgrenze". `null` or an empty array mean "keine Angabe" too.
+  **Never** report any of these as an amount or as 0 €.
 - The upper end is **censored** at the social-insurance ceiling
   (`region.beitragsBemessungsGrenze`), so `entgelt`/Q75 can look flat at the top —
   flag it for high-paying occupations.
@@ -102,7 +105,8 @@ Rules — state these when they apply:
 ## Traps
 
 - **No name search** — always a numeric KldB code.
-- **Suppressed ≠ 0** — null-check `entgelt` before reporting.
+- **Suppressed ≠ 0, and negative ≠ an amount** — check `entgelt` (and each quartile)
+  for a negative value or `null` before reporting.
 - **Median ≠ mean** — don't call it "average".
 - **Irregular region codes** — `r` is not 1..16 Bundesländer (it interleaves
   Bund/Ost/West and cities); verify against `codes`/`regionen`.

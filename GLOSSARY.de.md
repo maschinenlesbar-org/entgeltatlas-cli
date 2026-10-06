@@ -38,14 +38,22 @@ ungefilterten Ausschnitt liefern könnte.
 | `entgelt` | **Median** des Bruttomonatsentgelts in EUR, Vollzeit. **Nicht** das arithmetische Mittel – die BA berechnet bewusst keinen Mittelwert (Entgelte oberhalb der Bemessungsgrenze sind unbekannt). |
 | `entgeltQ25` / `entgeltQ75` | Unteres / oberes Quartil (25. / 75. Perzentil), EUR. |
 | `besetzung` | Die Zahl der Beschäftigten, auf der die Werte beruhen – eine **Personenzahl, kein Entgelt**. |
-| `region.beitragsBemessungsGrenze` | Die Beitragsbemessungsgrenze der Sozialversicherung. Entgelte darüber sind **zensiert**, daher können `entgelt`/`entgeltQ75` am oberen Ende künstlich flach wirken. |
+| `region.beitragsBemessungsGrenze` | Die Beitragsbemessungsgrenze der Sozialversicherung. Entgelte darüber sind **zensiert**, daher können `entgelt`/`entgeltQ75` am oberen Ende künstlich flach wirken oder als Kennzeichnung `-2` kommen (siehe unten). |
 
 ### Unterdrückte Werte (Datenschutz / kleine Fallzahl)
 
-Beruht ein Ausschnitt auf zu wenigen Beobachtungen, wird der Wert aus Datenschutzgründen
-**unterdrückt**: Die Antwort ist ein **leeres Array**, oder die numerischen Felder kommen als
-**`null`** zurück. Das bedeutet **„nicht verfügbar / n zu klein“ – niemals `0`**. Client
-und CLI geben `null` unverändert weiter; werten Sie es nicht als Entgelt von null.
+Beruht ein Ausschnitt auf zu wenigen Beobachtungen, werden seine Werte aus
+Datenschutzgründen **unterdrückt**. In der am 06.10.2026 live aufgezeichneten Antwort
+kennzeichnet die API das mit **negativen Zahlen**, nicht mit `null`: `entgelt`,
+`entgeltQ25` und `entgeltQ75` kommen als `-1`, `besetzung` ebenfalls negativ (dort `-42`).
+Ein Quartil oberhalb der Beitragsbemessungsgrenze kam als `-2` (`entgeltQ75: -2` neben
+einem echten Median): Entgelte oberhalb der Grenze sind nicht bekannt, was die
+Webanwendung der BA als „> BBG“ zeigt. Diese Bedeutungen sind aus jener Antwort und den
+Hilfetexten der Webanwendung abgeleitet, nicht dokumentiert; die Regel ist daher einfach:
+**Jeder negative Wert ist eine Kennzeichnung, kein Betrag** – nie in € angeben, nie
+damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`null`**-Werte
+(aus der Community-Spezifikation, live nicht gesehen) bedeuten dasselbe: kein Wert –
+**niemals `0`**. Client und CLI geben all das unverändert weiter.
 
 ## Begriffe zur Authentifizierung
 

@@ -37,14 +37,21 @@ tables), because the API might ignore it and return the unfiltered slice.
 | `entgelt` | **Median** gross monthly earnings, EUR, full-time. **Not** the arithmetic mean — the BA deliberately does not compute a mean (earnings above the ceiling are unknown). |
 | `entgeltQ25` / `entgeltQ75` | Lower / upper quartile (25th / 75th percentile), EUR. |
 | `besetzung` | The headcount the figures are based on — a **count of people, not a salary**. |
-| `region.beitragsBemessungsGrenze` | The social-insurance contribution ceiling. Earnings above it are **censored**, so `entgelt`/`entgeltQ75` can look artificially flat at the top. |
+| `region.beitragsBemessungsGrenze` | The social-insurance contribution ceiling. Earnings above it are **censored**, so `entgelt`/`entgeltQ75` can look artificially flat at the top, or come back as the marker `-2` (see below). |
 
 ### Suppression (Datenschutz / kleine Fallzahl)
 
-When a slice is based on too few observations, the cell is **suppressed** for data
-protection: the response is an **empty array** or the numeric fields come back
-**`null`**. This means **"not available / n too small" — never `0`**. The client
-and CLI preserve `null` faithfully; do not treat it as zero earnings.
+When a slice is based on too few observations, its figures are **suppressed** for data
+protection. Recorded live on 2026-10-06, the API marks this with **negative numbers**,
+not `null`: `entgelt`, `entgeltQ25` and `entgeltQ75` come back as `-1`, and `besetzung`
+as a negative number too (`-42` in that answer). A quartile above the social-insurance
+ceiling came back as `-2` (`entgeltQ75: -2` next to a real median): earnings above the
+ceiling are not known, which the BA's web app shows as "> BBG". These meanings are read
+from that answer and the web app's help texts, not from documentation, so the rule is
+simple: **any negative figure is a marker, not an amount** — never report it in €,
+never compute a gap or a mean with it. An **empty array** or **`null`** figures (from the
+community spec; not seen live) mean the same: no figure — **never `0`**. The client and
+CLI pass all of these through unchanged.
 
 ## Auth terms
 

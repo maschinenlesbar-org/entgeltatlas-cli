@@ -72,12 +72,14 @@ Gehaltsvergleich — Berufe in der Hochschullehre (KldB 84304), Experten, Deutsc
 Quelle: © Statistik der Bundesagentur für Arbeit. Median-Bruttomonatsentgelte, Vollzeit.
 ```
 
-Compute the gap only between two **present** medians. Report absolute and percent.
+Compute the gap only between two **present** medians — a positive number on both
+sides; a negative one is a marker, not an amount. Report absolute and percent.
 
 ## Traps
 
-- **Suppressed slice → no comparison.** If either side is `null`/empty (Fallzahl
-  too small), say so and do **not** substitute 0 or invent a value.
+- **Suppressed slice → no comparison.** If either side is negative (`-1`: Fallzahl
+  too small; `-2`: above the contribution ceiling, unknown) or `null`/empty, say so and
+  do **not** substitute 0, the marker, or an invented value.
 - **Censoring hides top-end gaps.** Both medians are capped at the social-insurance
   ceiling (`beitragsBemessungsGrenze`); for high earners the *real* gap may be
   larger than the medians show — flag this.

@@ -7,8 +7,11 @@
 //
 // Caveats baked into the types (the OpenAPI spec is community-authored /
 // reverse-engineered, and small-cell suppression behaviour is unverified):
-//   - every salary figure is `number | null` — a suppressed cell (too few
-//     observations, Datenschutz) yields null/absent, NEVER 0;
+//   - every salary figure is `number | null`. A NEGATIVE number is a marker, not an
+//     amount: recorded live (2026-10-06), a suppressed cell (too few observations,
+//     Datenschutz) has -1 figures and a negative besetzung, and a quartile above the
+//     contribution ceiling is -2. null/absent (community spec, not seen live) means
+//     the same: no figure — NEVER 0;
 //   - `kldb` is a string (preserves leading zeros);
 //   - `oberRegion*` are optional/nullable (the spec types the id as a string
 //     while sibling ids are integers — a real inconsistency, so defend).
@@ -38,13 +41,13 @@ export interface EntgeltEntry {
   ageCategory: EntgeltDimension;
   performanceLevel: EntgeltDimension;
   branche: EntgeltDimension;
-  /** Median gross monthly earnings in EUR (NOT the mean); null when suppressed. */
+  /** Median gross monthly earnings in EUR (NOT the mean); negative (-1) or null when suppressed. */
   entgelt: number | null;
-  /** Lower quartile (Q25) in EUR; null when suppressed. */
+  /** Lower quartile (Q25) in EUR; negative (-1) or null when suppressed. */
   entgeltQ25: number | null;
-  /** Upper quartile (Q75) in EUR; null when suppressed. */
+  /** Upper quartile (Q75) in EUR; -2 when above the contribution ceiling, -1 or null when suppressed. */
   entgeltQ75: number | null;
-  /** Headcount the figures are based on (NOT a salary); null when suppressed. */
+  /** Headcount the figures are based on (NOT a salary); negative or null when suppressed. */
   besetzung: number | null;
 }
 
