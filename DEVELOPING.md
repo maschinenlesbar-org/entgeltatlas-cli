@@ -91,7 +91,12 @@ client) and `obtain-key` work whatever the variable holds (P19). No key is bundl
 value of the inline configuration's `clientId: '…'` (also double-quoted or with a
 quoted name). The value must match `KEY_FORMAT` (3–64 lower-case letters, digits and
 inner hyphens; a UUID fits too); a page stating no `clientId`, two different ones, or
-one that isn't shaped like a key is an error, never a guess. One-digit placeholder UUIDs
+one that isn't shaped like a key is an error, never a guess, and the value is never
+printed (a placeholder, `--help`, escape sequences). A redirect it does not follow
+(another origin, a non-http(s) target, past the limit) is named in the error with its
+reason (`location` set), and a "no key" error names the page actually read after a
+same-origin redirect. The skills pass the key on each call but don't repeat it in
+their answer (P17). One-digit placeholder UUIDs
 (`00000000-…`) are ignored. The engine strips `x-api-key`/`authorization`/`oauthaccesstoken`/`cookie` on any
 cross-origin redirect.
 

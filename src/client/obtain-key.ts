@@ -205,6 +205,8 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
   let response: CheckedResponse;
   let redirects = 0;
   let attempt = 0;
+  // A redirect this function chose not to follow: where it led, and why not.
+  let unfollowed: { location: string; reason?: string; redirectsFollowed?: number } | undefined;
   for (;;) {
     // The engine's transport contract (P5): the time limit and the size cap hold for
     // any transport, a malformed answer or a thrown value is a typed error, and the
@@ -245,24 +247,46 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
       await sleep(wait);
       continue;
     }
-    if (!FOLLOWED_REDIRECTS.has(response.status) || redirects >= MAX_KEY_SOURCE_REDIRECTS) break;
+    if (!FOLLOWED_REDIRECTS.has(response.status)) break;
     const next = resolveLocation(response.headers["location"], url);
-    // Only same-origin hops: the key is trusted because of where it is
-    // published, so a redirect to another host is not followed.
-    if (next === undefined || next.origin !== new URL(url).origin) break;
+    if (next === undefined) break; // the error says "no Location header"
+    next.username = "";
+    next.password = "";
+    // Only same-origin hops: the key is trusted because of where it is published,
+    // so a redirect to another host (or scheme) is not followed, nor a loop.
+    if (!/^https?:$/.test(next.protocol)) {
+      unfollowed = { location: redactUrl(next.href), reason: "a URL that is not http(s)" };
+      break;
+    }
+    if (next.origin !== new URL(url).origin) {
+      unfollowed = {
+        location: redactUrl(next.href),
+        reason: "another origin: the key is read only from its source's own origin",
+      };
+      break;
+    }
+    if (redirects >= MAX_KEY_SOURCE_REDIRECTS) {
+      unfollowed = { location: redactUrl(next.href), redirectsFollowed: redirects };
+      break;
+    }
     url = next.href;
     redirects += 1;
   }
 
   if (response.status < 200 || response.status >= 300) {
+    // A redirect that was not followed names its target (`location`, "redirect to … not
+    // followed") and why, instead of the "no Location header" the error would otherwise say.
+    const why = unfollowed?.reason === undefined ? "" : ` (the redirect leads to ${unfollowed.reason})`;
     throw new EntgeltatlasKeySourceError({
       status: response.status,
       url,
       method: "GET",
       body: redactCredentials(response.body.toString("utf8"), sourceCredentials),
       ...(retryAfterTooLong(response) !== undefined ? { retryAfterMs: retryAfterTooLong(response) as number } : {}),
+      ...(unfollowed !== undefined ? { location: unfollowed.location } : {}),
+      ...(unfollowed?.redirectsFollowed !== undefined ? { redirectsFollowed: unfollowed.redirectsFollowed } : {}),
       detail:
-        "could not read the key source. Retry, or copy the clientId from the page source of " +
+        `could not read the key source${why}. Retry, or copy the clientId from the page source of ` +
         "https://web.arbeitsagentur.de/entgeltatlas/ by hand",
     });
   }
@@ -281,7 +305,7 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
   const key = values[0];
   if (key === undefined) {
     throw new EntgeltatlasError(
-      `No X-API-Key found at ${redactUrl(sourceUrl)}: the page states no clientId. The web app may have ` +
+      `No X-API-Key found at ${redactUrl(url)}: the page states no clientId. The web app may have ` +
         `changed format or stopped publishing the key — check it by hand before relying on this command.`,
     );
   }

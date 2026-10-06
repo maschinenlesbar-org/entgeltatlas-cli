@@ -313,3 +313,30 @@ test("P3: obtainKey tells the transport not to follow redirects, and refuses an 
   const same = makeMockTransport(() => ({ ...rawResponse(SOURCE_DOC, "text/html"), url: KEY_SOURCE_URL }));
   assert.equal((await obtainKey({ transport: same.transport })).key, EXPECTED_KEY);
 });
+
+test("P17: a redirect obtainKey does not follow is named, with its reason; a no-key error names the page read", async () => {
+  const cross = makeMockTransport(() => ({ status: 302, headers: { location: "http://localhost:20221/again" }, body: Buffer.alloc(0) }));
+  await assert.rejects(
+    () => obtainKey({ transport: cross.transport, sourceUrl: "http://127.0.0.1:20220/start" }),
+    (err) =>
+      err instanceof EntgeltatlasKeySourceError &&
+      err.location === "http://localhost:20221/again" &&
+      /another origin/.test(err.message) &&
+      /redirect to http:\/\/localhost:20221\/again not followed/.test(err.message) &&
+      !/no Location header/.test(err.message),
+  );
+  const loop = makeMockTransport((req) => ({ status: 302, headers: { location: req.url }, body: Buffer.alloc(0) }));
+  await assert.rejects(
+    () => obtainKey({ transport: loop.transport }),
+    (err) => err instanceof EntgeltatlasKeySourceError && /stopped after 5 redirects/.test(err.message) && err.location !== undefined,
+  );
+  const moved = makeMockTransport((req) =>
+    req.url === KEY_SOURCE_URL
+      ? { status: 301, headers: { location: "/entgeltatlas/start" }, body: Buffer.alloc(0) }
+      : rawResponse("<html>no key</html>", "text/html"),
+  );
+  await assert.rejects(
+    () => obtainKey({ transport: moved.transport }),
+    (err) => err instanceof EntgeltatlasError && err.message.startsWith("No X-API-Key found at https://web.arbeitsagentur.de/entgeltatlas/start:"),
+  );
+});
