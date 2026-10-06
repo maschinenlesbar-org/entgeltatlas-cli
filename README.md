@@ -33,6 +33,12 @@ Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
 when `ENTGELTATLAS_API_KEY` holds something malformed; only the commands that send a
 request check the variable (`Invalid ENTGELTATLAS_API_KEY: …`, exit 2).
 
+A `--base-url` on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
+`::1`) gets one warning on stderr before the first request — `warning: the API key is sent
+unencrypted to mirror.example (http:, not https:)`, or `requests to … are sent unencrypted`
+when no key or `user:password@` travels. Neither value is ever printed; stdout and the exit
+code are unchanged.
+
 ## Obtain key
 
 The Bundesagentur für Arbeit publishes one community key for public use. It is

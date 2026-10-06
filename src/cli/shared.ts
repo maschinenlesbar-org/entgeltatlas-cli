@@ -7,7 +7,7 @@ import type { CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError, EntgeltatlasValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
-import { DEFAULT_BASE_URL, cleartextCredentialsProblem } from "../client/engine.js";
+import { API_KEY_PHRASE, DEFAULT_BASE_URL, cleartextProblem } from "../client/engine.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 import {
   baseUrlProblem,
@@ -252,9 +252,14 @@ export function action(
     assertEnvKey(command, global);
     const options = toEngineOptions(global);
     const client = deps.createClient(options);
-    // Built first, so a key the client rejects is a usage error before any warning.
-    const cleartext = cleartextCredentialsProblem(options.baseUrl ?? DEFAULT_BASE_URL, options.apiKey !== undefined);
-    if (cleartext !== undefined) deps.io.err(`warning: ${cleartext} Use an https base URL.`);
+    // Built first, so a key the client rejects is a usage error before any warning. One
+    // warning per run, before the first request, when the base URL is plain http: to a host
+    // other than loopback; help, version and usage errors never get here.
+    const cleartext = cleartextProblem(
+      options.baseUrl ?? DEFAULT_BASE_URL,
+      options.apiKey !== undefined ? [API_KEY_PHRASE] : [],
+    );
+    if (cleartext !== undefined) deps.io.err(`warning: ${cleartext}`);
     await fn({ client, global, opts: command.opts() }, positionals);
   };
 }

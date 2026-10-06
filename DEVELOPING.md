@@ -325,8 +325,13 @@ shared check.
   the rest of the chain, and `RawResponse.credentialsDropped` /
   `EntgeltatlasApiError.credentialsDropped` record it. A 401/403 after that names the
   redirect ("use an https base URL (…)" for http→https, `credentialsDroppedHint`) and the
-  CLI prints it without the key hint (exit 3). A key or userinfo bound for plain `http:`
-  to a host other than loopback gets a stderr warning (`cleartextCredentialsProblem`).
+  CLI prints it without the key hint (exit 3). A base URL on plain `http:` to a host other
+  than loopback (`localhost`, `127.0.0.0/8`, `::1`) gets one stderr warning per run, before
+  the first request (`cleartextProblem`, exported): `warning: requests to <host> are sent
+  unencrypted (http:, not https:)`, or naming "the API key" / "the base URL's credentials"
+  when they travel — never their value. Help, version and usage errors never warn;
+  `cleartextCredentialsProblem` stays as a deprecated alias.
+  `test/conformance-p20-cleartext-warning.test.ts` is the shared check (P20).
   `obtainKey` sends a source's userinfo the same way and refuses an answer from another
   origin. `test/conformance-p3-redirect-credentials.test.ts` is the shared check. Any other 3xx, a missing or malformed Location, or
   the limit surface as `EntgeltatlasApiError` (exit 1) naming the target:
