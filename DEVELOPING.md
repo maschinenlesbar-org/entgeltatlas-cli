@@ -205,7 +205,10 @@ dims `l,r,g,a,b`. It returns a **bare JSON array** (no envelope) of
 `EntgeltEntry`. `client.entgelte()` validates the KldB (3–5 digits) and checks the
 documented shape (P9): `entgelte` must answer a JSON array of **salary rows** (each
 with a `kldb` string and the five dimension objects `region`, `gender`, `ageCategory`,
-`performanceLevel`, `branche`, each `{ id: <integer>, bezeichnung: <string> }`), and a
+`performanceLevel`, `branche`, each `{ id: <integer>, bezeichnung: <string> }`, and the
+figures `entgelt`, `entgeltQ25`, `entgeltQ75`, `besetzung` each a JSON number or `null`
+— a string such as `"6.123,00"` is refused; negative numbers are the API's markers and
+pass, see GLOSSARY.md), and a
 reference endpoint a **non-empty** array of such codes. Anything else — a single
 object, an error object sent with a 200, a string, a HAL `_embedded` envelope, a salary
 row where a code was expected, an empty reference list — is an `EntgeltatlasParseError`

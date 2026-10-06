@@ -90,6 +90,9 @@ function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknow
   }
 }
 
+/** The figure fields of a salary row: each a JSON number, `null`, or absent. */
+const ROW_FIGURES = ["entgelt", "entgeltQ25", "entgeltQ75", "besetzung"] as const;
+
 /** Why `value` is not a salary row (the documented shape), or undefined. */
 function entgeltRowProblem(value: unknown): string | undefined {
   if (!isObject(value)) return "is not an object";
@@ -97,6 +100,15 @@ function entgeltRowProblem(value: unknown): string | undefined {
   for (const name of ROW_DIMENSIONS) {
     const problem = labelledCodeProblem(value[name]);
     if (problem !== undefined) return `${name} ${problem}`;
+  }
+  // A figure is a number (negative ones are the API's markers, see GLOSSARY.md) or
+  // null; a string such as "6.123,00" would turn a caller's arithmetic into string
+  // concatenation, and the types promise `number | null`.
+  for (const name of ROW_FIGURES) {
+    const figure = value[name];
+    if (figure !== undefined && figure !== null && !(typeof figure === "number" && Number.isFinite(figure))) {
+      return `has a figure ${name} that is not a number or null (${describeType(figure)})`;
+    }
   }
   return undefined;
 }

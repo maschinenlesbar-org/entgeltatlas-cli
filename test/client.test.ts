@@ -186,3 +186,20 @@ test("02#1: a row of another slice than the one requested is an EntgeltatlasSlic
   const mixed = client(() => jsonResponse([...ages, { ...row, branche: { id: 7, bezeichnung: "Finanz" } }]), { apiKey: "K" });
   await assert.rejects(() => mixed.c.entgelte("84304", { b: 1 }), EntgeltatlasSliceError);
 });
+
+test("02#4: a figure that is not a number or null is a parse error; negative markers are data", async () => {
+  const row = fx.entgelteResult[0]!;
+  for (const bad of [{ entgelt: "6.123,00" }, { besetzung: "41234" }, { entgeltQ25: true }, { entgeltQ75: { v: 1 } }, { entgelt: [6123] }]) {
+    const { c } = client(() => jsonResponse([{ ...row, ...bad }]), { apiKey: "K" });
+    await assert.rejects(
+      () => c.entgelte("84304"),
+      (err) => err instanceof EntgeltatlasParseError && /is not a number or null/.test(err.message),
+      JSON.stringify(bad),
+    );
+  }
+  // The live markers (2026-10-06): -1 for a cell without a figure, -2 for a quartile above the ceiling.
+  for (const ok of [{ entgelt: -1, entgeltQ25: -1, entgeltQ75: -1, besetzung: -42 }, { entgeltQ75: -2 }, { entgelt: null }]) {
+    const { c } = client(() => jsonResponse([{ ...row, ...ok }]), { apiKey: "K" });
+    assert.equal((await c.entgelte("84304")).length, 1, JSON.stringify(ok));
+  }
+});
