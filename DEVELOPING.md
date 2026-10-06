@@ -31,6 +31,8 @@ src/
   index.ts       # library entry
 ```
 
+Requires Node.js 22.12+ (`engines`); CI type-checks, builds and tests on Node 22/24.
+
 Two seams keep everything testable in-process: **`Transport`** (the only HTTP
 seam; tests inject a mock) and **`CliDeps`** (client factory + I/O + `env`).
 `run.ts` returns an exit code rather than calling `process.exit`.

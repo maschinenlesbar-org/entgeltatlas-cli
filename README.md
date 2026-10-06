@@ -18,6 +18,10 @@ TypeScript, ESM.
 npm install -g @maschinenlesbar.org/entgeltatlas-cli
 ```
 
+This installs the **`entgeltatlas`** command. Requires **Node.js 22.12+**. If the shell
+can't find it, run `npm prefix -g` and add its `bin/` subdirectory to your `PATH` (on
+Windows, the directory itself).
+
 ## API key
 
 The API needs a static **`X-API-Key`** (the public `clientId` of the BA's own
