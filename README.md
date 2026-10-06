@@ -114,12 +114,16 @@ read censored/suppressed figures.
 import { EntgeltatlasClient } from "@maschinenlesbar.org/entgeltatlas-cli";
 
 const ea = new EntgeltatlasClient({ apiKey: process.env.ENTGELTATLAS_API_KEY });
-const rows = await ea.entgelte("84304", { l: 4, r: 1 });
-// rows[0].entgelt is the MEDIAN gross monthly EUR — or null when suppressed.
+// Pass every dimension for exactly one row: an omitted one comes back as one row per value.
+const rows = await ea.entgelte("84304", { l: 4, r: 1, g: 1, a: 1, b: 1 });
+// rows[0].entgelt is the MEDIAN gross monthly EUR.
 ```
 
 Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
-`EntgeltatlasValidationError`, `EntgeltatlasParseError`). A custom `transport` (e.g. one
+`EntgeltatlasValidationError`, `EntgeltatlasParseError`). A row of another slice than
+the one requested — e.g. a `Deutschland` row for `r: 11`, as from a server that ignored
+the filter — is an `EntgeltatlasSliceError` (an `EntgeltatlasParseError`; CLI exit 1),
+never the answer. A custom `transport` (e.g. one
 built on `fetch`) gets the same guarantees as the built-in one: the engine enforces
 `timeoutMs` (passing an `AbortSignal` in `request.signal`) and `maxResponseBytes`, reads
 `Headers` objects and any header case, accepts any byte-array body, and turns whatever

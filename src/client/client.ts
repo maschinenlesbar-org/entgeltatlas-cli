@@ -12,7 +12,7 @@
 //   client.regionen()
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { EntgeltatlasParseError, EntgeltatlasValidationError } from "./errors.js";
+import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError } from "./errors.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import { assertValid, describeType, headerValueProblem, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
 import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
@@ -48,6 +48,47 @@ function labelledCodeProblem(value: unknown): string | undefined {
 
 /** The dimension objects every salary row carries. */
 const ROW_DIMENSIONS = ["region", "gender", "ageCategory", "performanceLevel", "branche"] as const;
+
+/** A server label for a message: JSON-quoted (C0 escaped), DEL/C1 dropped, at most 80 characters. */
+function quoteLabel(label: string): string {
+  return JSON.stringify(label.length > 80 ? `${label.slice(0, 80)}…` : label).replace(/[\u007f-\u009f]/g, "");
+}
+
+/** The row field that carries each dimension filter's code. */
+const ROW_FIELD: Record<DimensionParam, (typeof ROW_DIMENSIONS)[number]> = {
+  l: "performanceLevel",
+  r: "region",
+  g: "gender",
+  a: "ageCategory",
+  b: "branche",
+};
+
+/**
+ * Check that every row is the slice that was asked for: for each dimension filter that
+ * was sent, the row's dimension id must equal it. A server that ignores a filter (or a
+ * gateway that serves a cached answer) would otherwise hand back the Deutschland /
+ * Gesamt figure as the answer to "Baden-Württemberg, Frauen", with HTTP 200. An omitted
+ * dimension is not checked: the API answers one row per value of it (recorded live on
+ * 2026-10-06: all four age bands for an omitted `a`).
+ */
+function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknown>, path: string): void {
+  for (const param of DIMENSION_PARAMS) {
+    const wanted = query[param];
+    if (wanted === undefined) continue;
+    const field = ROW_FIELD[param];
+    rows.forEach((row, i) => {
+      const got = row[field];
+      if (got.id !== wanted) {
+        throw new EntgeltatlasSliceError(
+          `The API answered another slice than the one requested from ${path}: ${param}=${String(wanted)} was ` +
+            `asked for, but row ${i} has ${field}.id ${got.id} (${quoteLabel(got.bezeichnung)}). It may have ` +
+            "ignored the filter; no figure is returned rather than the wrong one.",
+          { param, requested: wanted as number, received: got.id, row: i },
+        );
+      }
+    });
+  }
+}
 
 /** Why `value` is not a salary row (the documented shape), or undefined. */
 function entgeltRowProblem(value: unknown): string | undefined {
@@ -168,7 +209,9 @@ export class EntgeltatlasClient {
     const res = await this.#engine.getJson<unknown>(path, query);
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
-    return assertArrayOf<EntgeltEntry>(res, path, "salary rows", entgeltRowProblem, true);
+    const rows = assertArrayOf<EntgeltEntry>(res, path, "salary rows", entgeltRowProblem, true);
+    assertRequestedSlice(rows, query, path);
+    return rows;
   }
 
   /** Reference list of region codes (`r`). */

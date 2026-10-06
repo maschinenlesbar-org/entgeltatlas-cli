@@ -53,9 +53,11 @@ entgeltatlas codes            # offline: all l/r/g/a/b tables (no key needed)
 
 Map the user's intent to codes. Code `1` is `Gesamt` only for `-g`, `-a` and `-b`;
 for `-l` it is Helfer (there is no Gesamt level) and for `-r` Deutschland. An
-omitted flag sends no parameter and the server picks the slice, which hasn't been
-checked live, so pass every dimension the answer depends on (e.g. `-r 1` for
-Germany) and read the labels back in Step 3:
+omitted flag sends no parameter, and the API then answers one row per value of that
+dimension (all four age bands for an omitted `-a`), so pass every dimension the answer
+depends on (e.g. `-r 1` for Germany, `-a 1 -b 1` for "all ages, all branches") and read
+the labels back in Step 3. Each flag takes one value — `-g 2 -g 3` is a usage error; run
+one call per slice:
 
 | Flag | Dimension | Example |
 |---|---|---|
@@ -74,8 +76,10 @@ entgeltatlas entgelte 84304 -l 4 -r 1 --compact
 Returns a JSON array of observations; each has `entgelt` (median),
 `entgeltQ25`/`entgeltQ75` (quartiles), `besetzung` (headcount), and the labelled
 dimensions (`region`, `gender`, `ageCategory`, `performanceLevel`, `branche`, each
-`{id, bezeichnung}`). Before reporting a row, check that its labels match the slice
-you asked for; if the array holds several rows, pick by label, not by position.
+`{id, bezeichnung}`). If the API answers another slice than the one you asked for (a
+`Deutschland` row for `-r 11`), the CLI prints nothing and exits `1` with "The API
+answered another slice than the one requested" — report that, never a figure. If the
+array holds several rows (an omitted flag), pick by label, not by position.
 
 ## Step 4 — Report the numbers honestly
 

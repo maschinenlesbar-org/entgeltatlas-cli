@@ -215,6 +215,15 @@ has no kldb text.`), and an empty or 204 body is one too
 "suppressed" answer, so the client must not produce one by coercion. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.
 
+**The requested slice (result 02, Bug 1).** Every row carries the ids of its slice, and
+`entgelte()` compares them with the dimension filters it sent
+(`assertRequestedSlice`): a row whose `performanceLevel`/`region`/`gender`/`ageCategory`/
+`branche` id differs from `l`/`r`/`g`/`a`/`b` is an `EntgeltatlasSliceError` (an
+`EntgeltatlasParseError` with `param`, `requested`, `received`, `row`; CLI exit 1, nothing
+on stdout). A server that ignores a filter would otherwise hand back the Deutschland /
+Gesamt figure as the answer. An omitted dimension is not checked: the API then answers one
+row per value of it.
+
 ### Read the figures defensively
 
 - `entgelt` is the **median** gross monthly EUR (BA does not compute a mean).

@@ -31,8 +31,11 @@ entgeltatlas entgelte <kldb> [-l <n>] [-r <n>] [-g <n>] [-a <n>] [-b <n>]
 `<kldb>` is the **numeric KldB-2010 code** (3–5 digits, e.g. `84304`) — not an
 occupation name. Each dimension flag narrows the slice. Code `1` is `Gesamt` only
 for `-g`, `-a` and `-b`; for `-l` it is Helfer and for `-r` Deutschland. An
-omitted flag sends no parameter and leaves the slice to the server (not
-live-verified), so pass the dimensions you mean and check each row's labels. Run
+omitted flag sends no parameter, and the API answers one row per value of that
+dimension (all four age bands for an omitted `-a`; recorded live on 2026-10-06), so pass
+the dimensions you mean. Every row is checked against the flags given: if the API
+answers another slice (a `Deutschland` row for `-r 11`), nothing is printed and the exit
+code is `1` ("The API answered another slice than the one requested"). Run
 `entgeltatlas codes` to see all the numbers.
 
 | Flag | Dimension | Values |

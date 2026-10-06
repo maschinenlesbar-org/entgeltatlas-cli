@@ -51,6 +51,7 @@ export {
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
   EntgeltatlasParseError,
+  EntgeltatlasSliceError,
   credentialsDroppedHint,
   credentialsIn,
   redactCredentials,

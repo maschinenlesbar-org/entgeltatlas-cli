@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { EntgeltatlasClient, type EntgeltatlasClientOptions } from "../src/client/client.js";
 import {
   EntgeltatlasParseError,
+  EntgeltatlasSliceError,
   EntgeltatlasValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, queryOf, type MockTransport } from "./helpers.js";
@@ -32,7 +33,7 @@ test("entgelte sends the X-API-Key, hits the KldB path, and forwards dimensions"
 });
 
 test("entgelte omits dimension params that were not set", async () => {
-  const { c, mt } = client(() => jsonResponse(fx.entgelteResult), { apiKey: "K" });
+  const { c, mt } = client(() => jsonResponse([]), { apiKey: "K" });
   await c.entgelte("84304", { r: 5 });
   const q = queryOf(mt.last());
   assert.equal(q.get("r"), "5");
@@ -161,4 +162,27 @@ test("P10: allowUnknownFilters sends an extra parameter, never __proto__ and nev
       JSON.stringify(params),
     );
   }
+});
+
+test("02#1: a row of another slice than the one requested is an EntgeltatlasSliceError, not the answer", async () => {
+  // The repro: -r 11 -g 3 asked, the server answers the Deutschland / Gesamt row.
+  const { c } = client(() => jsonResponse(fx.entgelteResult), { apiKey: "K" });
+  await assert.rejects(
+    () => c.entgelte("84304", { l: 4, r: 11, g: 3 }),
+    (err) =>
+      err instanceof EntgeltatlasSliceError &&
+      err instanceof EntgeltatlasParseError &&
+      err.param === "r" &&
+      err.requested === 11 &&
+      err.received === 1 &&
+      /r=11 was asked for, but row 0 has region.id 1 \("Deutschland"\)/.test(err.message),
+  );
+  // The matching slice passes, and an omitted dimension may come back as several rows.
+  const row = fx.entgelteResult[0]!;
+  const ages = [1, 2, 3, 4].map((id) => ({ ...row, ageCategory: { id, bezeichnung: `a${id}` } }));
+  const ok = client(() => jsonResponse(ages), { apiKey: "K" });
+  assert.equal((await ok.c.entgelte("84304", { l: 4, r: 1, g: 1, b: 1 })).length, 4);
+  // One stray row among matching ones is enough to refuse the answer.
+  const mixed = client(() => jsonResponse([...ages, { ...row, branche: { id: 7, bezeichnung: "Finanz" } }]), { apiKey: "K" });
+  await assert.rejects(() => mixed.c.entgelte("84304", { b: 1 }), EntgeltatlasSliceError);
 });

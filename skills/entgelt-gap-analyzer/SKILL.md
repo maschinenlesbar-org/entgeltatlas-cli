@@ -55,7 +55,10 @@ entgeltatlas entgelte 84304 -l 4 -r 1 -g 3 --compact   # Frauen, Deutschland
 
 Pull `entgelt` (median) from the row whose labels (`region`, `gender`, `ageCategory`,
 `performanceLevel`, `branche`) match the slice; don't assume `[0]` is it, since an
-omitted flag leaves the slice to the server. Keep `besetzung` (headcount) — a tiny
+omitted flag returns one row per value of that dimension. Each flag takes one value
+(`-g 2 -g 3` is a usage error), and a call whose answer is another slice than the one
+asked for exits `1` with nothing on stdout ("The API answered another slice …"): leave
+that point out and say why. Keep `besetzung` (headcount) — a tiny
 `besetzung` makes a comparison unreliable, and a suppressed slice has no number
 at all.
 

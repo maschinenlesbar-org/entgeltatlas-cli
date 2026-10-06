@@ -210,3 +210,24 @@ export class EntgeltatlasValidationError extends EntgeltatlasError {}
 
 /** The response body could not be parsed as the expected JSON shape. */
 export class EntgeltatlasParseError extends EntgeltatlasError {}
+
+/**
+ * The API answered a slice other than the one requested: a row's dimension id differs
+ * from the filter that was sent (e.g. `r=11` asked, a `Deutschland` row received), so
+ * the figures are not an answer to the question. An EntgeltatlasParseError (CLI exit 1),
+ * with the mismatch in `param` / `requested` / `received` / `row`.
+ */
+export class EntgeltatlasSliceError extends EntgeltatlasParseError {
+  readonly param: string;
+  readonly requested: number;
+  readonly received: number;
+  readonly row: number;
+
+  constructor(message: string, mismatch: { param: string; requested: number; received: number; row: number }) {
+    super(message);
+    this.param = mismatch.param;
+    this.requested = mismatch.requested;
+    this.received = mismatch.received;
+    this.row = mismatch.row;
+  }
+}

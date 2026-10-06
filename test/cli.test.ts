@@ -276,7 +276,7 @@ test("a dimension code outside the documented table exits 2 before any request",
     assert.equal(cli.mt.calls.length, 0);
     assert.ok(cli.err.join("\n").includes(message), cli.err.join("\n"));
   }
-  const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+  const cli = makeCli(() => jsonResponse([]));
   const args = ["entgelte", "84304", "-l", "4", "-r", "30", "-g", "3", "-a", "4", "-b", "11"];
   assert.equal(await run([...KEY, ...args], cli.deps), 0);
   assert.equal(new URL(cli.mt.last().url).search, "?l=4&r=30&g=3&a=4&b=11");
@@ -302,4 +302,11 @@ test("P10: a repeated dimension flag is a usage error naming the flag, before an
   assert.equal(await run([...KEY, "entgelte", "84304", "-g", "2", "-g", "3"], cli.deps), 2);
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /option '-g, --gender <code>' was given more than once; it takes one value \(run one call per slice\)/);
+});
+
+test("02#1: entgelte prints nothing and exits 1 when the API answers another slice", async () => {
+  const cli = makeCli(() => jsonResponse(fx.entgelteResult)); // always Deutschland / Gesamt
+  assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "11", "-g", "3"], cli.deps), 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(cli.err.join("\n"), /^Error: The API answered another slice than the one requested/m);
 });
