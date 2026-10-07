@@ -58,7 +58,7 @@ the transport. `obtainKey()` uses the same helpers.
 npm install
 npm run build       # tsc -> dist/
 npm run typecheck
-npm test            # pretest builds, then node --test dist/test/*.test.js
+npm test            # pretest builds, then node --test --test-timeout=5000 dist/test/*.test.js
 npm run obtain-key  # print the published X-API-Key (network; needs a build)
 ```
 
