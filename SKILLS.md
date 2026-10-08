@@ -17,12 +17,14 @@ They compose: **code-finder → lookup**, or **code-finder → gap-analyzer**.
 
 - The `entgeltatlas` CLI on PATH: `npm install -g @maschinenlesbar.org/entgeltatlas-cli`.
 - **An X-API-Key** for the data commands (not `codes`): the BA's published
-  community key. Set `ENTGELTATLAS_API_KEY` or pass `--api-key`. No key is bundled
+  community key. Set `ENTGELTATLAS_API_KEY`, pass `--api-key`, or store it once in a
+  credentials file with `entgeltatlas config set api-key`. No key is bundled
   — the CLI obtains it for you from the BA's own
   [Entgeltatlas web app](https://web.arbeitsagentur.de/entgeltatlas/):
   ```bash
   eval "$(entgeltatlas obtain-key --export)"        # this shell
   entgeltatlas obtain-key --export >> ~/.zshrc      # or keep it for later
+  entgeltatlas obtain-key | entgeltatlas config set api-key   # or in the credentials file
   ```
 - **Note:** a **403** with an empty body looks the same for a wrong or stale key and
   a network `rest.arbeitsagentur.de` refuses. The BA changed the key in 2026 (the UUID

@@ -16,6 +16,9 @@ import {
   normalizeApiKey,
 } from "../client/validate.js";
 
+/** The name the API key is stored under in the credentials file (`entgeltatlas config set api-key`). */
+export const API_KEY_CREDENTIAL = "api-key";
+
 /**
  * commander value-parser: a plain base-10 non-negative integer.
  *
@@ -234,6 +237,30 @@ export function assertEnvKey(command: Command, global: GlobalOptions): void {
 }
 
 /**
+ * The API key in the credentials file, or undefined when there is no store (deps
+ * without `credentials`), no file or no key in it. A stored key the library would
+ * reject (the file edited by hand) is an EntgeltatlasError naming the file, never
+ * repeating the value.
+ */
+function storedApiKey(deps: CliDeps): string | undefined {
+  if (deps.credentials === undefined) return undefined;
+  const store = deps.credentials();
+  const key = normalizeApiKey(store.get(API_KEY_CREDENTIAL));
+  if (key === undefined) return undefined;
+  const reason = headerValueProblem(key);
+  if (reason !== undefined) {
+    throw new EntgeltatlasError(`Invalid ${API_KEY_CREDENTIAL} in ${store.path}: ${reason} Store it again with entgeltatlas config set ${API_KEY_CREDENTIAL}.`);
+  }
+  return key;
+}
+
+function rootOf(command: Command): Command {
+  let root = command;
+  while (root.parent !== null) root = root.parent;
+  return root;
+}
+
+/**
  * Wrap an async command action with consistent global-option resolution and
  * client construction. The callback receives a context (client + resolved global
  * options + this command's options) and the command's positional arguments.
@@ -251,6 +278,18 @@ export function action(
     const global = command.optsWithGlobals() as GlobalOptions;
     assertEnvKey(command, global);
     const options = toEngineOptions(global);
+    // flag > ENTGELTATLAS_API_KEY > the credentials file (`entgeltatlas config set
+    // api-key`) > none. The file is read only here, when no key came from the first
+    // two, so a problem with it never stands in the way of a key given another way.
+    if (options.apiKey === undefined) {
+      const stored = storedApiKey(deps);
+      if (stored !== undefined) {
+        options.apiKey = stored;
+        // On the program too, source "config": the 401/403 hint in run.ts asks the
+        // program whether a key was sent.
+        rootOf(command).setOptionValueWithSource("apiKey", stored, "config");
+      }
+    }
     const client = deps.createClient(options);
     // Built first, so a key the client rejects is a usage error before any warning. One
     // warning per run, before the first request, when the base URL is plain http: to a host

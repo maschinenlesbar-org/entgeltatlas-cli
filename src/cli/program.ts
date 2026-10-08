@@ -14,6 +14,8 @@ import { parseApiKey, parseBaseUrl, parseBoundedInt, parseHeaderValue } from "./
 import { normalizeApiKey } from "../client/validate.js";
 import { registerCommands } from "./commands/entgelte.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
+import { registerConfigCommands } from "./commands/config.js";
+import { CredentialStore } from "./credentials.js";
 import { nodeHttpTransport } from "../client/http.js";
 
 /**
@@ -40,6 +42,7 @@ export const defaultDeps: CliDeps = {
   createClient: (options) => new EntgeltatlasClient(options),
   env: process.env,
   transport: nodeHttpTransport,
+  credentials: () => CredentialStore.fromEnv(process.env),
 };
 
 export function buildProgram(deps: CliDeps = defaultDeps): Command {
@@ -51,7 +54,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       "CLI for the Bundesagentur für Arbeit Entgeltatlas API " +
         "(rest.arbeitsagentur.de/infosysbub/entgeltatlas) — median gross-monthly " +
         "salary statistics by KldB-2010 occupation. Requires an X-API-Key: pass " +
-        `--api-key or set ${API_KEY_ENV_VAR} (the BA's Entgeltatlas web app publishes a public ` +
+        `--api-key, set ${API_KEY_ENV_VAR}, or store it once with \`entgeltatlas config set api-key\` ` +
+        "(the BA's Entgeltatlas web app publishes a public " +
         "key; run `entgeltatlas obtain-key` to fetch it). " +
         "This API takes numeric KldB codes, not occupation names, and has no name search.",
     )
@@ -88,13 +92,15 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
   // Seed --api-key from ENTGELTATLAS_API_KEY (the library's normalizeApiKey: trimmed,
   // blank treated as unset), marked with the source "env". commander treats this as
   // the option's value, which an explicit --api-key on the command line overrides
-  // during parse: flag > env var > none. The value is checked only by a command that
-  // builds a client (see `action` in shared.ts), so help, `codes` and `obtain-key`
-  // work whatever the variable holds.
+  // during parse: flag > env var > the credentials file (read in `action` in
+  // shared.ts) > none. The value is checked only by a command that builds a client
+  // (see `action` in shared.ts), so help, `codes`, `config` and `obtain-key` work
+  // whatever the variable holds.
   const envKey = normalizeApiKey(deps.env[API_KEY_ENV_VAR]);
   if (envKey !== undefined) program.setOptionValueWithSource("apiKey", envKey, "env");
 
   registerObtainKeyCommands(program, deps);
+  registerConfigCommands(program, deps);
   registerCommands(program, deps);
 
   return program;

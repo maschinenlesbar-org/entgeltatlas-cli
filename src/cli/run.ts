@@ -210,14 +210,15 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         deps.io.err(
           sentKey
             ? `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
-                `${API_KEY_ENV_VAR} env var against \`entgeltatlas obtain-key\`. An empty 403 ` +
+                `${API_KEY_ENV_VAR} env var / the stored key (\`entgeltatlas config get api-key\`) ` +
+                "against `entgeltatlas obtain-key`. An empty 403 " +
                 "looks the same for a wrong key, a stale one and a refused network (WAF/IP block). " +
                 "The BA changed the key in 2026: the UUID client_id the bundesAPI README still " +
                 "publishes is refused, and `obtain-key` reads the current one from the BA web app. " +
                 "See the README's 403 heads-up."
             : `Hint: the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
-                `Pass --api-key or set ${API_KEY_ENV_VAR} (\`entgeltatlas obtain-key\` prints ` +
-                "the published key).",
+                `Pass --api-key, set ${API_KEY_ENV_VAR}, or store it with \`entgeltatlas config set api-key\` ` +
+                "(`entgeltatlas obtain-key` prints the published key).",
         );
         return EXIT.AUTH;
       }

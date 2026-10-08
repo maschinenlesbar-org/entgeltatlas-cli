@@ -74,14 +74,26 @@ refused with an empty 403 since 2026 (investigated on 2026-10-06, see
 `.reviews/2026-10-05-exploratory/entgeltatlas-cli/auth-investigation-2026-10-06.md` in
 the workspace). It flows through `EngineOptions.defaultHeaders`
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
-`ENTGELTATLAS_API_KEY` with precedence **flag > env > none**. Flag, env var and
+`ENTGELTATLAS_API_KEY` with precedence **flag > env > the credentials file > none**. Flag, env var and
 `apiKey` share one rule: `normalizeApiKey` trims the key (blank = no key), then
 `headerValueProblem` checks the trimmed value (`Invalid apiKey: Value contains control
 characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
 would override the env key. The CLI seeds the env key with the source `"env"` and checks
 it only in a command that builds a client (`assertEnvKey` in `shared.ts`, the library's
 rule, the message naming `ENTGELTATLAS_API_KEY`), so help, `codes` (which builds no
-client) and `obtain-key` work whatever the variable holds (P19). No key is bundled —
+client) and `obtain-key` work whatever the variable holds (P19).
+
+The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
+(`CredentialStore`, the same mechanism as openka-cli's `ka config`) and `entgeltatlas
+config` (`src/cli/commands/config.ts`). It reaches the CLI through `CliDeps.credentials`,
+which only `defaultDeps` sets, so a test that does not ask for one never reads the user's
+file; `action()` (`src/cli/shared.ts`) reads it only when neither the flag nor the env
+var gave a key, checks the stored key by the library's rule, and sets it on the program
+with the source `"config"` so the 401/403 hint knows a key was sent. `config set` reads
+through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
+whole input from a pipe), never from argv.
+
+No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
 (`KEY_SOURCE_URL`, `https://web.arbeitsagentur.de/entgeltatlas/`) at run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
 `DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared

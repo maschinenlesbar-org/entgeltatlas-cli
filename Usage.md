@@ -22,6 +22,28 @@ is trimmed first, as the library does, so a trailing CR/LF from a key file is dr
 rather than rejected. A rejected value is never echoed raw: the key is shown as `***`,
 and control characters in any echoed value as `\uXXXX`.
 
+## config — the key in a credentials file
+
+```bash
+entgeltatlas config set api-key                         # typed at a prompt, without echo
+entgeltatlas obtain-key | entgeltatlas config set api-key   # or piped in
+entgeltatlas config get api-key [--reveal]
+entgeltatlas config list
+entgeltatlas config unset api-key
+```
+
+Precedence is `--api-key` > `ENTGELTATLAS_API_KEY` > the credentials file > none. `config`
+keeps the key in `$XDG_CONFIG_HOME/entgeltatlas/credentials` (else
+`~/.config/entgeltatlas/credentials`), mode 0600, written atomically. `config set` reads
+the value from a prompt without echo or from stdin, never from the command line (an
+extra argument is a usage error, exit 2, and is not repeated); a blank value, or one with
+whitespace or a character no header can carry, is refused (exit 2). `config get` shows it
+masked (`--reveal` prints it whole); `config list` prints the masked values on stdout and
+the file's path on stderr; `config unset` removes it. A missing name, a link, another
+user's file or one others can read (`chmod 600` fixes it) exits 1 — and the file is read
+only when neither the flag nor the env var gave a key, so a problem with it never stops
+such a run.
+
 ## entgelte — salary statistics
 
 ```bash

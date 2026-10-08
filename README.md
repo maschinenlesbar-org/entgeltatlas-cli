@@ -28,7 +28,25 @@ The API needs a static **`X-API-Key`** (the public `clientId` of the BA's own
 Entgeltatlas web app).
 No key is bundled with this tool — see **[Obtain key](#obtain-key)** below.
 
-Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > none**. The
+**Or store it once**, in a credentials file of its own (the same mechanism as
+[openka-cli](https://github.com/maschinenlesbar-org/openka-cli)'s `ka config`):
+
+```bash
+entgeltatlas config set api-key                         # typed at a prompt, without echo
+entgeltatlas obtain-key | entgeltatlas config set api-key   # or the published key, piped in
+entgeltatlas config get api-key                         # masked: info…-ega (--reveal prints it whole)
+entgeltatlas config list                                # what is stored, and where
+entgeltatlas config unset api-key
+```
+
+The value is never taken from the command line, so it reaches neither shell history
+nor `ps`. The file is `$XDG_CONFIG_HOME/entgeltatlas/credentials` (else
+`~/.config/entgeltatlas/credentials`): mode 0600 in a directory of mode 0700, replaced
+atomically, and not read at all while anyone else could read it. It is consulted only
+when neither `--api-key` nor `ENTGELTATLAS_API_KEY` gives a key.
+
+Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > the credentials
+file > none**. The
 `codes` command works with no key at all — and, like `--help` and `obtain-key`, also
 when `ENTGELTATLAS_API_KEY` holds something malformed; only the commands that send a
 request check the variable (`Invalid ENTGELTATLAS_API_KEY: …`, exit 2).

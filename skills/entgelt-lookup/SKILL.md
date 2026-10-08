@@ -14,8 +14,9 @@ compatibility: >
   @maschinenlesbar.org/entgeltatlas-cli) on PATH, installed by the user; the
   skill never installs it. Uses jq for JSON filtering. Network access to
   rest.arbeitsagentur.de (and web.arbeitsagentur.de, where obtain-key reads the
-  key). Needs the public API key via --api-key or
-  ENTGELTATLAS_API_KEY (`entgeltatlas obtain-key` prints it).
+  key). Needs the public API key via --api-key, ENTGELTATLAS_API_KEY or one
+  stored with `entgeltatlas config set api-key` (`entgeltatlas obtain-key`
+  prints it).
 ---
 
 # Entgelt Lookup
@@ -31,7 +32,7 @@ This skill drives the `entgeltatlas` command. **Before anything else, validate i
 
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
-**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from the BA's own Entgeltatlas web app (web.arbeitsagentur.de/entgeltatlas) at run time. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. Pass the key on each call, but don't repeat it in your answer: the published key is public, yet one already in `ENTGELTATLAS_API_KEY` may be the user's own. If `obtain-key` exits non-zero, stop and tell the user; never guess a key or hard-code one. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong, stale or missing key and for a refused network (WAF/IP block). The BA changed the key in 2026 — the UUID `client_id` the bundesAPI README still prints is refused — so re-run `entgeltatlas obtain-key` first and retry with the value it prints; if a freshly obtained key still gets the 403, tell the user their network may be refused, and never present a 403 as "no data". Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
+**An X-API-Key is required** for the data commands (not for `codes`). It is the BA's published community key; set `ENTGELTATLAS_API_KEY` (or pass `--api-key`). There is **no bundled key** — obtain it with the CLI itself — `entgeltatlas obtain-key` prints the published key (stdout), reading it from the BA's own Entgeltatlas web app (web.arbeitsagentur.de/entgeltatlas) at run time. If `ENTGELTATLAS_API_KEY` is already set in the environment, or a key is stored (`entgeltatlas config get api-key` exits 0), use it and skip `obtain-key`; the CLI reads a stored key by itself. **Keep that value for the rest of the session** and put it on later calls as `ENTGELTATLAS_API_KEY="<key>" entgeltatlas …`, since a shell `export` does not survive between separate commands. Pass the key on each call, but don't repeat it in your answer: the published key is public, yet one already in `ENTGELTATLAS_API_KEY` may be the user's own. If `obtain-key` exits non-zero, stop and tell the user; never guess a key or hard-code one. **A 403 with an empty body is ambiguous**: the gateway sends the same response for a wrong, stale or missing key and for a refused network (WAF/IP block). The BA changed the key in 2026 — the UUID `client_id` the bundesAPI README still prints is refused — so re-run `entgeltatlas obtain-key` first and retry with the value it prints; if a freshly obtained key still gets the 403, tell the user their network may be refused, and never present a 403 as "no data". Use `--compact` for `jq`. Cite the source: © Statistik der Bundesagentur für Arbeit.
 
 ## Step 1 — Get the KldB code
 
