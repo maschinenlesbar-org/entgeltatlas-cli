@@ -6,6 +6,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse, queryOf, untimed } from "./helpers.js";
 import * as fx from "./fixtures.js";
+import { credentialsIn } from "../src/client/errors.js";
 
 function makeCli(
   responder: (req: HttpRequest) => HttpResponse,
@@ -322,4 +323,12 @@ test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as i
       assert.doesNotMatch(all, /Value99|S3cretKey|SecretValue/, `${format}: ${all}`);
     }
   }
+});
+
+test("an a:b@c argument (here a User-Agent) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const cli = makeCli(() => jsonResponse([{ id: 1, bezeichnung: "run:2026-10-09@x" }]));
+  assert.equal(await run([...KEY, "--user-agent", "run:2026-10-09@x", "regionen"], cli.deps), 0);
+  assert.match(cli.out.join("\n"), /"bezeichnung": "run:2026-10-09@x"/);
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });

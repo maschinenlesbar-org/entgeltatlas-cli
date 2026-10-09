@@ -120,9 +120,27 @@ export function escapeCommanderError(message: string): string {
 /** The options whose value is a secret on its own (no `@` to anchor a redaction on). */
 const SECRET_FLAGS = ["--api-key"];
 
+/**
+ * The options whose value is the base URL: a `user:password@host` given there without
+ * its scheme is still a credential (anywhere else a bare `a:b@c` is not).
+ */
+const BASE_URL_FLAGS = ["--base-url"];
+
+/** The values of the `flags` in `argv`, in both forms (`--flag value`, `--flag=value`). */
+function flagValues(argv: readonly string[], flags: readonly string[]): string[] {
+  const found: string[] = [];
+  argv.forEach((token, i) => {
+    const next = argv[i + 1];
+    if (flags.includes(token) && next !== undefined) found.push(next);
+    const eq = token.indexOf("=");
+    if (eq > 0 && flags.includes(token.slice(0, eq))) found.push(token.slice(eq + 1));
+  });
+  return found;
+}
+
 /** The secrets of a run, and the two ways they are replaced. */
 export interface Redaction {
-  /** stdout text: the userinfo of every URL-like argument replaced (`***@`). */
+  /** stdout text: the userinfo of every URL argument replaced (`***@`). */
   out(text: string): string;
   /** stderr text, a record's message: that, and every secret value replaced (`***`). */
   err(text: string): string;
@@ -139,8 +157,9 @@ export interface Redaction {
  * an unknown command or option as typed, so whatever path a secret takes to the
  * terminal it is replaced:
  *
- * - the userinfo of every URL-like argument and `--opt=value` value (as
- *   `credentialsIn` finds it, parseable or not) becomes `***@`, on stdout and stderr;
+ * - the userinfo of every URL argument and `--opt=value` value (as `credentialsIn`
+ *   finds it, parseable or not: only a value with a scheme, or the `--base-url` value)
+ *   becomes `***@`, on stdout and stderr;
  * - the value of `--api-key` (both forms), the `ENTGELTATLAS_API_KEY` value and any
  *   argument shaped like a UUID key (`looksLikeApiKey`: a key typed without
  *   `--api-key`) become `***` on stderr. Not on stdout: `obtain-key` prints the key
@@ -161,7 +180,9 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   const userinfo = new Set<string>();
   const echoed = new Set<string>();
   const passwords = new Set<string>();
-  for (const source of [...argv, ...values, envKey]) {
+  // A base URL typed without its scheme is read as if it had one.
+  const baseUrls = flagValues(argv, BASE_URL_FLAGS).map((value) => (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) ? value : `http://${value}`));
+  for (const source of [...values, envKey, ...baseUrls]) {
     for (const secret of credentialsIn(source)) {
       for (const form of forms(secret)) userinfo.add(form);
       // What a server echoes back: the Basic value and the decoded user:password on
@@ -179,11 +200,7 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   };
   addKey(envKey);
   for (const password of passwords) addKey(password);
-  argv.forEach((token, i) => {
-    if (SECRET_FLAGS.includes(token)) addKey(argv[i + 1]);
-    const eq = token.indexOf("=");
-    if (eq > 0 && SECRET_FLAGS.includes(token.slice(0, eq))) addKey(token.slice(eq + 1));
-  });
+  for (const value of flagValues(argv, SECRET_FLAGS)) addKey(value);
   for (const value of values) if (looksLikeApiKey(value)) addKey(value);
   const urlList = [...userinfo];
   // Longest first, so a key is never left half-replaced by one of its own substrings.

@@ -155,9 +155,11 @@ in its usage error and names an unknown command or option as typed, so `run()` w
 frame (time, level, topic) is never touched, and a secret with DEL, C1 or bidi
 characters is matched in its raw form. A key read from the credentials file becomes a
 secret of the run the moment it is read (`deps.addSecret`, by `action()`, `config get`
-and `config set`), like the flag and the env value. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
+and `config set`), like the flag and the env value. The userinfo of every URL argument and of `ENTGELTATLAS_API_KEY`
 (`credentialsIn`, which finds it whether the value parses or not, then
-`redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value, the
+`redactCredentials`) becomes `***@` on stdout and stderr. Only a value that starts with
+a scheme counts (a bare `a:b@c` is a User-Agent or a search text as often as a
+credential), except as the `--base-url` value; the `--api-key` value, the
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
 (`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
 `obtain-key` prints the key. The forms a server echoes a userinfo back in are replaced
