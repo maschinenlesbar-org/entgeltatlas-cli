@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { EntgeltatlasClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, rawResponse, queryOf } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, queryOf, untimed } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
 function makeCli(
@@ -135,7 +135,7 @@ test("a 403 without any key says that no key was sent", async () => {
   const cli = makeCli(() => rawResponse(" ", "text/plain", 403));
   const code = await run(["entgelte", "84304"], cli.deps);
   assert.equal(code, 3);
-  assert.match(cli.err.join("\n"), /no X-API-Key was sent\. Pass --api-key, set ENTGELTATLAS_API_KEY, or store it with `entgeltatlas config set api-key`/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[entgeltatlas\.api\] the API rejected the request \(403\) and no X-API-Key was sent\. Pass --api-key, set ENTGELTATLAS_API_KEY, or store it with `entgeltatlas config set api-key`/m);
 });
 
 test("a 404 exits 4", async () => {
@@ -237,7 +237,7 @@ test("a header-invalid ENTGELTATLAS_API_KEY is a usage error, not 'Unexpected er
   assert.equal(code, 2);
   assert.equal(cli.mt.calls.length, 0);
   // The env path names the variable to fix; the reason is the library's.
-  assert.equal(cli.err.join("\n"), "Error: Invalid ENTGELTATLAS_API_KEY: Value contains control characters.");
+  assert.equal(untimed(cli.err.join("\n")), "ERROR [entgeltatlas.cli] Invalid ENTGELTATLAS_API_KEY: Value contains control characters.");
 });
 
 test("a deeply nested response fails pretty-printing cleanly and still prints with --compact", async () => {
@@ -250,14 +250,14 @@ test("a deeply nested response fails pretty-printing cleanly and still prints wi
   const pretty = makeCli(deep);
   assert.equal(await run([...KEY, "entgelte", "84304"], pretty.deps), 1);
   assert.deepEqual(pretty.out, []);
-  assert.equal(pretty.err.join("\n"), "Error: The response is nested too deeply to pretty-print; try --compact.");
+  assert.equal(untimed(pretty.err.join("\n")), "ERROR [entgeltatlas.cli] The response is nested too deeply to pretty-print; try --compact.");
 
   // Compact serialisation goes much deeper (it prints this one on current Node);
   // should a runtime's stack still be too small, it must fail just as cleanly.
   const compact = makeCli(deep);
   const code = await run([...KEY, "--compact", "entgelte", "84304"], compact.deps);
   if (code === 0) assert.equal(compact.out.join("").length, body.length);
-  else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
+  else assert.equal(untimed(compact.err.join("\n")), "ERROR [entgeltatlas.cli] The response is nested too deeply to print.");
 });
 
 test("a dimension code outside the documented table exits 2 before any request", async () => {
@@ -291,7 +291,7 @@ test("--help states the --max-retries range and default", async () => {
 test("P3: a key sent to a plain-http host other than loopback gets a warning", async () => {
   const remote = makeCli(() => jsonResponse(fx.regionen));
   assert.equal(await run(["--base-url", "http://mirror.example", ...KEY, "regionen"], remote.deps), 0);
-  assert.match(remote.err.join("\n"), /^warning: the API key is sent unencrypted to mirror\.example \(http:, not https:\)$/m);
+  assert.match(untimed(remote.err.join("\n")), /^WARN  \[entgeltatlas\.http\] the API key is sent unencrypted to mirror\.example \(http:, not https:\)$/m);
   const loopback = makeCli(() => jsonResponse(fx.regionen));
   assert.equal(await run(["--base-url", "http://127.0.0.1:20230", ...KEY, "regionen"], loopback.deps), 0);
   assert.deepEqual(loopback.err, []);
@@ -308,5 +308,5 @@ test("02#1: entgelte prints nothing and exits 1 when the API answers another sli
   const cli = makeCli(() => jsonResponse(fx.entgelteResult)); // always Deutschland / Gesamt
   assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "11", "-g", "3"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.match(cli.err.join("\n"), /^Error: The API answered another slice than the one requested/m);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.cli\] The API answered another slice than the one requested/m);
 });

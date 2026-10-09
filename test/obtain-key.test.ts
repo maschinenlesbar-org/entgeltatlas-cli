@@ -21,7 +21,7 @@ import {
   EntgeltatlasNetworkError,
   EntgeltatlasValidationError,
 } from "../src/client/errors.js";
-import { makeMockTransport, rawResponse } from "./helpers.js";
+import { makeMockTransport, rawResponse, untimed } from "./helpers.js";
 
 /** The web app's page, in the shape it states the key (a dummy value, not the real key). */
 const page = (clientId: string): string =>
@@ -93,7 +93,7 @@ test("obtain-key prints only the key on stdout, provenance on stderr", async () 
   assert.equal(code, 0);
   assert.deepEqual(cli.out, [EXPECTED_KEY]);
   assert.ok(cli.err.join("\n").includes(KEY_SOURCE_URL));
-  assert.match(cli.err.join("\n"), /not checked against the API/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[entgeltatlas\.obtain-key\] Obtained the public key from .*not checked against the API/);
 });
 
 test("obtain-key --export emits a quoted, eval-safe export line", async () => {
@@ -254,7 +254,8 @@ test("obtain-key exits 4 for a vanished key source and 1 (no API-key hint) for a
   assert.equal(await run(["obtain-key"], gone.deps), 4);
   const refused = makeCli(() => rawResponse("", "text/plain", 403));
   assert.equal(await run(["obtain-key"], refused.deps), 1);
-  assert.doesNotMatch(refused.err.join("\n"), /Hint:/);
+  assert.deepEqual(untimed(refused.err.join("\n")).split("\n").map((line) => line.slice(0, line.indexOf("]") + 1)), ["ERROR [entgeltatlas.obtain-key]"]);
+  assert.doesNotMatch(refused.err.join("\n"), /the API rejected the request/);
   assert.deepEqual(refused.out, []);
 });
 

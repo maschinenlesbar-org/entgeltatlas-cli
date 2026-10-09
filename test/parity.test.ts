@@ -8,7 +8,7 @@ import * as lib from "../src/index.js";
 import { EntgeltatlasValidationError } from "../src/client/errors.js";
 import type { EntgelteParams } from "../src/client/types.js";
 import { run } from "../src/cli/run.js";
-import { parity } from "./helpers.js";
+import { parity, untimed } from "./helpers.js";
 
 const KEY = ["--api-key", "k"];
 const client = (transport: lib.Transport) => new lib.EntgeltatlasClient({ transport, apiKey: "k" });
@@ -171,7 +171,7 @@ test("parity #6: a key an HTTP header cannot carry is rejected by flag, env and 
     // One rule, one reason: the env path prints the library's reason, naming the variable.
     assert.equal(
       env.cli.err,
-      `Error: ${(env.lib.error as Error).message.replace("Invalid apiKey:", "Invalid ENTGELTATLAS_API_KEY:")}`,
+      `ERROR [entgeltatlas.cli] ${(env.lib.error as Error).message.replace("Invalid apiKey:", "Invalid ENTGELTATLAS_API_KEY:")}`,
     );
   }
 });
@@ -254,5 +254,5 @@ test("parity #5: run() maps the library's base-URL error to the usage exit code,
     env: {},
   });
   assert.equal(code, 2);
-  assert.deepEqual(err, ["Error: Invalid baseUrl: Only http: and https: base URLs are supported."]);
+  assert.deepEqual(err.map(untimed), ["ERROR [entgeltatlas.cli] Invalid baseUrl: Only http: and https: base URLs are supported."]);
 });

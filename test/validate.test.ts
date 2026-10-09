@@ -5,7 +5,7 @@ import { EntgeltatlasError, EntgeltatlasValidationError } from "../src/client/er
 import * as lib from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { EntgeltatlasClient } from "../src/client/client.js";
-import { parity } from "./helpers.js";
+import { parity, untimed } from "./helpers.js";
 
 const notBlank: Problem = (v) => (v.trim() === "" ? "Expected a non-empty value." : undefined);
 
@@ -28,7 +28,7 @@ test("the validation layer is exported from the package root", () => {
   assert.equal(lib.EntgeltatlasValidationError, EntgeltatlasValidationError);
 });
 
-test("run() maps an EntgeltatlasValidationError from an action to exit 2 with 'Error: <message>'", async () => {
+test("run() maps an EntgeltatlasValidationError from an action to exit 2 with an ERROR record", async () => {
   const out: string[] = [];
   const err: string[] = [];
   const fake = {
@@ -40,7 +40,7 @@ test("run() maps an EntgeltatlasValidationError from an action to exit 2 with 'E
     env: {},
   });
   assert.equal(code, 2);
-  assert.deepEqual(err, ["Error: Invalid kldb: Expected a non-empty value."]);
+  assert.deepEqual(err.map(untimed), ["ERROR [entgeltatlas.cli] Invalid kldb: Expected a non-empty value."]);
   assert.deepEqual(out, []);
 });
 

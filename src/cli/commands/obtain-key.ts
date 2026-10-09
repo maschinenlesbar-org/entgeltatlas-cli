@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import type { CliDeps } from "../io.js";
+import { logOf, type CliDeps } from "../io.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey, shellQuoteSingle } from "../../client/obtain-key.js";
 import type { GlobalOptions } from "../shared.js";
 
@@ -31,7 +31,8 @@ export function registerObtainKeyCommands(program: Command, deps: CliDeps): void
       });
       // The key is not checked against the API (an empty 403 cannot tell a dead key
       // from a refused network), so say so rather than imply it works.
-      deps.io.err(
+      logOf(deps).info(
+        "obtain-key",
         `Obtained the public key from ${sourceUrl} (not checked against the API; ` +
           "if the API answers an empty 403, see the README's 403 heads-up).",
       );

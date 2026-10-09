@@ -4,7 +4,8 @@
 
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
-import type { CliDeps } from "./io.js";
+import { logOf, type CliDeps } from "./io.js";
+import { createLogger, logFormatFromArgv } from "./log.js";
 import { API_KEY_ENV_VAR } from "./io.js";
 import {
   EntgeltatlasApiError,
@@ -45,7 +46,15 @@ function configureTree(command: Command, deps: CliDeps): void {
   rejectRepeatedOptions(command);
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
-    writeErr: (str) => deps.io.err(str.replace(/\n$/, "")),
+    // commander's own messages are log records too: its "error: …" an ERROR, the help it
+    // shows after one an INFO.
+    writeErr: (str) => {
+      const text = str.replace(/\n$/, "");
+      // The blank line commander writes between an error and the help it shows after.
+      if (text === "") return;
+      if (text.startsWith("error: ")) logOf(deps).error("cli", text.slice("error: ".length));
+      else logOf(deps).info("cli", text);
+    },
     // The error message alone (help after an error goes through writeErr): escape it,
     // keeping the line break before commander's own "(Did you mean …?)" hint.
     outputError: (str, write) => write(escapeCommanderError(str.replace(/\n$/, ""))),
@@ -161,6 +170,13 @@ export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliD
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   deps = withRedactedOutput(deps, argv);
+  // Every record goes through the redacted `io.err`, so a secret is kept out of the
+  // log in either format.
+  const redacted = deps;
+  deps = {
+    ...deps,
+    log: createLogger({ format: logFormatFromArgv(argv), write: (line) => redacted.io.err(line), ...(deps.now === undefined ? {} : { now: deps.now }) }),
+  };
   const program = buildProgram(deps);
   configureTree(program, deps);
 
@@ -181,19 +197,20 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       // the catch-all).
       return err.exitCode === 0 ? 0 : EXIT.USAGE;
     }
+    const log = logOf(deps);
     // Client-side validation (e.g. a malformed KldB code) — a usage error.
     if (err instanceof EntgeltatlasValidationError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("cli", err.message);
       return EXIT.USAGE;
     }
     // obtain-key could not read the published key: a 404 is "not found", but a
     // 401/403 from the key source says nothing about an API key (so not exit 3).
     if (err instanceof EntgeltatlasKeySourceError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("obtain-key", err.message);
       return err.status === 404 ? EXIT.NOT_FOUND : EXIT.OTHER;
     }
     if (err instanceof EntgeltatlasApiError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("api", err.message);
       if (err.status === 404) return EXIT.NOT_FOUND;
       if (err.status === 401 || err.status === 403) {
         // A redirect to another origin (an http: base URL answered with https: is the
@@ -207,16 +224,17 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         // (investigated 2026-10-06). Say which key situation applies and name every
         // cause without ruling one out.
         const sentKey = typeof program.opts()["apiKey"] === "string";
-        deps.io.err(
+        log.info(
+          "api",
           sentKey
-            ? `Hint: the API rejected the request (${err.status}). Check --api-key / the ` +
+            ? `the API rejected the request (${err.status}). Check --api-key / the ` +
                 `${API_KEY_ENV_VAR} env var / the stored key (\`entgeltatlas config get api-key\`) ` +
                 "against `entgeltatlas obtain-key`. An empty 403 " +
                 "looks the same for a wrong key, a stale one and a refused network (WAF/IP block). " +
                 "The BA changed the key in 2026: the UUID client_id the bundesAPI README still " +
                 "publishes is refused, and `obtain-key` reads the current one from the BA web app. " +
                 "See the README's 403 heads-up."
-            : `Hint: the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
+            : `the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
                 `Pass --api-key, set ${API_KEY_ENV_VAR}, or store it with \`entgeltatlas config set api-key\` ` +
                 "(`entgeltatlas obtain-key` prints the published key).",
         );
@@ -225,19 +243,20 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       return EXIT.OTHER;
     }
     if (err instanceof EntgeltatlasNetworkError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("http", err.message);
       if (/maxResponseBytes/.test(err.message)) {
-        deps.io.err(
-          "Hint: the response exceeded the size cap. Raise it with --max-response-bytes <n> (0 = unlimited).",
+        log.info(
+          "http",
+          "the response exceeded the size cap. Raise it with --max-response-bytes <n> (0 = unlimited).",
         );
       }
       return EXIT.NETWORK;
     }
     if (err instanceof EntgeltatlasError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("cli", err.message);
       return EXIT.OTHER;
     }
-    deps.io.err(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    log.error("cli", `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
     return EXIT.OTHER;
   }
 }

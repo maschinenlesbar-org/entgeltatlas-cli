@@ -54,6 +54,18 @@ export function makeMockTransport(
   };
 }
 
+// ---- the log on stderr -------------------------------------------------------
+
+/**
+ * stderr with each text record's timestamp taken off: `ERROR [entgeltatlas.api] HTTP 404 …`.
+ * The format itself — timestamp, level, topic — is the conformance test's
+ * (conformance-p23-log-format); the other tests check what was said, at which level
+ * and under which topic.
+ */
+export function untimed(text: string): string {
+  return text.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z /gm, "");
+}
+
 /** Parse the query string of a recorded request URL into a URLSearchParams. */
 export function queryOf(req: HttpRequest): URLSearchParams {
   return new URL(req.url).searchParams;
@@ -128,7 +140,7 @@ export async function parity(
   const cli: CliOutcome = {
     code,
     out: out.join("\n"),
-    err: err.join("\n"),
+    err: untimed(err.join("\n")),
     requests: recorded(mt.calls.slice(0, cliCalls)),
   };
 

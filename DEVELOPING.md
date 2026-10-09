@@ -22,7 +22,8 @@ src/
     client.ts    # EntgeltatlasClient — entgelte() + reference lists
     index.ts
   cli/
-    io.ts        # injectable I/O + env seam (CliDeps); API_KEY_ENV_VAR
+    io.ts        # injectable I/O + env seam (CliDeps); API_KEY_ENV_VAR; the logger and the clock
+    log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers (incl. KldB + dimension-code), the dimension flag names, render
     commands/    # entgelte + reference lists + codes
     program.ts   # assembles the commander program; seeds --api-key from env
@@ -170,7 +171,7 @@ problem)` turns a reason into an `EntgeltatlasValidationError` with the message
 `Invalid <name>: <reason>`. Client methods check their input before any request
 (a method that returns a promise rejects rather than throwing synchronously;
 constructors throw). The CLI's value-parsers call the same functions, and `run.ts`
-maps an `EntgeltatlasValidationError` to exit `2` (`Error: <message>`), so CLI and
+maps an `EntgeltatlasValidationError` to exit `2` (an `ERROR` record of `entgeltatlas.cli`), so CLI and
 library accept and reject the same inputs.
 
 The engine options are range-checked in the `RequestEngine` constructor (and the
@@ -343,8 +344,8 @@ shared check.
   redirect ("use an https base URL (…)" for http→https, `credentialsDroppedHint`) and the
   CLI prints it without the key hint (exit 3). A base URL on plain `http:` to a host other
   than loopback (`localhost`, `127.0.0.0/8`, `::1`) gets one stderr warning per run, before
-  the first request (`cleartextProblem`, exported): `warning: requests to <host> are sent
-  unencrypted (http:, not https:)`, or naming "the API key" / "the base URL's credentials"
+  the first request (`cleartextProblem`, exported), a `WARN` record of `entgeltatlas.http`:
+  `requests to <host> are sent unencrypted (http:, not https:)`, or naming "the API key" / "the base URL's credentials"
   when they travel — never their value. Help, version and usage errors never warn;
   `cleartextCredentialsProblem` stays as a deprecated alias.
   `test/conformance-p20-cleartext-warning.test.ts` is the shared check (P20).
@@ -373,3 +374,22 @@ npm run build                        # the CLI, for the command reference
 cd site && npm ci && bundle install  # once (Node >= 22.12, Ruby 3.4, Bundler)
 npm run serve                        # http://127.0.0.1:4000/entgeltatlas-cli/
 ```
+
+## The log on stderr
+
+Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic, `entgeltatlas.<area>`. `--log-format text` (the
+default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
+`--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
+and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+`api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
+hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
+error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
+with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
+`run()` builds the logger from argv before commander parses it, so commander's own usage
+errors are records too, and on top of the redacted `io.err`, so a secret is kept out of
+the log in either format. The bin shim's last-resort `Unexpected error` (a rejected
+`run()`) is a record too. `CliDeps.now` makes the timestamps testable. stdout carries
+data only; the `config set` prompt (no echo) and `handleOutputErrors`' `Output error: …`
+(stdout itself failed) are written to stderr as they are. Conformance test P23 checks
+all of this, and its body is shared across the *-cli repos.

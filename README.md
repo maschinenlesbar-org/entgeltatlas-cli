@@ -52,7 +52,8 @@ when `ENTGELTATLAS_API_KEY` holds something malformed; only the commands that se
 request check the variable (`Invalid ENTGELTATLAS_API_KEY: …`, exit 2).
 
 A `--base-url` on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
-`::1`) gets one warning on stderr before the first request — `warning: the API key is sent
+`::1`) gets one warning on stderr before the first request, a `WARN` record of
+`entgeltatlas.http` — `… WARN  [entgeltatlas.http] the API key is sent
 unencrypted to mirror.example (http:, not https:)`, or `requests to … are sent unencrypted`
 when no key or `user:password@` travels. Neither value is ever printed; stdout and the exit
 code are unchanged.
@@ -131,6 +132,22 @@ sibling APIs or the [KldB catalogue](https://www.klassifikationsserver.de/).
 See **[Usage.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/Usage.md)** for the full command reference and
 **[GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md)** for the dimensions, the KldB system, and how to
 read censored/suppressed figures.
+
+Data goes to stdout; errors, warnings and notes go to stderr. Each line on stderr is a
+**log record**: a timestamp (UTC), a level (`ERROR`, `WARN`, `INFO`) and a topic, the
+program and the area it comes from (`entgeltatlas.cli` for usage errors,
+`entgeltatlas.api` for the API's answers and the 401/403 hint, `entgeltatlas.http` for
+the connection, `entgeltatlas.config`, `entgeltatlas.obtain-key`). By default it is
+written log4j style; `--log-format jsonl` writes one JSON object per line instead:
+
+```text
+2026-10-09T14:03:12.481Z WARN  [entgeltatlas.http] the API key is sent unencrypted to mirror.example (http:, not https:)
+2026-10-09T14:03:12.902Z ERROR [entgeltatlas.api] HTTP 403 for GET https://rest.arbeitsagentur.de/infosysbub/entgeltatlas/pc/v1/entgelte/84304
+```
+
+```bash
+entgeltatlas --log-format jsonl entgelte 84304 2>log.jsonl   # {"ts":"…","level":"ERROR","topic":"entgeltatlas.api","msg":"HTTP 403 …"}
+```
 
 ## Library use
 

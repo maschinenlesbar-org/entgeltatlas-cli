@@ -12,7 +12,7 @@ import { EntgeltatlasClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import { readSecretFrom } from "../src/cli/io.js";
 import { CredentialStore, maskCredential, resolveCredentialsPath } from "../src/cli/credentials.js";
-import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
 const KEY = "c003a37f-024f-462a-b36d-b001be4cd24a";
@@ -47,7 +47,7 @@ test("config set stores the key from the prompt, mode 0600 in a 0700 directory, 
     assert.equal(cli.store.get("api-key"), KEY);
     assert.equal(statSync(cli.store.path).mode & 0o777, 0o600);
     assert.equal(statSync(join(cli.dir, "entgeltatlas")).mode & 0o777, 0o700);
-    assert.match(cli.err.join("\n"), new RegExp(`Stored api-key \\(${MASKED}\\) in `));
+    assert.match(untimed(cli.err.join("\n")), new RegExp(`^INFO  \\[entgeltatlas\\.config\\] Stored api-key \\(${MASKED}\\) in `));
     assert.ok(!(cli.err.join("\n") + cli.out.join("\n")).includes(KEY));
 
     cli.out.length = 0;
@@ -60,7 +60,7 @@ test("config set stores the key from the prompt, mode 0600 in a 0700 directory, 
     cli.err.length = 0;
     assert.equal(await run(["config", "list"], cli.deps), 0);
     assert.deepEqual(cli.out, [`api-key  ${MASKED}`]);
-    assert.match(cli.err.join("\n"), new RegExp(`Credentials file: ${cli.store.path}`));
+    assert.match(untimed(cli.err.join("\n")), new RegExp(`^INFO  \\[entgeltatlas\\.config\\] Credentials file: ${cli.store.path}`));
 
     assert.equal(await run(["config", "unset", "api-key"], cli.deps), 0);
     assert.equal(cli.store.get("api-key"), undefined);
