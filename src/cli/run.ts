@@ -168,6 +168,43 @@ export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliD
   };
 }
 
+/**
+ * The words every rejected-key hint ends with: an empty 403 is ambiguous, and the BA
+ * changed the key in 2026.
+ */
+const EMPTY_403_CAUSES =
+  "An empty 403 looks the same for a wrong key, a stale one and a refused network (WAF/IP block). " +
+  "The BA changed the key in 2026: the UUID client_id the bundesAPI README still " +
+  "publishes is refused, and `obtain-key` reads the current one from the BA web app. " +
+  "See the README's 403 heads-up.";
+
+/**
+ * The 401/403 hint when a key was sent: it names where that key came from — the
+ * credentials file (its path), `ENTGELTATLAS_API_KEY` or `--api-key` — so the user
+ * checks the key that was actually sent, not one of three candidates.
+ */
+function rejectedKeyHint(status: number, program: Command, deps: CliDeps): string {
+  const rejected = `the API rejected the request (${status})`;
+  if (deps.storedKeyPath !== undefined) {
+    return (
+      `${rejected} with the API key stored in ${deps.storedKeyPath}. Check it against \`entgeltatlas obtain-key\`: ` +
+      "`entgeltatlas obtain-key | entgeltatlas config set api-key` stores the current one " +
+      `(--api-key and ${API_KEY_ENV_VAR} take precedence over the file). ${EMPTY_403_CAUSES}`
+    );
+  }
+  const from = program.getOptionValueSource("apiKey") === "env" ? `the ${API_KEY_ENV_VAR} env var` : "--api-key";
+  return `${rejected} with the key from ${from}. Check it against \`entgeltatlas obtain-key\`. ${EMPTY_403_CAUSES}`;
+}
+
+/** The 401/403 hint when no key was sent. */
+function noKeyHint(status: number): string {
+  return (
+    `the API rejected the request (${status}) and no X-API-Key was sent. ` +
+    `Pass --api-key, set ${API_KEY_ENV_VAR}, or store it with \`entgeltatlas config set api-key\` ` +
+    "(`entgeltatlas obtain-key` prints the published key)."
+  );
+}
+
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   deps = withRedactedOutput(deps, argv);
   // Every record goes through the redacted `io.err`, so a secret is kept out of the
@@ -221,23 +258,10 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         // same text/plain 403 for a wrong, stale or missing X-API-Key and for a refused
         // network (WAF). The stale case is real: in 2026 the BA replaced the UUID
         // client_id the bundesAPI README still publishes, and the gateway refuses it
-        // (investigated 2026-10-06). Say which key situation applies and name every
-        // cause without ruling one out.
+        // (investigated 2026-10-06). Say which key situation applies — no key, or
+        // the source of the one sent — and name every cause without ruling one out.
         const sentKey = typeof program.opts()["apiKey"] === "string";
-        log.info(
-          "api",
-          sentKey
-            ? `the API rejected the request (${err.status}). Check --api-key / the ` +
-                `${API_KEY_ENV_VAR} env var / the stored key (\`entgeltatlas config get api-key\`) ` +
-                "against `entgeltatlas obtain-key`. An empty 403 " +
-                "looks the same for a wrong key, a stale one and a refused network (WAF/IP block). " +
-                "The BA changed the key in 2026: the UUID client_id the bundesAPI README still " +
-                "publishes is refused, and `obtain-key` reads the current one from the BA web app. " +
-                "See the README's 403 heads-up."
-            : `the API rejected the request (${err.status}) and no X-API-Key was sent. ` +
-                `Pass --api-key, set ${API_KEY_ENV_VAR}, or store it with \`entgeltatlas config set api-key\` ` +
-                "(`entgeltatlas obtain-key` prints the published key).",
-        );
+        log.info("api", sentKey ? rejectedKeyHint(err.status, program, deps) : noKeyHint(err.status));
         return EXIT.AUTH;
       }
       return EXIT.OTHER;

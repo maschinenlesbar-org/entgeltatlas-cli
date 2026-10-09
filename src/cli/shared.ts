@@ -236,17 +236,6 @@ export function assertEnvKey(command: Command, global: GlobalOptions): void {
   if (reason !== undefined) throw new EntgeltatlasValidationError(`Invalid ${API_KEY_ENV_VAR}: ${reason}`);
 }
 
-/**
- * The API key in the credentials file, or undefined when there is no store (deps
- * without `credentials`), no file or no key in it. A stored value `config set` would
- * refuse (the file edited by hand) is an EntgeltatlasError naming the file, never
- * repeating the value (`CredentialStore.usable`).
- */
-function storedApiKey(deps: CliDeps): string | undefined {
-  if (deps.credentials === undefined) return undefined;
-  return deps.credentials().usable(API_KEY_CREDENTIAL);
-}
-
 function rootOf(command: Command): Command {
   let root = command;
   while (root.parent !== null) root = root.parent;
@@ -274,12 +263,18 @@ export function action(
     // flag > ENTGELTATLAS_API_KEY > the credentials file (`entgeltatlas config set
     // api-key`) > none. The file is read only here, when no key came from the first
     // two, so a problem with it never stands in the way of a key given another way.
-    if (options.apiKey === undefined) {
-      const stored = storedApiKey(deps);
+    // A stored value `config set` would refuse (the file edited by hand) is an
+    // EntgeltatlasError naming the file, never repeating the value
+    // (`CredentialStore.usable`).
+    if (options.apiKey === undefined && deps.credentials !== undefined) {
+      const store = deps.credentials();
+      const stored = store.usable(API_KEY_CREDENTIAL);
       if (stored !== undefined) {
         options.apiKey = stored;
+        // The 401/403 hint in run.ts names the file the rejected key came from.
+        deps.storedKeyPath = store.path;
         // On the program too, source "config": the 401/403 hint in run.ts asks the
-        // program whether a key was sent.
+        // program whether a key was sent, and from where.
         rootOf(command).setOptionValueWithSource("apiKey", stored, "config");
       }
     }

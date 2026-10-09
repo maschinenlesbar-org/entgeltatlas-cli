@@ -107,8 +107,10 @@ is no guarantee the API will answer: see the 403 heads-up below.
 > `client_id` (still printed by the bundesAPI README and in releases of this CLI up to
 > 0.1.0, which read the key from there) with the short `clientId` its web app uses, and
 > the gateway refuses the UUID. If you get an empty 403 (exit code `3`), re-run
-> `entgeltatlas obtain-key` and retry with what it prints; if a freshly obtained key
-> still gets the 403, your network is the likelier cause. The upstream's OAuth
+> `entgeltatlas obtain-key` and retry with what it prints (the hint on stderr names
+> where the rejected key came from: `--api-key`, `ENTGELTATLAS_API_KEY` or the
+> credentials file); if a freshly obtained key still gets the 403, your network is the
+> likelier cause. The upstream's OAuth
 > client-credentials flow is not needed. `codes` keeps working offline.
 
 ## Quickstart

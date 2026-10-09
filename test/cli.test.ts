@@ -125,7 +125,8 @@ test("a 403 exits 3 with a hint that names both a wrong key and a refused networ
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);
   assert.equal(code, 3);
   const err = cli.err.join("\n");
-  assert.match(err, /ENTGELTATLAS_API_KEY env var \/ the stored key \(`entgeltatlas config get api-key`\) against `entgeltatlas obtain-key`/);
+  assert.match(err, /the API rejected the request \(403\) with the key from --api-key\. Check it against `entgeltatlas obtain-key`/);
+  assert.doesNotMatch(err, /config get api-key|ENTGELTATLAS_API_KEY/);
   assert.match(err, /looks the same for a wrong key, a stale one and a refused network \(WAF\/IP block\)/);
   assert.match(err, /UUID client_id the bundesAPI README still publishes is refused/);
   assert.doesNotMatch(err, /not a bad key/);

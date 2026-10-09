@@ -93,7 +93,9 @@ var gave a key, reads it through `CredentialStore.usable` (trimmed; a hand-edite
 `config set` would refuse — `credentialProblem`: blank, whitespace or control characters
 inside, or what the library's header rule refuses — is an error naming the file, and
 `config get`/`config list` read through the same check), and sets it on the program
-with the source `"config"` so the 401/403 hint knows a key was sent. `config set` reads
+with the source `"config"` (and its path in `CliDeps.storedKeyPath`) so the 401/403
+hint knows a key was sent and names where it came from: the file, `ENTGELTATLAS_API_KEY`
+or `--api-key`. `config set` reads
 through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
 whole input from a pipe), never from argv.
 
@@ -302,7 +304,9 @@ shared check.
   identical response (text/plain, one-space body; seen again on 2026-09-15, when
   the fetched key and a wrong UUID both got it while the Ausbildungssuche API on
   the same gateway answered 200 for its own key). `run.ts` maps 401/403 → exit 3
-  with a hint naming every cause (or saying that no key was sent).
+  with a hint naming every cause and the source of the key that was sent (the
+  credentials file by its path, `ENTGELTATLAS_API_KEY` or `--api-key`), or saying that no
+  key was sent.
 - **2026-09-26:** the obtained key (it matches the upstream README's `client_id`)
   got an empty 403 on `entgelte`, `regionen` and `geschlechter`; a wrong UUID and a
   browser User-Agent got the same, while the Ausbildungssuche API on the same

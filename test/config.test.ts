@@ -118,13 +118,26 @@ test("the stored key is sent when neither --api-key nor ENTGELTATLAS_API_KEY giv
   }
 });
 
-test("a 403 with a stored key gets the hint for a key that was sent, naming config", async () => {
+test("a 403 hint names the source of the rejected key: the credentials file, the env var or the flag (02-1)", async () => {
   const cli = makeCli({ status: 403 });
   try {
     cli.store.set("api-key", KEY);
     assert.equal(await run(["entgelte", "84304"], cli.deps), 3);
-    assert.match(cli.err.join("\n"), /the stored key \(`entgeltatlas config get api-key`\)/);
-    assert.doesNotMatch(cli.err.join("\n"), /no X-API-Key was sent/);
+    const hint = untimed(cli.err.join("\n"));
+    assert.match(hint, /INFO  \[entgeltatlas\.api\] the API rejected the request \(403\) with the API key stored in .*credentials\./);
+    assert.match(hint, /`entgeltatlas obtain-key \| entgeltatlas config set api-key` stores the current one/);
+    assert.doesNotMatch(hint, /no X-API-Key was sent/);
+    // With a key in ENTGELTATLAS_API_KEY too, that one was sent: the hint names it, not the file (02-1).
+    cli.err.length = 0;
+    assert.equal(await run(["entgelte", "84304"], { ...cli.deps, env: { ENTGELTATLAS_API_KEY: "envkey-1234567" } }), 3);
+    assert.equal(cli.mt.last().headers?.["X-API-Key"], "envkey-1234567");
+    assert.match(cli.err.join("\n"), /with the key from the ENTGELTATLAS_API_KEY env var\./);
+    assert.doesNotMatch(cli.err.join("\n"), /stored|config get/);
+    // And a key from the flag: the hint names the flag.
+    cli.err.length = 0;
+    assert.equal(await run(["--api-key", "flagkey-1234567", "entgelte", "84304"], { ...cli.deps, env: { ENTGELTATLAS_API_KEY: "envkey-1234567" } }), 3);
+    assert.match(cli.err.join("\n"), /with the key from --api-key\./);
+    assert.doesNotMatch(cli.err.join("\n"), /stored|ENTGELTATLAS_API_KEY/);
   } finally {
     cli.cleanup();
   }
