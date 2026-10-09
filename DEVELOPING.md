@@ -138,7 +138,8 @@ options argument that isn't an object (`optionsObject`; `null` counts as none), 
 isn't an object, a header value that isn't a string (`Expected a string, got number.`),
 a KldB that isn't a string, `entgelte()` params that aren't an object. Every failure is
 an `EntgeltatlasError` subclass. Server text in a message (`detail`, a transport's
-error text) is cut at 500 characters; `EntgeltatlasApiError.body` keeps it all.
+error text) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
+message stays well-formed; `EntgeltatlasApiError.body` keeps it all.
 `test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
 P8 charset and P9 shape cases).
 
@@ -399,7 +400,8 @@ every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and t
 controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's
 message — `sanitizeServerText` keeps its newlines —, a value you typed, OpenSSL's EPROTO
 text), can split it, forge another one or steer the terminal; `test/log.test.ts` tests
-the helper on its own. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+the helper on its own. Before that a lone surrogate (half a character, which jq rejects,
+stopping the whole stream) becomes U+FFFD (`toWellFormed`). The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
 hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics

@@ -21,6 +21,7 @@ import {
   redactCredentials,
   redactSecrets,
   redactUrl,
+  cutText,
 } from "./errors.js";
 import {
   assertValid,
@@ -499,10 +500,10 @@ export function transportError(method: string, url: string, cause: unknown): Ent
  */
 const MAX_DETAIL_LENGTH = 500;
 
-/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
-  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
+  return clean.length > MAX_DETAIL_LENGTH ? `${cutText(clean, MAX_DETAIL_LENGTH)}…` : clean;
 }
 
 const realSleep = (ms: number): Promise<void> =>

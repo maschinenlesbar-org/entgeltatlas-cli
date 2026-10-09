@@ -203,3 +203,15 @@ test("02#4: a figure that is not a number or null is a parse error; negative mar
     assert.equal((await c.entgelte("84304")).length, 1, JSON.stringify(ok));
   }
 });
+
+test("a long server label in the slice error is cut, never inside a surrogate pair", async () => {
+  const row = fx.entgelteResult[0]!;
+  for (const label of ["\u{1f600}".repeat(60), "a" + "\u{1f600}".repeat(60)]) {
+    const { c } = client(() => jsonResponse([{ ...row, region: { id: 1, bezeichnung: label } }]), { apiKey: "K" });
+    await assert.rejects(
+      () => c.entgelte("84304", { r: 11 }),
+      (err: Error) => err instanceof EntgeltatlasSliceError && /…"\)/.test(err.message) && !/\\ud83d/.test(err.message),
+      label.length.toString(),
+    );
+  }
+});

@@ -12,7 +12,7 @@
 //   client.regionen()
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError } from "./errors.js";
+import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText } from "./errors.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import { assertValid, describeType, headerValueProblem, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
 import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
@@ -49,9 +49,9 @@ function labelledCodeProblem(value: unknown): string | undefined {
 /** The dimension objects every salary row carries. */
 const ROW_DIMENSIONS = ["region", "gender", "ageCategory", "performanceLevel", "branche"] as const;
 
-/** A server label for a message: JSON-quoted (C0 escaped), DEL/C1 dropped, at most 80 characters. */
+/** A server label for a message: JSON-quoted (C0 escaped), DEL/C1 dropped, at most 80 characters (never half a character). */
 function quoteLabel(label: string): string {
-  return JSON.stringify(label.length > 80 ? `${label.slice(0, 80)}…` : label).replace(/[\u007f-\u009f]/g, "");
+  return JSON.stringify(label.length > 80 ? `${cutText(label, 80)}…` : label).replace(/[\u007f-\u009f]/g, "");
 }
 
 /** The row field that carries each dimension filter's code. */
