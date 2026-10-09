@@ -89,7 +89,10 @@ The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
 config` (`src/cli/commands/config.ts`). It reaches the CLI through `CliDeps.credentials`,
 which only `defaultDeps` sets, so a test that does not ask for one never reads the user's
 file; `action()` (`src/cli/shared.ts`) reads it only when neither the flag nor the env
-var gave a key, checks the stored key by the library's rule, and sets it on the program
+var gave a key, reads it through `CredentialStore.usable` (trimmed; a hand-edited value
+`config set` would refuse — `credentialProblem`: blank, whitespace or control characters
+inside, or what the library's header rule refuses — is an error naming the file, and
+`config get`/`config list` read through the same check), and sets it on the program
 with the source `"config"` so the 401/403 hint knows a key was sent. `config set` reads
 through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
 whole input from a pipe), never from argv.

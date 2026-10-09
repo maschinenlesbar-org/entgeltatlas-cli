@@ -43,7 +43,10 @@ The value is never taken from the command line, so it reaches neither shell hist
 nor `ps`. The file is `$XDG_CONFIG_HOME/entgeltatlas/credentials` (else
 `~/.config/entgeltatlas/credentials`): mode 0600 in a directory of mode 0700, replaced
 atomically, and not read at all while anyone else could read it. It is consulted only
-when neither `--api-key` nor `ENTGELTATLAS_API_KEY` gives a key.
+when neither `--api-key` nor `ENTGELTATLAS_API_KEY` gives a key. A value edited into the
+file by hand that `config set` would refuse (blank, whitespace inside, a line break, an
+escape sequence) is refused when it is read — by the data commands, `config get` and
+`config list` alike — naming the file (exit `1`).
 
 Precedence is **`--api-key` flag > `ENTGELTATLAS_API_KEY` env var > the credentials
 file > none**. The

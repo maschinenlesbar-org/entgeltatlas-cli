@@ -238,20 +238,13 @@ export function assertEnvKey(command: Command, global: GlobalOptions): void {
 
 /**
  * The API key in the credentials file, or undefined when there is no store (deps
- * without `credentials`), no file or no key in it. A stored key the library would
- * reject (the file edited by hand) is an EntgeltatlasError naming the file, never
- * repeating the value.
+ * without `credentials`), no file or no key in it. A stored value `config set` would
+ * refuse (the file edited by hand) is an EntgeltatlasError naming the file, never
+ * repeating the value (`CredentialStore.usable`).
  */
 function storedApiKey(deps: CliDeps): string | undefined {
   if (deps.credentials === undefined) return undefined;
-  const store = deps.credentials();
-  const key = normalizeApiKey(store.get(API_KEY_CREDENTIAL));
-  if (key === undefined) return undefined;
-  const reason = headerValueProblem(key);
-  if (reason !== undefined) {
-    throw new EntgeltatlasError(`Invalid ${API_KEY_CREDENTIAL} in ${store.path}: ${reason} Store it again with entgeltatlas config set ${API_KEY_CREDENTIAL}.`);
-  }
-  return key;
+  return deps.credentials().usable(API_KEY_CREDENTIAL);
 }
 
 function rootOf(command: Command): Command {
