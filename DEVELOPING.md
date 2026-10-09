@@ -169,7 +169,11 @@ data. Commander's error message is terminal-escaped first
 (`escapeTerminalText`: CR and LF become `\r` and `\n`, the other C0 controls, DEL,
 C1 and format characters `\uXXXX`), so an ESC
 in `--user-agent` can't reach the terminal; the secrets are matched in their raw,
-escaped and JSON-escaped forms. `test/conformance-p1-cli-redaction.test.ts` is the
+escaped and JSON-escaped forms. A key the run learns only after parsing (the stored one)
+is kept out by not echoing the value at all (`withoutStrayValues`): a numeric option or
+the `<kldb>` argument shows its rejected value only when it reads like a number, `unknown
+command` only when it reads like a command name, `too many arguments` drops the values
+and `unknown option '--x=…'` what follows `=`. `test/conformance-p1-cli-redaction.test.ts` is the
 shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
 by environment and typed without its flag).
 

@@ -558,3 +558,39 @@ test("config get --reveal prints the value as stored, untouched by the run's red
     cli.cleanup();
   }
 });
+
+test("the stored key typed as the KldB, a dimension code or a command is not echoed, as the same key from the env var is not (C5, result 02 b27/b28/b35)", async () => {
+  const stored = "storedkey-abcdef12";
+  const cli = makeCli();
+  try {
+    cli.store.set("api-key", stored);
+    for (const argv of [
+      ["entgelte", stored],
+      ["entgelte", "84304", "-r", stored],
+      ["entgelte", "84304", "--age", stored],
+      ["--timeout", stored, "regionen"],
+      ["regionen", stored],
+      [stored, "regionen"],
+      ["entgelte", "84304", `--region-code=${stored}`],
+    ]) {
+      for (const format of ["text", "jsonl"]) {
+        cli.err.length = 0;
+        assert.equal(await run(["--log-format", format, ...argv], cli.deps), 2, argv.join(" "));
+        const all = cli.err.join("\n");
+        assert.ok(!all.includes("abcdef"), `${format} ${argv.join(" ")}: ${all}`);
+      }
+    }
+    // A number-like value is still shown, so a typo can be seen.
+    cli.err.length = 0;
+    assert.equal(await run(["entgelte", "12"], cli.deps), 2);
+    assert.equal(await run(["entgelte", "84304", "-r", "31"], cli.deps), 2);
+    assert.match(cli.err.join("\n"), /command-argument value '12' is invalid for argument 'kldb'/);
+    assert.match(cli.err.join("\n"), /argument '31' is invalid/);
+    // A typo of a command name is still shown.
+    cli.err.length = 0;
+    assert.equal(await run(["regionn"], cli.deps), 2);
+    assert.match(cli.err.join("\n"), /unknown command 'regionn' \(Did you mean regionen\?\)/);
+  } finally {
+    cli.cleanup();
+  }
+});

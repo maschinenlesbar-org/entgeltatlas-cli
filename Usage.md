@@ -21,7 +21,11 @@ header: a blank value, a control character (CR/LF, DEL; tab is fine) or a charac
 U+00FF is a usage error (exit 2) before any request. The key, from the flag or the env var,
 is trimmed first, as the library does, so a trailing CR/LF from a key file is dropped
 rather than rejected. A rejected value is never echoed raw: the key is shown as `***`,
-and control characters in any echoed value as `\uXXXX`.
+and control characters in any echoed value as `\uXXXX` (`\n` for a line break). A
+rejected numeric value (the KldB code, a dimension code, `--timeout`, …) is shown only
+when it reads like a number, an unknown command only when it reads like a command name,
+and surplus arguments not at all, so a key typed in the wrong place — a stored one too —
+is not repeated.
 
 ## config — the key in a credentials file
 

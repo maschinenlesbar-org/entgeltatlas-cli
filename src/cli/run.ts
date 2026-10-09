@@ -50,7 +50,7 @@ function configureTree(command: Command, deps: CliDeps, state: { errorLogged: bo
     writeErr: (str) => writeCommanderErr(command, deps, state, str),
     // The error message alone (help after an error goes through writeErr): escape it,
     // keeping the line break before commander's own "(Did you mean …?)" hint.
-    outputError: (str, write) => write(escapeCommanderError(str.replace(/\n$/, ""))),
+    outputError: (str, write) => write(escapeCommanderError(withoutStrayValues(str.replace(/\n$/, "")))),
   });
   for (const child of command.commands) configureTree(child, deps, state);
 }
@@ -97,6 +97,37 @@ function writeCommanderErr(command: Command, deps: CliDeps, state: { errorLogged
     log.error("cli", `missing command: \`${commandPath(command)} <subcommand>\``);
   }
   for (const line of text.split("\n")) if (line.trim() !== "") log.info("cli", line.trimEnd());
+}
+
+/**
+ * Commander's usage errors repeat what the user typed. Where that may be a key typed in
+ * the wrong place — the stored key above all, which the run learns only when an action
+ * reads the credentials file, after parsing, too late for the redaction — say what went
+ * wrong without the value:
+ *
+ * - a rejected value of a numeric option (`--timeout <ms>`, `--max-retries <n>`,
+ *   `-r, --region <code>`, …) or command argument (`entgelte <kldb>`) is shown only
+ *   when it reads like a number, so a typo stays visible and a key does not;
+ * - `too many arguments for 'x'. Expected 0 arguments but got 1: <values>.` loses the
+ *   values;
+ * - `unknown option '--x=<value>'` keeps the option name, not the value;
+ * - `unknown command '<value>'` shows the value only when it reads like a command name
+ *   (lower-case letters and hyphens), so a typo such as `regionn` still is.
+ */
+export function withoutStrayValues(message: string): string {
+  const numberLike = /^[\s\d.,+\-eExX]{0,24}$/;
+  return message
+    .replace(/^(error: option '[^']*<(?:ms|n|code)>' argument )'([\s\S]*?)'( is invalid\.)/, (whole, head: string, value: string, tail: string) =>
+      numberLike.test(value) ? whole : `${head}(not shown: not a number)${tail}`,
+    )
+    .replace(/^(error: command-argument value )'([\s\S]*?)'( is invalid for argument )/, (whole, head: string, value: string, tail: string) =>
+      numberLike.test(value) ? whole : `${head}(not shown: not a number)${tail}`,
+    )
+    .replace(/^(error: too many arguments for '[^']*'\. Expected \d+ arguments? but got \d+): [\s\S]*?\.(\n|$)/, "$1.$2")
+    .replace(/^(error: unknown option '-[^=']*=)[\s\S]*?'(\n|$)/, "$1…'$2")
+    .replace(/^error: unknown command '([\s\S]*?)'(\n|$)/, (whole, value: string, end: string) =>
+      /^[a-z][a-z-]{0,39}$/.test(value) ? whole : `error: unknown command (not shown: it is not a command name)${end}`,
+    );
 }
 
 /**

@@ -28,8 +28,13 @@ const USAGE_EXIT = 2;
 const HELP_AFTER_ERROR = true;
 /** The option that writes the output to a file and logs where, or undefined if the CLI has none. */
 const OUTPUT_OPTION: string | undefined = undefined; // entgeltatlas has no -o
-/** An option that takes a value and validates it: a rejected value is echoed in the record. */
-const VALUE_OPTION = "--timeout";
+/**
+ * An option that takes a value and validates it: a rejected value is echoed in the record.
+ * Not --timeout here: a numeric option shows a rejected value only when it reads like a
+ * number (withoutStrayValues, so a key typed after it is never echoed). --log-format is
+ * global, echoes what it rejects, and a second one is refused only after its value is.
+ */
+const VALUE_OPTION = "--log-format";
 /** An error answer whose ERROR record quotes `message` (as far as the repo keeps it). */
 function errorAnswer(message: string): HttpResponse {
   return { status: 500, headers: { "content-type": "application/json" }, body: Buffer.from(JSON.stringify({ detail: message })) };
