@@ -37,7 +37,7 @@ Precedence is `--api-key` > `ENTGELTATLAS_API_KEY` > the credentials file > none
 keeps the key in `$XDG_CONFIG_HOME/entgeltatlas/credentials` (else
 `~/.config/entgeltatlas/credentials`), mode 0600, written atomically. `config set` reads
 the value from a prompt without echo or from stdin, never from the command line (an
-extra argument is a usage error, exit 2, and is not repeated; so is a mistyped name or a
+extra argument, or a key given with `--api-key`, is a usage error, exit 2, and is not repeated; so is a mistyped name or a
 surplus argument to any `config` command — the error names the valid names, never what
 was typed); a blank value, or one with
 whitespace or a character no header can carry, is refused (exit 2). `config get` shows it
