@@ -153,7 +153,9 @@ in its usage error and names an unknown command or option as typed, so `run()` w
 `deps.io` and builds the log first. The log replaces the secrets in each record's
 *message*, before the record is cut and escaped, and writes it to the raw stderr: the
 frame (time, level, topic) is never touched, and a secret with DEL, C1 or bidi
-characters is matched in its raw form. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
+characters is matched in its raw form. A key read from the credentials file becomes a
+secret of the run the moment it is read (`deps.addSecret`, by `action()`, `config get`
+and `config set`), like the flag and the env value. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
 (`credentialsIn`, which finds it whether the value parses or not, then
 `redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value, the
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key

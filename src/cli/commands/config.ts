@@ -73,6 +73,7 @@ export function registerConfigCommands(program: Command, deps: CliDeps): void {
         throw new EntgeltatlasValidationError("No way to read a secret here: pipe it in, or run entgeltatlas config set on a terminal.");
       }
       const value = (await deps.io.readSecret(`${name}: `)).trim();
+      deps.addSecret?.(value);
       const reason = credentialProblem(name, value);
       if (reason !== undefined) throw new EntgeltatlasValidationError(`${reason} Nothing was stored.`);
       const store = storeOf(deps);
@@ -94,6 +95,7 @@ export function registerConfigCommands(program: Command, deps: CliDeps): void {
       if (value === undefined) {
         throw new EntgeltatlasError(`No ${name} is stored in ${store.path}; entgeltatlas config set ${name} stores one.`);
       }
+      deps.addSecret?.(value);
       deps.io.out(options.reveal === true ? value : maskCredential(value, name));
     });
 
