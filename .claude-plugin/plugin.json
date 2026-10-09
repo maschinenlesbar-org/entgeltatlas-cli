@@ -1,6 +1,6 @@
 {
   "name": "entgeltatlas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "German salary-statistics skills powered by the entgeltatlas-cli (Bundesagentur für Arbeit Entgeltatlas API).",
   "author": {
     "name": "Sebastian Schürmann",
