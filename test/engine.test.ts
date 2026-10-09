@@ -11,9 +11,12 @@ import {
   EntgeltatlasApiError,
   EntgeltatlasParseError,
   EntgeltatlasValidationError,
+  credentialsDroppedHint,
   cutText,
   toWellFormed,
 } from "../src/client/errors.js";
+import { filterKeyProblem } from "../src/client/codes.js";
+import { baseUrlProblem } from "../src/client/validate.js";
 import type { HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 
@@ -385,4 +388,16 @@ test("a server detail cut at 500 characters keeps the message well-formed", asyn
     assert.match(err.message, /…$/);
     return true;
   });
+});
+
+test("own messages quote a server or user value at most 200 characters long (L3)", async () => {
+  const long = "x".repeat(5000);
+  const redirect = new RequestEngine({ maxRedirects: 0, transport: async () => ({ status: 302, headers: { location: `https://other.test/${long}` }, body: Buffer.alloc(0) }) });
+  await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.test\/x+… not followed/.test(err.message));
+  const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
+  await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /Unsupported response charset "x+…"/.test(err.message));
+  assert.match(filterKeyProblem(long) ?? "", /^Unknown filter "x{200}…": /);
+  assert.match(baseUrlProblem(`https://${long}:99999`) ?? "", /^Invalid URL "https:\/\/x{192}…"\.$/);
+  const hint = credentialsDroppedHint({ from: "https://a.test/p", to: `https://b.test/${long}` });
+  assert.ok(hint.length < 400 && hint.includes("…"), hint);
 });

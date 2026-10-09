@@ -21,7 +21,7 @@ import {
   redactCredentials,
   redactSecrets,
   redactUrl,
-  cutText,
+  cutForMessage,
 } from "./errors.js";
 import {
   assertValid,
@@ -299,7 +299,7 @@ export function decodeBody(body: Buffer, contentType: string, where: string): st
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new EntgeltatlasParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${where}.`);
+    throw new EntgeltatlasParseError(`Unsupported response charset "${cutForMessage(sanitizeServerText(charset))}" from ${where}.`);
   }
   return decoder.decode(body);
 }
@@ -503,7 +503,7 @@ const MAX_DETAIL_LENGTH = 500;
 /** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
-  return clean.length > MAX_DETAIL_LENGTH ? `${cutText(clean, MAX_DETAIL_LENGTH)}…` : clean;
+  return cutForMessage(clean, MAX_DETAIL_LENGTH);
 }
 
 const realSleep = (ms: number): Promise<void> =>

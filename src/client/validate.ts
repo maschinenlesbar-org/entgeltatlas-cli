@@ -5,7 +5,7 @@
 // value-parsers call the same function and turn the reason into a usage error, so
 // the rule exists exactly once.
 
-import { EntgeltatlasValidationError, redactUrl } from "./errors.js";
+import { EntgeltatlasValidationError, cutForMessage, redactUrl } from "./errors.js";
 
 /** Why `value` is invalid, or `undefined` if it is valid. */
 export type Problem<T = string> = (value: T) => string | undefined;
@@ -121,7 +121,8 @@ function schemeProblem(value: string, what: string): string | undefined {
   try {
     url = new URL(value);
   } catch {
-    return `Invalid URL "${redactUrl(value)}".`;
+    // Redacted before it is cut, so a cut never leaves part of a password unmatched.
+    return `Invalid URL "${cutForMessage(String(redactUrl(value)))}".`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return `Only http: and https: ${what} are supported.`;
@@ -166,7 +167,7 @@ export const userinfoEscapeProblem: Problem = (value) => {
  * (baseUrlWhitespaceProblem). The reasons are the CLI's `--base-url` messages.
  */
 export const baseUrlProblem: Problem = (value) =>
-  (typeof value === "string" ? undefined : `Invalid URL "${String(value)}".`) ??
+  (typeof value === "string" ? undefined : `Invalid URL "${cutForMessage(String(value))}".`) ??
   schemeProblem(value, "base URLs") ??
   (/[?#]/.test(value) ? "A base URL cannot have a query (?) or fragment (#)." : undefined) ??
   userinfoEscapeProblem(value) ??

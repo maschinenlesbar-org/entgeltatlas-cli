@@ -8,7 +8,7 @@
 
 import http from "node:http";
 import https from "node:https";
-import { EntgeltatlasNetworkError, redactUrl } from "./errors.js";
+import { EntgeltatlasNetworkError, cutForMessage, redactUrl } from "./errors.js";
 
 export interface HttpRequest {
   method: string;
@@ -97,7 +97,7 @@ export const nodeHttpTransport: Transport = (request) =>
     try {
       url = new URL(request.url);
     } catch {
-      reject(new EntgeltatlasNetworkError(`Invalid URL: ${redactUrl(request.url)}`));
+      reject(new EntgeltatlasNetworkError(`Invalid URL: ${cutForMessage(redactUrl(request.url))}`));
       return;
     }
 

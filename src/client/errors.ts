@@ -94,6 +94,19 @@ export function cutText(text: string, max: number): string {
   return text.slice(0, end);
 }
 
+/**
+ * The longest value (in characters) an own message quotes from a server answer or from
+ * the user's input: a redirect target, a charset, a filter key, a URL. A longer one is
+ * cut (`cutText`) and ends in "…", so a library caller's `err.message` stays bounded too.
+ */
+export const MAX_QUOTED_LENGTH = 200;
+
+/** `text` cut to `max` characters (default `MAX_QUOTED_LENGTH`), a cut marked with "…". */
+export function cutForMessage(text: string, max = MAX_QUOTED_LENGTH): string {
+  const cut = cutText(text, max);
+  return cut.length < text.length ? `${cut}…` : text;
+}
+
 function isHighSurrogate(c: number): boolean {
   return c >= 0xd800 && c <= 0xdbff;
 }
@@ -161,7 +174,7 @@ export class EntgeltatlasApiError extends EntgeltatlasError {
           : "";
       parts.push(
         args.location
-          ? `redirect to ${args.location} not followed${limit}`
+          ? `redirect to ${cutForMessage(args.location)} not followed${limit}`
           : "redirect not followed (no Location header)",
       );
     }
@@ -206,14 +219,17 @@ export function credentialsDroppedHint(dropped: { from: string; to: string }): s
   } catch {
     // fall through to the general text
   }
+  // Both are quoted cut: the target is the server's.
+  const shownFrom = cutForMessage(dropped.from);
+  const shownTo = cutForMessage(dropped.to);
   if (from !== undefined && to !== undefined && from.protocol === "http:" && to.protocol === "https:" && from.hostname === to.hostname) {
     return (
-      `the server redirected ${dropped.from} to ${dropped.to}, and the API key is not sent across ` +
-      `a change of scheme, so the request arrived without it: use an https base URL (${dropped.to})`
+      `the server redirected ${shownFrom} to ${shownTo}, and the API key is not sent across ` +
+      `a change of scheme, so the request arrived without it: use an https base URL (${shownTo})`
     );
   }
   return (
-    `the request was redirected from ${dropped.from} to ${dropped.to}, another origin, which ` +
+    `the request was redirected from ${shownFrom} to ${shownTo}, another origin, which ` +
     `does not get the API key or the base URL's credentials`
   );
 }

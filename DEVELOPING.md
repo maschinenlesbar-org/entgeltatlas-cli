@@ -139,7 +139,10 @@ isn't an object, a header value that isn't a string (`Expected a string, got num
 a KldB that isn't a string, `entgelte()` params that aren't an object. Every failure is
 an `EntgeltatlasError` subclass. Server text in a message (`detail`, a transport's
 error text) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
-message stays well-formed; `EntgeltatlasApiError.body` keeps it all.
+message stays well-formed; any other value an own message quotes from a server answer or
+the user's input (a redirect target, a charset, an unknown filter key, an invalid URL)
+at `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a
+library caller; `EntgeltatlasApiError.body` keeps it all.
 `test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
 P8 charset and P9 shape cases).
 
@@ -401,7 +404,9 @@ controls as `\uXXXX`, so no text that reaches a record, by whatever path (a serv
 message — `sanitizeServerText` keeps its newlines —, a value you typed, OpenSSL's EPROTO
 text), can split it, forge another one or steer the terminal; `test/log.test.ts` tests
 the helper on its own. Before that a lone surrogate (half a character, which jq rejects,
-stopping the whole stream) becomes U+FFFD (`toWellFormed`). The areas are `cli` (usage errors, commander's messages, unexpected errors),
+stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
+`MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
+`… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
 hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
