@@ -97,7 +97,7 @@ with the source `"config"` (and its path in `CliDeps.storedKeyPath`) so the 401/
 hint knows a key was sent and names where it came from: the file, `ENTGELTATLAS_API_KEY`
 or `--api-key`. `config set` reads
 through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
-whole input from a pipe), never from argv.
+whole input from a pipe, at most 64 KiB either way, `MAX_SECRET_BYTES`), never from argv.
 
 No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
