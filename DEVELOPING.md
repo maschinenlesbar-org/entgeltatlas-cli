@@ -423,8 +423,11 @@ stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer
 hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
-`run()` builds the logger from argv before commander parses it, so commander's own usage
-errors are records too: its `error: …` an ERROR of `cli` (a `(Did you mean …?)` line
+`run()` builds the logger from argv before commander parses it (`logFormatFromArgv`: the
+first `--log-format`, the value of an option that takes one skipped, used only for the
+records of a parse error; a `preAction` hook then sets the format commander parsed, so
+`--user-agent --log-format=jsonl` logs text), so commander's own usage errors are records
+too: its `error: …` an ERROR of `cli` (a `(Did you mean …?)` line
 joined to it), the help it shows after one an INFO record per line, and a command group
 run without its subcommand (or the program with global options only) an ERROR "missing
 command: `entgeltatlas config <subcommand>`" before that help, so every failed run has an

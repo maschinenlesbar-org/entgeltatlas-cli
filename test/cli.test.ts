@@ -342,3 +342,16 @@ test("a command group without its subcommand, or no command at all, logs an ERRO
     assert.ok(records.slice(1).every((line) => /^INFO  \[entgeltatlas\.cli\] .*\S/.test(line)), records.join("\n"));
   }
 });
+
+test("a parse error is logged in the format commander would have parsed: the first --log-format, an option's value skipped", async () => {
+  // --user-agent takes "--log-format" as its value; "jsonl" is then an unknown command, logged in text.
+  const ua = makeCli(() => jsonResponse(fx.regionen));
+  assert.equal(await run(["--user-agent", "--log-format", "jsonl", "regionen"], ua.deps), 2);
+  assert.match(ua.err[0] ?? "", /^\S+ ERROR \[entgeltatlas\.cli\] unknown command 'jsonl'/);
+  // A repeated --log-format is refused; the refusal is in the first one's format.
+  const twice = makeCli(() => jsonResponse(fx.regionen));
+  assert.equal(await run(["--log-format", "jsonl", "--log-format", "text", "regionen"], twice.deps), 2);
+  const record = JSON.parse(twice.err[0] ?? "") as Record<string, unknown>;
+  assert.equal(record["topic"], "entgeltatlas.cli");
+  assert.match(record["msg"] as string, /--log-format <format>' was given more than once/);
+});
