@@ -362,6 +362,13 @@ shared check.
   requested wait (`retryAfterTooLong`, "the server asked to wait 120 s (Retry-After) … try
   again later"). `obtainKey()` shares the policy (`transientRetryDelay`).
   `test/conformance-p6-retry-policy.test.ts` is the shared check. Rate limits are undocumented.
+  Each retry of the engine is announced: the option `onRetry(event: RetryEvent)` (exported type:
+  `{ retry` (1-based), `maxRetries`, `delayMs`, `status?` (absent for a reset), `url` (userinfo
+  redacted) `}`) is called once per retry right before the sleep, never when there is none, and
+  a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
+  `entgeltatlas.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only,
+  whole seconds, ms under 1 s). `obtainKey()` has its own loop and does not call it. Tests:
+  `test/engine.test.ts`, `test/retry-log.test.ts`.
 - A body is decoded by the charset its Content-Type declares (`decodeBody`, UTF-8 when it
   names none; a leading BOM is dropped; an unknown label is an `EntgeltatlasParseError`
   naming it), in the client and in `obtainKey()`.

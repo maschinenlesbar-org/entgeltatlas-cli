@@ -75,7 +75,7 @@ CLI pass all of these through unchanged.
   with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
   commander's messages, unexpected errors, Node's process warnings), `api` (the API's answers: an error status and
   the 401/403 hint after it, and a malformed answer — bad JSON, the wrong shape, another
-  slice than the one requested), `http` (the connection, the cleartext warning),
+  slice than the one requested), `http` (the connection, the cleartext warning, and one WARN per retry before it waits),
   `config`, `obtain-key` and `output` (a failed write to stdout). A record is always one
   line; control characters in it are escaped.
 

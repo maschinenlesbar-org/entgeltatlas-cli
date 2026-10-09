@@ -80,7 +80,7 @@ damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`nu
   Warnungen von Node), `api`
   (die Antworten der API: ein Fehlerstatus und der 401/403-Hinweis danach sowie eine
   fehlerhafte Antwort – ungültiges JSON, die falsche Form, ein anderer Ausschnitt als der
-  angefragte), `http` (die Verbindung, die Klartext-Warnung), `config`, `obtain-key` und
+  angefragte), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten), `config`, `obtain-key` und
   `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen
   darin werden maskiert.
 

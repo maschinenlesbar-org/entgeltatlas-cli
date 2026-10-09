@@ -7,7 +7,7 @@ import { logOf, type CliDeps } from "./io.js";
 import type { EntgeltatlasClientOptions } from "../client/client.js";
 import { EntgeltatlasError, EntgeltatlasValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
-import { API_KEY_PHRASE, DEFAULT_BASE_URL, cleartextProblem } from "../client/engine.js";
+import { API_KEY_PHRASE, DEFAULT_BASE_URL, cleartextProblem, type RetryEvent } from "../client/engine.js";
 import { dimensionCodeProblem, type DimensionParam } from "../client/codes.js";
 import {
   baseUrlProblem,
@@ -216,6 +216,19 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
   deps.io.out(text);
 }
 
+/** `HTTP 503 from host: retry 1 of 3 in 2 s` (host only; whole seconds, ms under 1 s). */
+export function retryMessage(event: RetryEvent): string {
+  let host: string;
+  try {
+    host = new URL(event.url).host;
+  } catch {
+    host = "the server";
+  }
+  const why = event.status === undefined ? "connection reset" : `HTTP ${event.status}`;
+  const wait = event.delayMs < 1000 ? `${event.delayMs} ms` : `${Math.round(event.delayMs / 1000)} s`;
+  return `${why} from ${host}: retry ${event.retry} of ${event.maxRetries} in ${wait}`;
+}
+
 export interface ActionContext {
   client: ReturnType<CliDeps["createClient"]>;
   global: GlobalOptions;
@@ -281,6 +294,7 @@ export function action(
         rootOf(command).setOptionValueWithSource("apiKey", stored, "config");
       }
     }
+    options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     const client = deps.createClient(options);
     // Built first, so a key the client rejects is a usage error before any warning. One
     // warning per run, before the first request, when the base URL is plain http: to a host
