@@ -446,7 +446,10 @@ bin shim — a failed write to stdout (`handleOutputErrors`), Node's process war
 (`installWarningLog`: Node's default listener is removed, its warning becomes a WARN
 `(node) <name>: <message>`; checked on Node 22, 24 and 26) and the last-resort
 `Unexpected error` (a rejected `run()`) — is logged through `processLogger(argv)`, in
-the same format and with the same redaction. `CliDeps.now` makes the timestamps testable.
+the same format and with the same redaction. In `defaultDeps` a record waits for stdout
+(`stderrAfterStdout`): it is held while stdout has a backlog and written, in order, once
+it is gone, so with `2>&1 |` and a slow reader it never lands inside the data.
+`CliDeps.now` makes the timestamps testable.
 stdout carries data only. One thing on stderr is not a record: the no-echo prompt of
 `config set` (`readSecret`), which is interaction, not a diagnostic. Conformance test
 P23 checks all of this, and its body is shared across the *-cli repos.
