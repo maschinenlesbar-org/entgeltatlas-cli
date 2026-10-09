@@ -98,6 +98,9 @@ hint knows a key was sent and names where it came from: the file, `ENTGELTATLAS_
 or `--api-key`. `config set` reads
 through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
 whole input from a pipe, at most 64 KiB either way, `MAX_SECRET_BYTES`), never from argv.
+On a terminal it drops escape sequences (arrow keys, bracketed-paste markers), keeps
+every other character (so a tab is refused, as from a pipe) and refuses a paste with
+more after its first line break.
 
 No key is bundled —
 `obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
