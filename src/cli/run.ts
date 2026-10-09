@@ -88,15 +88,20 @@ function rejectRepeatedOptions(command: Command): void {
 }
 
 /**
- * Escape the characters a terminal acts on in one commander error message: C0 controls
- * (newline included, tab excepted), DEL, C1 and Unicode format characters (bidi
- * overrides, zero-width characters) become `\uXXXX`. Commander repeats a rejected
- * value raw (`option '--user-agent <ua>' argument '<value>' is invalid`), and an ESC
- * in it would clear the screen or set the window title.
+ * Escape the characters a terminal acts on in one commander error message: CR and LF
+ * become `\r` and `\n` (as in every log record, see `escapeForRecord`), the other C0
+ * controls (tab excepted), DEL, C1 and Unicode format characters (bidi overrides,
+ * zero-width characters) `\uXXXX`. Commander repeats a rejected value raw (`option
+ * '--user-agent <ua>' argument '<value>' is invalid`), and an ESC in it would clear the
+ * screen or set the window title.
  */
 export function escapeTerminalText(text: string): string {
   return text.replace(/[\u0000-\u0008\u000a-\u001f\u007f-\u009f]|\p{Cf}/gu, (ch) =>
-    Array.from({ length: ch.length }, (_, i) => `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`).join(""),
+    ch === "\r"
+      ? "\\r"
+      : ch === "\n"
+        ? "\\n"
+        : Array.from({ length: ch.length }, (_, i) => `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`).join(""),
   );
 }
 

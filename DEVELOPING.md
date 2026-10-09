@@ -152,7 +152,8 @@ first. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
 (`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
 `obtain-key` prints the key. Commander's error message is terminal-escaped first
-(`escapeTerminalText`: C0, DEL, C1 and format characters become `\uXXXX`), so an ESC
+(`escapeTerminalText`: CR and LF become `\r` and `\n`, the other C0 controls, DEL,
+C1 and format characters `\uXXXX`), so an ESC
 in `--user-agent` can't reach the terminal; the secrets are matched in their raw,
 escaped and JSON-escaped forms. `test/conformance-p1-cli-redaction.test.ts` is the
 shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
@@ -392,7 +393,13 @@ Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp,
 (`ERROR`, `WARN`, `INFO`) and a topic, `entgeltatlas.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
-and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord` over
+the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
+every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
+controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's
+message — `sanitizeServerText` keeps its newlines —, a value you typed, OpenSSL's EPROTO
+text), can split it, forge another one or steer the terminal; `test/log.test.ts` tests
+the helper on its own. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
 hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics

@@ -143,7 +143,10 @@ Data goes to stdout; errors, warnings and notes go to stderr. Each line on stder
 program and the area it comes from (`entgeltatlas.cli` for usage errors,
 `entgeltatlas.api` for the API's answers and the 401/403 hint, `entgeltatlas.http` for
 the connection, `entgeltatlas.config`, `entgeltatlas.obtain-key`). By default it is
-written log4j style; `--log-format jsonl` writes one JSON object per line instead:
+written log4j style; `--log-format jsonl` writes one JSON object per line instead. A
+record is always one line: a line break, a control character or a bidi control in a
+message (a server's text, a value you typed) is written as an escape (`\n`, `\u001b`,
+`\u202e`), so it can neither split a record nor forge another one, nor steer the terminal:
 
 ```text
 2026-10-09T14:03:12.481Z WARN  [entgeltatlas.http] the API key is sent unencrypted to mirror.example (http:, not https:)
