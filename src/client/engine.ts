@@ -22,6 +22,7 @@ import {
   redactSecrets,
   redactUrl,
   cutForMessage,
+  echoedCredentialForms,
 } from "./errors.js";
 import {
   assertValid,
@@ -673,10 +674,15 @@ export class RequestEngine {
     this.userAgent =
       options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
     this.#defaultHeaders = headerOption(options.defaultHeaders);
-    // The secret part of a credential header (`Bearer <token>` → the token), never echoed.
+    // The secret part of a credential header (`Bearer <token>` → the token), never
+    // echoed. And the forms a server echoes a base URL's userinfo in: the Basic value,
+    // the decoded `user:password`, the password alone.
     this.#secrets = Object.entries(this.#defaultHeaders)
       .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
-      .map(([, value]) => value.replace(/^\S+\s+/, "").trim());
+      .map(([, value]) => value.replace(/^\S+\s+/, "").trim())
+      .concat(credentialsIn(this.#baseUrl).flatMap(echoedCredentialForms))
+      // Longest first, so a password never leaves half of the user:password around it.
+      .sort((a, b) => b.length - a.length);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 0, MAX_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = intOption("maxRetries", options.maxRetries, 0, MAX_RETRIES) ?? DEFAULT_MAX_RETRIES;
     // A base delay above MAX_RETRY_AFTER_MS would outlast any wait the server may ask for.

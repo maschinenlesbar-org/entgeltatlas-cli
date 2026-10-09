@@ -160,7 +160,10 @@ and `config set`), like the flag and the env value. The userinfo of every URL-li
 `redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value, the
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
 (`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
-`obtain-key` prints the key. Commander's error message is terminal-escaped first
+`obtain-key` prints the key. The forms a server echoes a userinfo back in are replaced
+too: the `Basic` value and the decoded `user:password` on stdout and stderr, the
+password alone (4 characters or more) on stderr only, since it may well occur in the
+data. Commander's error message is terminal-escaped first
 (`escapeTerminalText`: CR and LF become `\r` and `\n`, the other C0 controls, DEL,
 C1 and format characters `\uXXXX`), so an ESC
 in `--user-agent` can't reach the terminal; the secrets are matched in their raw,
@@ -173,7 +176,9 @@ by environment and typed without its flag).
 The engine keeps the base URL and the default headers (with the API key) in real
 `#private` fields, and the client its engine, so `console.log(client)`,
 `util.inspect` and `JSON.stringify` never show them. The base URL's userinfo (raw
-and percent-decoded, `userinfoForms`) and the key are scrubbed from error bodies and
+and percent-decoded, `userinfoForms`), the forms a server echoes it back in (the `Basic`
+value, the decoded `user:password`, the password alone from 4 characters:
+`echoedCredentialForms`) and the key are scrubbed from error bodies and
 details, from transport error text and from the `cause` chain (`scrub` /
 `scrubCause`). `redactUrl` cuts the userinfo out of a URL that doesn't parse too, so a
 validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`) and the
