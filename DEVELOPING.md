@@ -424,7 +424,7 @@ text), can split it, forge another one or steer the terminal; `test/log.test.ts`
 the helper on its own. Before that a lone surrogate (half a character, which jq rejects,
 stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
-`… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+`… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors, Node's process warnings),
 `api` (the API's answers: an error status and the 401/403 key hint, and a malformed
 answer, an `EntgeltatlasParseError`: bad JSON, the wrong shape, another slice than the
 one requested, an unknown charset), `http` (the connection, the size-cap
@@ -442,7 +442,9 @@ command: `entgeltatlas config <subcommand>`" before that help, so every failed r
 ERROR record (`writeCommanderErr`). The log is built with the run's redaction (`withRedactedOutput`), which
 replaces a secret in the message only, before it is escaped: the frame is never touched,
 and a secret is kept out of the log in either format. What happens outside `run()`, in the
-bin shim — a failed write to stdout (`handleOutputErrors`) and the last-resort
+bin shim — a failed write to stdout (`handleOutputErrors`), Node's process warnings
+(`installWarningLog`: Node's default listener is removed, its warning becomes a WARN
+`(node) <name>: <message>`; checked on Node 22, 24 and 26) and the last-resort
 `Unexpected error` (a rejected `run()`) — is logged through `processLogger(argv)`, in
 the same format and with the same redaction. `CliDeps.now` makes the timestamps testable.
 stdout carries data only. One thing on stderr is not a record: the no-echo prompt of

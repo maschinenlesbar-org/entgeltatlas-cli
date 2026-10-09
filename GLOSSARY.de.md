@@ -76,7 +76,8 @@ damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`nu
 - **Log-Eintrag (log record)** – jede Diagnosezeile, die die CLI nach stderr schreibt: ein
   Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `entgeltatlas.<Bereich>`,
   als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
-  Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api`
+  Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler,
+  Warnungen von Node), `api`
   (die Antworten der API: ein Fehlerstatus und der 401/403-Hinweis danach sowie eine
   fehlerhafte Antwort – ungültiges JSON, die falsche Form, ein anderer Ausschnitt als der
   angefragte), `http` (die Verbindung, die Klartext-Warnung), `config`, `obtain-key` und
