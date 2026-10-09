@@ -56,14 +56,19 @@ function configureTree(command: Command, deps: CliDeps, state: { errorLogged: bo
   for (const child of command.commands) configureTree(child, deps, state);
 }
 
-/** The names (long and short) of every option in the tree that requires a value. */
-function valueOptionsOf(command: Command, names: Set<string> = new Set()): Set<string> {
-  for (const option of command.options) {
+/**
+ * The names (long and short) of the program's own options that require a value
+ * (`--user-agent`). Only the program's: commander takes them out of argv wherever they
+ * stand, before a subcommand sees the rest, so a subcommand's `--level` never swallows
+ * a `--log-format` after it.
+ */
+function valueOptionsOf(program: Command): Set<string> {
+  const names = new Set<string>();
+  for (const option of program.options) {
     if (!option.required) continue;
     if (option.long !== undefined) names.add(option.long);
     if (option.short !== undefined) names.add(option.short);
   }
-  for (const child of command.commands) valueOptionsOf(child, names);
   return names;
 }
 
@@ -349,7 +354,7 @@ function noKeyHint(status: number): string {
 /**
  * The log for what happens outside `run()`, in the bin shim: a stdout write error
  * (`handleOutputErrors`), Node's process warnings and a rejected `run()`. Its format is
- * the one argv asks for (`logFormatFromArgv`, knowing which options take a value, as
+ * the one argv asks for (`logFormatFromArgv`, knowing which of the program's options take a value, as
  * `run()` reads it), and it replaces the secrets of argv and `env` like the run's own
  * log; it writes to the raw stderr.
  */
@@ -377,8 +382,8 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
   deps = withRedactedOutput(deps, argv);
   const program = buildProgram(deps);
   configureTree(program, deps);
-  // For the records of a parse error: the scan of argv, now knowing which options take
-  // a value, as commander reads them.
+  // For the records of a parse error: the scan of argv, now knowing which of the program's
+  // options take a value, as commander reads them.
   if (deps.log !== undefined) deps.log.format = logFormatFromArgv(argv, valueOptionsOf(program));
   // One source for the format once commander has parsed argv: its value, not the scan
   // of argv (an option's value can look like --log-format; `--` ends the scan, not
