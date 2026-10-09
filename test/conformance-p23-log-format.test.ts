@@ -46,6 +46,12 @@ function errorAnswer(message: string): HttpResponse {
 function secretArgv(secret: string): string[] {
   return ["--api-key", secret];
 }
+/** Malformed answers to SIMPLE_COMMAND with status 200: not JSON, JSON of the wrong shape, the wrong content type. */
+const MALFORMED_ANSWERS: HttpResponse[] = [
+  { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from("<html>not json</html>") },
+  { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from("[]") },
+  { status: 200, headers: { "content-type": "text/html" }, body: Buffer.from("<html>a portal</html>") },
+];
 /** Builds the CliDeps for a run, on a transport that answers `okBody` (or `answer`) and a fixed clock. */
 function makeDeps(out: string[], err: string[], now: () => Date, answer?: HttpResponse): CliDeps {
   const transport = async (): Promise<HttpResponse> => answer ?? {
@@ -272,4 +278,12 @@ test("P23: the log format is the one commander parsed, also where an option's va
   const dashes = await cli(["--user-agent", "--", "--log-format", "jsonl", ...SIMPLE_COMMAND], errorAnswer("boom"));
   assert.notEqual(dashes.code, 0);
   assertOneRecordEach(dashes.err, "jsonl", "--user-agent -- --log-format jsonl");
+});
+
+test("P23: a malformed answer is an ERROR record of <program>.api", async () => {
+  for (const answer of MALFORMED_ANSWERS) {
+    const r = await cli(SIMPLE_COMMAND, answer);
+    assert.notEqual(r.code, 0, answer.body.toString());
+    assert.match(r.err[0] ?? "", new RegExp(`^${TS} ERROR \\[${PROGRAM}\\.api\\] `), r.err.join("\n"));
+  }
 });

@@ -71,4 +71,16 @@ damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`nu
   [DEVELOPING.md](DEVELOPING.md). Den OAuth-Client-Credentials-Ablauf von Upstream braucht es
   nicht: Der `X-API-Key` funktioniert.
 
+## Das Log auf stderr
+
+- **Log-Eintrag (log record)** – jede Diagnosezeile, die die CLI nach stderr schreibt: ein
+  Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `entgeltatlas.<Bereich>`,
+  als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
+  Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api`
+  (die Antworten der API: ein Fehlerstatus und der 401/403-Hinweis danach sowie eine
+  fehlerhafte Antwort – ungültiges JSON, die falsche Form, ein anderer Ausschnitt als der
+  angefragte), `http` (die Verbindung, die Klartext-Warnung), `config`, `obtain-key` und
+  `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen
+  darin werden maskiert.
+
 Namensnennung und Bedingungen zur Weiterverwendung: siehe [DATA_LICENSE.md](DATA_LICENSE.md).

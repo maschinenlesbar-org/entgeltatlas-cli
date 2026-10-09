@@ -265,7 +265,7 @@ has no kldb text.`), and an empty or 204 body is one too
 `entgelte()` compares them with the dimension filters it sent
 (`assertRequestedSlice`): a row whose `performanceLevel`/`region`/`gender`/`ageCategory`/
 `branche` id differs from `l`/`r`/`g`/`a`/`b` is an `EntgeltatlasSliceError` (an
-`EntgeltatlasParseError` with `param`, `requested`, `received`, `row`; CLI exit 1, nothing
+`EntgeltatlasParseError` with `param`, `requested`, `received`, `row`; CLI exit 1, an ERROR record of `entgeltatlas.api`, nothing
 on stdout). A server that ignores a filter would otherwise hand back the Deutschland /
 Gesamt figure as the answer. An omitted dimension is not checked: the API then answers one
 row per value of it.
@@ -425,7 +425,9 @@ the helper on its own. Before that a lone surrogate (half a character, which jq 
 stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
-`api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
+`api` (the API's answers: an error status and the 401/403 key hint, and a malformed
+answer, an `EntgeltatlasParseError`: bad JSON, the wrong shape, another slice than the
+one requested, an unknown charset), `http` (the connection, the size-cap
 hint, the cleartext warning), `config`, `obtain-key` (its provenance note, and an
 error from the key source) and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.

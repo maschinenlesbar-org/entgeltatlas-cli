@@ -68,4 +68,15 @@ CLI pass all of these through unchanged.
   key with `entgeltatlas obtain-key` first — see [DEVELOPING.md](DEVELOPING.md). The
   upstream's OAuth client-credentials flow is not needed: the `X-API-Key` works.
 
+## The log on stderr
+
+- **Log record** — every diagnostic line the CLI writes to stderr: a timestamp, a level
+  (`ERROR`, `WARN`, `INFO`) and a topic `entgeltatlas.<area>`, as text (log4j style) or
+  with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
+  commander's messages, unexpected errors), `api` (the API's answers: an error status and
+  the 401/403 hint after it, and a malformed answer — bad JSON, the wrong shape, another
+  slice than the one requested), `http` (the connection, the cleartext warning),
+  `config`, `obtain-key` and `output` (a failed write to stdout). A record is always one
+  line; control characters in it are escaped.
+
 See [DATA_LICENSE.md](DATA_LICENSE.md) for attribution and reuse terms.

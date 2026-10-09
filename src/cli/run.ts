@@ -12,6 +12,7 @@ import {
   EntgeltatlasError,
   EntgeltatlasKeySourceError,
   EntgeltatlasNetworkError,
+  EntgeltatlasParseError,
   EntgeltatlasValidationError,
   credentialsIn,
   echoedCredentialForms,
@@ -360,6 +361,17 @@ export function processLogger(argv: readonly string[], env: Record<string, strin
   });
 }
 
+/**
+ * The log area of an `EntgeltatlasError` that is neither an API error, a network error
+ * nor a usage error: a malformed answer (`api`: bad JSON, the wrong shape, another slice
+ * than the one requested, an unknown charset — the API's answer as much as an error
+ * status is), else `cli`.
+ */
+function areaOf(err: EntgeltatlasError): string {
+  if (err instanceof EntgeltatlasParseError) return "api";
+  return "cli";
+}
+
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   // The log replaces the secrets of the run in every message, in either format.
   deps = withRedactedOutput(deps, argv);
@@ -438,7 +450,7 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       return EXIT.NETWORK;
     }
     if (err instanceof EntgeltatlasError) {
-      log.error("cli", err.message);
+      log.error(areaOf(err), err.message);
       return EXIT.OTHER;
     }
     log.error("cli", `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);

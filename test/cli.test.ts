@@ -310,7 +310,8 @@ test("02#1: entgelte prints nothing and exits 1 when the API answers another sli
   const cli = makeCli(() => jsonResponse(fx.entgelteResult)); // always Deutschland / Gesamt
   assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "11", "-g", "3"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.cli\] The API answered another slice than the one requested/m);
+  // A malformed answer, the API's: a record of entgeltatlas.api (fix plan 2026-10-09, L9).
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.api\] The API answered another slice than the one requested/m);
 });
 
 test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as in text (result 04 d19, C6)", async () => {
