@@ -424,7 +424,11 @@ hint, the cleartext warning), `config` and `obtain-key` (its provenance note, an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
 `run()` builds the logger from argv before commander parses it, so commander's own usage
-errors are records too, and with the run's redaction (`withRedactedOutput`), which
+errors are records too: its `error: …` an ERROR of `cli` (a `(Did you mean …?)` line
+joined to it), the help it shows after one an INFO record per line, and a command group
+run without its subcommand (or the program with global options only) an ERROR "missing
+command: `entgeltatlas config <subcommand>`" before that help, so every failed run has an
+ERROR record (`writeCommanderErr`). The log is built with the run's redaction (`withRedactedOutput`), which
 replaces a secret in the message only, before it is escaped: the frame is never touched,
 and a secret is kept out of the log in either format. The bin shim's last-resort `Unexpected error` (a rejected
 `run()`) is a record too. `CliDeps.now` makes the timestamps testable. stdout carries

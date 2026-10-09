@@ -332,3 +332,13 @@ test("an a:b@c argument (here a User-Agent) is neither a credential in the log n
   assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
   assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
+
+test("a command group without its subcommand, or no command at all, logs an ERROR before the help (L5)", async () => {
+  for (const argv of [["config"], ["--log-format", "text"]]) {
+    const cli = makeCli(() => jsonResponse(fx.regionen));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    const records = cli.err.map(untimed);
+    assert.match(records[0] ?? "", /^ERROR \[entgeltatlas\.cli\] missing command: `entgeltatlas( config)? <subcommand>`$/, records.join("\n"));
+    assert.ok(records.slice(1).every((line) => /^INFO  \[entgeltatlas\.cli\] .*\S/.test(line)), records.join("\n"));
+  }
+});
