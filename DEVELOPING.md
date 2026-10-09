@@ -148,9 +148,12 @@ P8 charset and P9 shape cases).
 
 ### Secrets in the CLI's output
 
-`withRedactedOutput` in `run.ts`: commander echoes a rejected value in its usage
-error and names an unknown command or option as typed, so `run()` wraps `deps.io`
-first. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
+`redactionFor` and `withRedactedOutput` in `run.ts`: commander echoes a rejected value
+in its usage error and names an unknown command or option as typed, so `run()` wraps
+`deps.io` and builds the log first. The log replaces the secrets in each record's
+*message*, before the record is cut and escaped, and writes it to the raw stderr: the
+frame (time, level, topic) is never touched, and a secret with DEL, C1 or bidi
+characters is matched in its raw form. The userinfo of every URL-like argument and of `ENTGELTATLAS_API_KEY`
 (`credentialsIn`, which finds it whether the value parses or not, then
 `redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value, the
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
@@ -412,8 +415,9 @@ hint, the cleartext warning), `config` and `obtain-key` (its provenance note, an
 error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
 `run()` builds the logger from argv before commander parses it, so commander's own usage
-errors are records too, and on top of the redacted `io.err`, so a secret is kept out of
-the log in either format. The bin shim's last-resort `Unexpected error` (a rejected
+errors are records too, and with the run's redaction (`withRedactedOutput`), which
+replaces a secret in the message only, before it is escaped: the frame is never touched,
+and a secret is kept out of the log in either format. The bin shim's last-resort `Unexpected error` (a rejected
 `run()`) is a record too. `CliDeps.now` makes the timestamps testable. stdout carries
 data only; the `config set` prompt (no echo) and `handleOutputErrors`' `Output error: …`
 (stdout itself failed) are written to stderr as they are. Conformance test P23 checks

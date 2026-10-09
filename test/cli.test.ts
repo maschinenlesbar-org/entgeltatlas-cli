@@ -311,3 +311,15 @@ test("02#1: entgelte prints nothing and exits 1 when the API answers another sli
   assert.deepEqual(cli.out, []);
   assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.cli\] The API answered another slice than the one requested/m);
 });
+
+test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as in text (result 04 d19, C6)", async () => {
+  for (const key of ["my secret\u007fkey-Value99", "Abc\u2066SecretValue99", "MyS3cretKey\u202eTail"]) {
+    for (const format of ["text", "jsonl"]) {
+      const cli = makeCli(() => jsonResponse(fx.regionen));
+      assert.equal(await run(["--log-format", format, "--api-key", key, "regionen"], cli.deps), 2, `${format} ${JSON.stringify(key)}`);
+      const all = cli.err.join("\n");
+      assert.match(all, /\*\*\*/, `${format}: ${all}`);
+      assert.doesNotMatch(all, /Value99|S3cretKey|SecretValue/, `${format}: ${all}`);
+    }
+  }
+});
