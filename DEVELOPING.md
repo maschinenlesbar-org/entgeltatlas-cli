@@ -95,8 +95,9 @@ inside, or what the library's header rule refuses — is an error naming the fil
 `config get`/`config list` read through the same check), and sets it on the program
 with the source `"config"` (and its path in `CliDeps.storedKeyPath`) so the 401/403
 hint knows a key was sent and names where it came from: the file, `ENTGELTATLAS_API_KEY`
-or `--api-key`. `config set` reads
-through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
+or `--api-key`. `config set` and `config unset` change the file by one writer at a time
+(`credentials.lock` beside it, created exclusively, waited for up to 2 s, taken over after
+30 s). `config set` reads through `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the
 whole input from a pipe, at most 64 KiB either way, `MAX_SECRET_BYTES`), never from argv.
 On a terminal it drops escape sequences (arrow keys, bracketed-paste markers), keeps
 every other character (so a tab is refused, as from a pipe) and refuses a paste with
