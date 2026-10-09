@@ -39,7 +39,8 @@ keeps the key in `$XDG_CONFIG_HOME/entgeltatlas/credentials` (else
 the value from a prompt without echo or from stdin, never from the command line (an
 extra argument is a usage error, exit 2, and is not repeated); a blank value, or one with
 whitespace or a character no header can carry, is refused (exit 2). `config get` shows it
-masked (`--reveal` prints it whole); `config list` prints the masked values on stdout and
+masked (`abcd…wxyz`; `****` below 20 characters, so for the published key; `--reveal`
+prints it whole); `config list` prints the masked values on stdout and
 the file's path on stderr; `config unset` removes it. A missing name, a link, another
 user's file or one others can read (`chmod 600` fixes it) exits 1, and so does a
 hand-edited value `config set` would refuse (naming the file; `config get` and `config

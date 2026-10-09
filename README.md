@@ -34,7 +34,7 @@ No key is bundled with this tool — see **[Obtain key](#obtain-key)** below.
 ```bash
 entgeltatlas config set api-key                         # typed at a prompt, without echo
 entgeltatlas obtain-key | entgeltatlas config set api-key   # or the published key, piped in
-entgeltatlas config get api-key                         # masked: info…-ega (--reveal prints it whole)
+entgeltatlas config get api-key                         # masked: **** (abcd…wxyz from 20 characters; --reveal prints it whole)
 entgeltatlas config list                                # what is stored, and where
 entgeltatlas config unset api-key
 ```

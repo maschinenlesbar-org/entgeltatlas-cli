@@ -337,3 +337,12 @@ test("config list refuses a hand-edited value with control characters under any 
     cli.cleanup();
   }
 });
+
+test("maskCredential: a key shows its ends only from 20 characters, a password never (C7)", () => {
+  assert.equal(maskCredential("Somm3r2026!x"), "****");
+  assert.equal(maskCredential("a".repeat(19)), "****");
+  assert.equal(maskCredential("infosysbub-ega", "api-key"), "****", "the published key is 14 characters");
+  assert.equal(maskCredential("abcd0123456789ab wxyz".replace(" ", "")), "abcd…wxyz");
+  assert.equal(maskCredential(KEY, "api-key"), MASKED);
+  assert.equal(maskCredential("a-very-long-password-of-40-characters!!!", "password"), "****");
+});
