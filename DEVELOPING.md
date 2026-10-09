@@ -346,8 +346,10 @@ shared check.
 - Closed pipes (`handleOutputErrors` in `io.ts`, installed by the bin shim before
   `run()`): an EPIPE on stdout (`| head`, a `jq` that exits early) exits 0 quietly; an
   EPIPE on stderr is ignored, so a failed run keeps its own exit code (`2>&1 | true` no
-  longer turns a usage error into 0). `test/conformance-p7-pipes-exit-codes.test.ts`
-  spawns the built bin to check both.
+  longer turns a usage error into 0). Any other stdout write error is an ERROR record of
+  `entgeltatlas.output` (`Could not write to stdout: …`, in the format argv asks for:
+  `processLogger`) and exits 1; any other stderr write error exits 1 silently.
+  `test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
 - The README ships in the npm tarball and is what npmjs.com shows, so a relative link in it
   points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
   `LICENSE`); every other document is linked by its absolute GitHub URL.
@@ -424,8 +426,8 @@ stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers and the 401/403 key hint), `http` (the connection, the size-cap
-hint, the cleartext warning), `config` and `obtain-key` (its provenance note, and an
-error from the key source). Code logs through `logOf(deps)` and never writes diagnostics
+hint, the cleartext warning), `config`, `obtain-key` (its provenance note, and an
+error from the key source) and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
 `run()` builds the logger from argv before commander parses it (`logFormatFromArgv`: the
 first `--log-format`, the value of an option that takes one skipped, used only for the
@@ -437,8 +439,10 @@ run without its subcommand (or the program with global options only) an ERROR "m
 command: `entgeltatlas config <subcommand>`" before that help, so every failed run has an
 ERROR record (`writeCommanderErr`). The log is built with the run's redaction (`withRedactedOutput`), which
 replaces a secret in the message only, before it is escaped: the frame is never touched,
-and a secret is kept out of the log in either format. The bin shim's last-resort `Unexpected error` (a rejected
-`run()`) is a record too. `CliDeps.now` makes the timestamps testable. stdout carries
-data only; the `config set` prompt (no echo) and `handleOutputErrors`' `Output error: …`
-(stdout itself failed) are written to stderr as they are. Conformance test P23 checks
-all of this, and its body is shared across the *-cli repos.
+and a secret is kept out of the log in either format. What happens outside `run()`, in the
+bin shim — a failed write to stdout (`handleOutputErrors`) and the last-resort
+`Unexpected error` (a rejected `run()`) — is logged through `processLogger(argv)`, in
+the same format and with the same redaction. `CliDeps.now` makes the timestamps testable.
+stdout carries data only. One thing on stderr is not a record: the no-echo prompt of
+`config set` (`readSecret`), which is interaction, not a diagnostic. Conformance test
+P23 checks all of this, and its body is shared across the *-cli repos.

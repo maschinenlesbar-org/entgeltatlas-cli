@@ -5,7 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
-import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat } from "./log.js";
+import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import { API_KEY_ENV_VAR } from "./io.js";
 import {
   EntgeltatlasApiError,
@@ -343,6 +343,21 @@ function noKeyHint(status: number): string {
     `Pass --api-key, set ${API_KEY_ENV_VAR}, or store it with \`entgeltatlas config set api-key\` ` +
     "(`entgeltatlas obtain-key` prints the published key)."
   );
+}
+
+/**
+ * The log for what happens outside `run()`, in the bin shim: a stdout write error
+ * (`handleOutputErrors`), Node's process warnings and a rejected `run()`. Its format is
+ * the one argv asks for (`logFormatFromArgv`, knowing which options take a value, as
+ * `run()` reads it), and it replaces the secrets of argv and `env` like the run's own
+ * log; it writes to the raw stderr.
+ */
+export function processLogger(argv: readonly string[], env: Record<string, string | undefined> = process.env): Logger {
+  return createLogger({
+    format: logFormatFromArgv(argv, valueOptionsOf(buildProgram({ ...defaultDeps, env }))),
+    write: (line) => process.stderr.write(line + "\n"),
+    redact: redactionFor(argv, env).err,
+  });
 }
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {

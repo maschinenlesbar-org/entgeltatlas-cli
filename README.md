@@ -142,7 +142,8 @@ Data goes to stdout; errors, warnings and notes go to stderr. Each line on stder
 **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`, `INFO`) and a topic, the
 program and the area it comes from (`entgeltatlas.cli` for usage errors,
 `entgeltatlas.api` for the API's answers and the 401/403 hint, `entgeltatlas.http` for
-the connection, `entgeltatlas.config`, `entgeltatlas.obtain-key`). By default it is
+the connection, `entgeltatlas.config`, `entgeltatlas.obtain-key`, `entgeltatlas.output` for
+a failed write to stdout). By default it is
 written log4j style; `--log-format jsonl` writes one JSON object per line instead. A
 record is always one line: a line break, a control character or a bidi control in a
 message (a server's text, a value you typed) is written as an escape (`\n`, `\u001b`,
