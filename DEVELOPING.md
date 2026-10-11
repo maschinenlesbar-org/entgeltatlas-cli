@@ -1,7 +1,8 @@
 # Developing `entgeltatlas-cli`
 
 This repo follows the shared `*-cli` two-layer blueprint (a typed,
-dependency-free client + a commander CLI, both driven through injectable seams).
+dependency-free client, `packages/client`, + a commander CLI, `apps/cli`, both driven
+through injectable seams).
 It was scaffolded from `ausbildungssuche-cli`, its closest sibling — both wrap BA
 `infosysbub` APIs on the `rest.arbeitsagentur.de` gateway with the same static
 `X-API-Key` auth. This document records what is **specific** to the Entgeltatlas
@@ -9,9 +10,48 @@ API — read it alongside [GLOSSARY.md](GLOSSARY.md).
 
 ## Layout
 
+The repository is an **npm workspace** with two folders: `apps/` holds the programs it
+publishes, `packages/` the libraries they are built from.
+
 ```
-src/
-  client/        # typed API client, usable as a library independent of the CLI
+package.json         # private workspace manifest: no version, never packed
+apps/cli/            # @maschinenlesbar.org/entgeltatlas-cli — the published package
+  package.json       # its version, bin, files, bundleDependencies
+  src/index.ts       # library entry: re-exports @maschinenlesbar.org/entgeltatlas-client
+  src/cli/           # the CLI (below)
+  test/              # CLI tests and every conformance-*.test.ts
+packages/client/     # @maschinenlesbar.org/entgeltatlas-client — private, bundled into the CLI
+  src/               # the API client (below)
+  test/              # tests that only touch the client, + the transport helpers and fixtures
+tools/pack/          # prepack/postpack: bundle the client and commander into the tarball
+tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
+```
+
+- **The client is its own package** so a later MCP app can share it with the CLI. It is
+  never published on its own: `apps/cli`'s `prepack` copies it (and commander) into the
+  app's `node_modules`, and `bundleDependencies` ships it inside the tarball. The library
+  entry re-exports the client's `"."`, so `import { EntgeltatlasClient } from
+  "@maschinenlesbar.org/entgeltatlas-cli"` is unchanged.
+- **The client's exports:** `"."` is the public library surface (`src/index.ts`);
+  `"./internal/*"` maps to any module (`…/entgeltatlas-client/internal/engine`) for what
+  the CLI needs beyond that; `"./test/*"` reaches the client's test helpers and fixtures
+  from the CLI's tests (not bundled). Only `"."` is part of the library.
+- **Dependencies point one way:** the app depends on the client, the client on nothing
+  in the workspace. `obtainKey()` (reading the key from the page it is published in) is
+  client code; the `obtain-key` and `config` commands and the credentials file are the
+  CLI's.
+- **The version lives in `apps/cli/package.json`.** The root has none; a plain
+  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
+  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+- **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
+  `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
+  `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
+
+The client (`packages/client/src/`) and the CLI (`apps/cli/src/`):
+
+```
+packages/client/src/
     types.ts     # EntgeltEntry + dimension/reference interfaces (fully typed)
     query.ts     # dependency-free query-string builder
     validate.ts  # input rules (Problem functions) + assertValid, shared by library and CLI
@@ -20,16 +60,17 @@ src/
     engine.ts    # URL building, retry, redirect (+ credential stripping), JSON decode
     errors.ts    # Entgeltatlas{Error,ApiError,NetworkError,ValidationError,ParseError}
     client.ts    # EntgeltatlasClient — entgelte() + reference lists
-    index.ts
-  cli/
+    obtain-key.ts # obtainKey(): reads the public key from the page it is published in
+    index.ts     # the client's public surface (the library entry re-exports it)
+apps/cli/src/cli/
     io.ts        # injectable I/O + env seam (CliDeps); API_KEY_ENV_VAR; the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
+    credentials.ts # CredentialStore — the credentials file behind `config`
     shared.ts    # option parsers (incl. KldB + dimension-code), the dimension flag names, render
-    commands/    # entgelte + reference lists + codes
+    commands/    # entgelte + reference lists + codes, config, obtain-key
     program.ts   # assembles the commander program; seeds --api-key from env
     run.ts       # argv -> exit code (no process.exit; testable)
     index.ts     # #! bin shim
-  index.ts       # library entry
 ```
 
 Requires Node.js 22.12+ (`engines`); CI type-checks, builds and tests on Node 22/24.
@@ -53,15 +94,32 @@ throws becomes an `EntgeltatlasNetworkError` with the original as `cause`
 `UND_ERR_SOCKET`, anywhere in the `cause` chain) of a GET is retried like a 503. A
 redirect to a non-http(s) target (`file:`, `data:`, `javascript:`) is never handed to
 the transport. `obtainKey()` uses the same helpers.
-`test/conformance-p5-transport-contract.test.ts` is the shared check.
+`apps/cli/test/conformance-p5-transport-contract.test.ts` is the shared check.
 
 ```bash
 npm install
-npm run build       # tsc -> dist/
-npm run typecheck
-npm test            # pretest builds, then node --test --test-timeout=5000 dist/test/*.test.js
+npm run build       # compiles every workspace (tsc -b) to its dist/
+npm run typecheck   # tsc -b over every workspace, as build
+npm test            # pretest builds, then `node --test` over each workspace's dist/test
+npm run coverage    # the same tests in one run, with a coverage report
+npm start -- --help # run the CLI from the build (node apps/cli/dist/src/cli/index.js)
 npm run obtain-key  # print the published X-API-Key (network; needs a build)
+npm run bump -- <patch|minor|major>  # bump apps/cli, commit, tag vX.Y.Z
+node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
+
+The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`),
+with the transport helpers and the fixtures (`helpers.ts`, `fixtures.ts`); everything that
+drives the CLI, the credentials file (`config.test.ts`, temporary directories, never the real
+home) and `obtain-key` (`obtain-key.test.ts`, a mock transport) included, is in
+`apps/cli/test/`, and `apps/cli/test/helpers.ts` re-exports the client's helpers next to the
+CLI's own.
+
+CI (`ci.yml`) type-checks, builds and tests on Node 22/24, then packs the real tarball,
+checks the pack left nothing behind, installs it globally with the registry out of reach and
+runs the bin. `release.yml` (on a `v*` tag, made by `npm run bump`) verifies the tag against
+`apps/cli/package.json`, writes the SBOMs (scoped to the `apps/cli` workspace) and runs
+`npm pack --workspace apps/cli`; `publish.yml` runs `npm publish --workspace apps/cli`.
 
 ## Entgeltatlas-specific notes
 
@@ -84,11 +142,11 @@ it only in a command that builds a client (`assertEnvKey` in `shared.ts`, the li
 rule, the message naming `ENTGELTATLAS_API_KEY`), so help, `codes` (which builds no
 client) and `obtain-key` work whatever the variable holds (P19).
 
-The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
+The credentials file is the CLI's, not the library's: `apps/cli/src/cli/credentials.ts`
 (`CredentialStore`, the same mechanism as openka-cli's `ka config`) and `entgeltatlas
-config` (`src/cli/commands/config.ts`). It reaches the CLI through `CliDeps.credentials`,
+config` (`apps/cli/src/cli/commands/config.ts`). It reaches the CLI through `CliDeps.credentials`,
 which only `defaultDeps` sets, so a test that does not ask for one never reads the user's
-file; `action()` (`src/cli/shared.ts`) reads it only when neither the flag nor the env
+file; `action()` (`apps/cli/src/cli/shared.ts`) reads it only when neither the flag nor the env
 var gave a key, reads it through `CredentialStore.usable` (trimmed; a hand-edited value
 `config set` would refuse — `credentialProblem`: blank, whitespace or control characters
 inside, or what the library's header rule refuses — is an error naming the file, and
@@ -104,7 +162,7 @@ every other character (so a tab is refused, as from a pipe) and refuses a paste 
 more after its first line break.
 
 No key is bundled —
-`obtain-key` (src/client/obtain-key.ts) reads it from the web app's page
+`obtain-key` (packages/client/src/obtain-key.ts) reads it from the web app's page
 (`KEY_SOURCE_URL`, `https://web.arbeitsagentur.de/entgeltatlas/`) at run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
 `DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared
 `transientRetryDelay`, all range-checked like the client's; the CLI passes `--timeout`,
@@ -143,7 +201,7 @@ message stays well-formed; any other value an own message quotes from a server a
 the user's input (a redirect target, a charset, an unknown filter key, an invalid URL)
 at `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a
 library caller; `EntgeltatlasApiError.body` keeps it all.
-`test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
+`apps/cli/test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
 P8 charset and P9 shape cases).
 
 ### Secrets in the CLI's output
@@ -173,7 +231,7 @@ escaped and JSON-escaped forms. A key the run learns only after parsing (the sto
 is kept out by not echoing the value at all (`withoutStrayValues`): a numeric option or
 the `<kldb>` argument shows its rejected value only when it reads like a number, `unknown
 command` only when it reads like a command name, `too many arguments` drops the values
-and `unknown option '--x=…'` what follows `=`. `test/conformance-p1-cli-redaction.test.ts` is the
+and `unknown option '--x=…'` what follows `=`. `apps/cli/test/conformance-p1-cli-redaction.test.ts` is the
 shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
 by environment and typed without its flag).
 
@@ -190,11 +248,11 @@ details, from transport error text and from the `cause` chain (`scrub` /
 validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`) and the
 built-in transport's `Invalid URL: …` never repeat a password. `obtainKey` names a
 source URL without its userinfo, in its errors and in `ObtainedKey.sourceUrl`.
-`test/conformance-p2-library-redaction.test.ts` is the shared check.
+`apps/cli/test/conformance-p2-library-redaction.test.ts` is the shared check.
 
 ### Input validation (library)
 
-[`validate.ts`](src/client/validate.ts): the library owns every rule about what a
+[`validate.ts`](packages/client/src/validate.ts): the library owns every rule about what a
 request may contain. A rule is a pure, exported `…Problem(value)` function that
 returns the reason a value is invalid (or `undefined`); `assertValid(name, value,
 problem)` turns a reason into an `EntgeltatlasValidationError` with the message
@@ -236,8 +294,8 @@ an outage. `obtainKey()`'s `sourceUrl` gets the same class (`httpUrlProblem`).
 `EntgeltatlasNetworkError` stays for the default transport's per-hop scheme check
 and for redirect targets. `--base-url` calls the same `baseUrlProblem`.
 
-`test/validate.test.ts` holds the unit tests and `test/parity.test.ts` the parity
-tests: `parity()` in `test/helpers.ts` runs one input through `run()` and through the
+`apps/cli/test/validate.test.ts` holds the unit tests and `apps/cli/test/parity.test.ts` the parity
+tests: `parity()` in `apps/cli/test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a
 request, or both send the identical request.
 
@@ -284,7 +342,7 @@ row per value of it.
 
 `regionen`/`geschlechter`/`alter`/`branchen` hit live endpoints that are **not in
 the OpenAPI spec** (cross-referenced only). The library exports the same tables as
-`DIMENSIONS` (`src/client/codes.ts`, `DIMENSION_PARAMS` for the letters), and the
+`DIMENSIONS` (`packages/client/src/codes.ts`, `DIMENSION_PARAMS` for the letters), and the
 `codes` command prints them offline with each dimension's CLI flag added (and covers
 `l`, which has no live endpoint) — a reliable fallback if the live reference
 endpoints move.
@@ -308,7 +366,7 @@ shape) sends a parameter the API adds later, as a string, finite number or boole
 integer code (an array, `NaN`, a string or `null` is rejected). In the CLI, a single-value
 option given twice (`-g 2 -g 3`, `--timeout 1 --timeout 2`) is a usage error naming the
 option (`rejectRepeatedOptions` in `run.ts`), not "last one wins".
-`test/conformance-p10-strict-filters.test.ts` (from marktstammdatenregister-cli) is the
+`apps/cli/test/conformance-p10-strict-filters.test.ts` (from marktstammdatenregister-cli) is the
 shared check.
 
 ## Live verification status
@@ -349,11 +407,11 @@ shared check.
   longer turns a usage error into 0). Any other stdout write error is an ERROR record of
   `entgeltatlas.output` (`Could not write to stdout: …`, in the format argv asks for:
   `processLogger`) and exits 1; any other stderr write error exits 1 silently.
-  `test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
+  `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
 - The README ships in the npm tarball and is what npmjs.com shows, so a relative link in it
   points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
   `LICENSE`); every other document is linked by its absolute GitHub URL.
-  `test/conformance-p21-readme-links.test.ts` is the shared check (P21).
+  `apps/cli/test/conformance-p21-readme-links.test.ts` is the shared check (P21).
 - Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
   waits `retryDelayMs × attempt` (the floor; `retryDelayMs` 0..`MAX_RETRY_AFTER_MS`), or the
   response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`) when that is
@@ -361,14 +419,14 @@ shared check.
   `MAX_RETRY_AFTER_MS` (30 s) is not retried at all: the error surfaces at once and names the
   requested wait (`retryAfterTooLong`, "the server asked to wait 120 s (Retry-After) … try
   again later"). `obtainKey()` shares the policy (`transientRetryDelay`).
-  `test/conformance-p6-retry-policy.test.ts` is the shared check. Rate limits are undocumented.
+  `apps/cli/test/conformance-p6-retry-policy.test.ts` is the shared check. Rate limits are undocumented.
   Each retry of the engine is announced: the option `onRetry(event: RetryEvent)` (exported type:
   `{ retry` (1-based), `maxRetries`, `delayMs`, `status?` (absent for a reset), `url` (userinfo
   redacted) `}`) is called once per retry right before the sleep, never when there is none, and
   a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
   `entgeltatlas.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only,
   whole seconds, ms under 1 s). `obtainKey()` has its own loop and does not call it. Tests:
-  `test/engine.test.ts`, `test/retry-log.test.ts`.
+  `packages/client/test/engine.test.ts`, `apps/cli/test/retry-log.test.ts`.
 - A body is decoded by the charset its Content-Type declares (`decodeBody`, UTF-8 when it
   names none; a leading BOM is dropped; an unknown label is an `EntgeltatlasParseError`
   naming it), in the client and in `obtainKey()`.
@@ -389,9 +447,9 @@ shared check.
   `requests to <host> are sent unencrypted (http:, not https:)`, or naming "the API key" / "the base URL's credentials"
   when they travel — never their value. Help, version and usage errors never warn;
   `cleartextCredentialsProblem` stays as a deprecated alias.
-  `test/conformance-p20-cleartext-warning.test.ts` is the shared check (P20).
+  `apps/cli/test/conformance-p20-cleartext-warning.test.ts` is the shared check (P20).
   `obtainKey` sends a source's userinfo the same way and refuses an answer from another
-  origin. `test/conformance-p3-redirect-credentials.test.ts` is the shared check. Any other 3xx, a missing or malformed Location, or
+  origin. `apps/cli/test/conformance-p3-redirect-credentials.test.ts` is the shared check. Any other 3xx, a missing or malformed Location, or
   the limit surface as `EntgeltatlasApiError` (exit 1) naming the target:
   `redirect to <url> not followed (stopped after 5 redirects)` /
   `redirect not followed (no Location header)`.
@@ -405,7 +463,9 @@ and [Fylgja](https://fylgja.dev/) CSS, and deployed by `docs.yml` together with 
 reference under `/api/`. Its content comes from this repository: the README intro and quick
 start, the command tree of the built CLI (`site/scripts/cli-reference.mjs`), `Usage.md`,
 `GLOSSARY.md` and its German version `GLOSSARY.de.md`, the skills, and the skill examples in
-`EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are `site/_config.yml` and
+`EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are `site/_config.yml` (which
+also says where the published manifest and the built program are: `manifest:
+apps/cli/package.json`, `program: apps/cli/dist/src/cli/program.js`) and
 `site/_data/project.yml` (the German intro and the access requirements); the rest of `site/` is
 identical in every maschinenlesbar.org CLI, so change it in all of them together. When the
 README intro changes, update the German intro in `site/_data/project.yml`.
@@ -418,7 +478,7 @@ npm run serve                        # http://127.0.0.1:4000/entgeltatlas-cli/
 
 ## The log on stderr
 
-Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+Every diagnostic line on stderr is a log record (`apps/cli/src/cli/log.ts`): a timestamp, a level
 (`ERROR`, `WARN`, `INFO`) and a topic, `entgeltatlas.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
@@ -427,7 +487,7 @@ the message (text) or the whole JSON object (jsonl), which writes CR and LF as `
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's
 message — `sanitizeServerText` keeps its newlines —, a value you typed, OpenSSL's EPROTO
-text), can split it, forge another one or steer the terminal; `test/log.test.ts` tests
+text), can split it, forge another one or steer the terminal; `apps/cli/test/log.test.ts` tests
 the helper on its own. Before that a lone surrogate (half a character, which jq rejects,
 stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in

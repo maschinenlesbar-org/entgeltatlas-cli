@@ -220,8 +220,8 @@ See **[SKILLS.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/m
 
 ```bash
 npm install
-npm run build      # tsc -> dist/
-npm test           # builds, then node --test on dist/test
+npm run build      # tsc -b -> each workspace's dist/
+npm test           # builds, then node --test on each workspace's dist/test
 npm run typecheck
 ```
 
