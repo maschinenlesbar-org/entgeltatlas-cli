@@ -4,7 +4,7 @@
 [![Release](https://github.com/maschinenlesbar-org/entgeltatlas-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/entgeltatlas-cli/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/entgeltatlas-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/entgeltatlas-cli)
 
-**Website:** [English](https://maschinenlesbar-org.github.io/entgeltatlas-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/entgeltatlas-cli/de/) — command reference, guides and API docs
+**Website:** [English](https://maschinenlesbar.org/entgeltatlas-cli/) · [Deutsch](https://maschinenlesbar.org/entgeltatlas-cli/de/) — command reference, guides and API docs
 
 A TypeScript **API client and CLI** for the **Bundesagentur für Arbeit
 Entgeltatlas API** — German **median gross-monthly salary statistics** by
