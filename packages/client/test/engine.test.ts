@@ -4,11 +4,13 @@ import {
   MAX_RETRY_AFTER_MS,
   RequestEngine,
   cleartextCredentialsProblem,
+  isTransientNetworkError,
   cleartextProblem,
   parseRetryAfter,
 } from "../src/engine.js";
 import {
   EntgeltatlasApiError,
+  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
   EntgeltatlasValidationError,
   credentialsDroppedHint,
@@ -498,4 +500,30 @@ test("onRetry is never called without a retry, and a throw in it is swallowed", 
 
 test("onRetry must be a function", () => {
   assert.throws(() => new RequestEngine({ onRetry: 5 as never }), EntgeltatlasValidationError);
+});
+
+test("a reset connection that outlasts the retries names the request and the retries (bug 5, 2026-10-15)", async () => {
+  // The default transport rejects a reset with a bare "socket hang up" (the Node error is its
+  // cause); passed through, the CLI's last record named neither the host nor the retries.
+  const reset = () =>
+    new EntgeltatlasNetworkError("socket hang up", { cause: Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }) });
+  for (const [maxRetries, suffix] of [[0, ""], [1, " (after 1 retry)"], [2, " (after 2 retries)"]] as const) {
+    let calls = 0;
+    const e = new RequestEngine({
+      baseUrl: "http://127.0.0.1:9",
+      transport: async () => {
+        calls += 1;
+        throw reset();
+      },
+      maxRetries,
+      sleep: async () => {},
+    });
+    await assert.rejects(e.getJson("/infosysbub/entgeltatlas/pc/v1/regionen"), (err) => {
+      assert.ok(err instanceof EntgeltatlasNetworkError);
+      assert.equal(err.message, `GET http://127.0.0.1:9/infosysbub/entgeltatlas/pc/v1/regionen failed: socket hang up${suffix}`);
+      assert.ok(isTransientNetworkError(err), "still recognisable as a reset");
+      return true;
+    });
+    assert.equal(calls, maxRetries + 1);
+  }
 });

@@ -415,7 +415,9 @@ shared check.
   points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
   `LICENSE`); every other document is linked by its absolute GitHub URL.
   `apps/cli/test/conformance-p21-readme-links.test.ts` is the shared check (P21).
-- Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). Each retry
+- Transient `429`/`503`, and a reset connection of a GET, retried up to `maxRetries` (0..`MAX_RETRIES` = 10, default 2). A reset
+  that ends the request raises `GET <url> failed: socket hang up (after 2 retries)`, the transport's
+  error as its `cause`. Each retry
   waits `retryDelayMs × attempt` (the floor; `retryDelayMs` 0..`MAX_RETRY_AFTER_MS`), or the
   response's `Retry-After` (delay-seconds or IMF-fixdate, `parseRetryAfter`) when that is
   longer — `Retry-After: 0` or a past date never makes a zero-delay burst. A value above
