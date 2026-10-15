@@ -2,8 +2,8 @@
 // the live reference-list commands, and the offline `codes` table.
 
 import type { Command } from "commander";
-import type { CliDeps } from "../io.js";
-import type { EntgeltatlasClient } from "@maschinenlesbar.org/entgeltatlas-client/internal/client";
+import { logOf, type CliDeps } from "../io.js";
+import { emptyAnswerNote, type EntgeltatlasClient } from "@maschinenlesbar.org/entgeltatlas-client/internal/client";
 import type { EntgelteParams } from "@maschinenlesbar.org/entgeltatlas-client/internal/types";
 import { DIMENSION_FLAGS, action, parseDimensionCode, parseKldb, renderJson, type GlobalOptions } from "../shared.js";
 import { DIMENSIONS } from "@maschinenlesbar.org/entgeltatlas-client/internal/codes";
@@ -33,7 +33,10 @@ export function registerCommands(program: Command, deps: CliDeps): void {
         if (opts["gender"] !== undefined) params.g = opts["gender"] as number;
         if (opts["age"] !== undefined) params.a = opts["age"] as number;
         if (opts["branch"] !== undefined) params.b = opts["branch"] as number;
-        renderJson(deps, global, await client.entgelte(kldb!, params));
+        const rows = await client.entgelte(kldb!, params);
+        renderJson(deps, global, rows);
+        const note = emptyAnswerNote(kldb!, rows);
+        if (note !== undefined) logOf(deps).warn("api", note);
       }),
     );
 

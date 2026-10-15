@@ -64,7 +64,9 @@ entgeltatlas entgelte <kldb> [-l <n>] [-r <n>] [-g <n>] [-a <n>] [-b <n>]
 ```
 
 `<kldb>` is the **numeric KldB-2010 code** (3–5 digits, e.g. `84304`) — not an
-occupation name. Each dimension flag narrows the slice. Code `1` is `Gesamt` only
+occupation name. Use 3 digits (the group, one row per level) or 5 (the occupation, its fifth digit
+the level): every 4-digit code tried answered no rows, and the CLI then adds a `WARN` record of
+`entgeltatlas.api` naming the 3- and 5-digit forms (stdout keeps the `[]`, the exit code 0). Each dimension flag narrows the slice. Code `1` is `Gesamt` only
 for `-g`, `-a` and `-b`; for `-l` it is Helfer and for `-r` Deutschland. An
 omitted flag sends no parameter, and the API answers one row per value of that
 dimension (all four age bands for an omitted `-a`; recorded live on 2026-10-06), so pass

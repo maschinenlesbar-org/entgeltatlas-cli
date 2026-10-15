@@ -8,7 +8,7 @@ Bruttomonatsentgelts**, aufgeschlüsselt nach fünf Dimensionen.
 
 | Begriff | Bedeutung |
 |---|---|
-| **KldB 2010** | *Klassifikation der Berufe 2010* – die Berufssystematik der BA. Pflichtargument des Befehls `entgelte`. Codes haben 3–5 Ziffern (z. B. `84304` = „Berufe in der Hochschullehre und -forschung – hoch komplexe Tätigkeiten“). Wird als **String** geführt (führende Nullen zählen). |
+| **KldB 2010** | *Klassifikation der Berufe 2010* – die Berufssystematik der BA. Pflichtargument des Befehls `entgelte`. Codes haben 3–5 Ziffern (z. B. `84304` = „Berufe in der Hochschullehre und -forschung – hoch komplexe Tätigkeiten“); jeden bisher probierten 4-stelligen Code hat die API ohne Zeilen beantwortet, nehmen Sie also die 3-stellige Gruppe oder einen 5-stelligen Code (die CLI warnt bei einer leeren 4-stelligen Antwort). Wird als **String** geführt (führende Nullen zählen). |
 | **Name → Code** | Diese API hat **keine Namenssuche**. Einen Berufsnamen lösen Sie über die verwandten APIs BERUFENET / DKZ oder den [Klassifikationsserver](https://www.klassifikationsserver.de/) in seinen KldB-Code auf. |
 
 ## Die fünf Dimensionen

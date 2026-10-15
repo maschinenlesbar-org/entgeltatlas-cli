@@ -1,6 +1,6 @@
 // Public entry point for the API client library.
 
-export { EntgeltatlasClient } from "./client.js";
+export { EntgeltatlasClient, emptyAnswerNote } from "./client.js";
 export type { EntgeltatlasClientOptions } from "./client.js";
 export {
   RequestEngine,

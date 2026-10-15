@@ -404,3 +404,22 @@ test("COMMAND_NAMES lists exactly the program's commands", async () => {
   const program = buildProgram(makeCli(() => jsonResponse([])).deps);
   assert.deepEqual([...COMMAND_NAMES].sort(), [...program.commands.map((c) => c.name()), "help"].sort());
 });
+
+test("an empty answer for a 4-digit KldB code is explained in a WARN record (bug 3, 2026-10-15)", async () => {
+  // 8430, 4341 and 8431 answered [] with exit 0 and nothing on stderr — what README reads as "no
+  // figure" — while their 3-digit groups and 5-digit codes have data.
+  const empty = makeCli(() => jsonResponse([]));
+  assert.equal(await run([...KEY, "--compact", "entgelte", "8430"], empty.deps), 0);
+  assert.deepEqual(empty.out, ["[]"], "stdout is unchanged");
+  assert.equal(
+    untimed(empty.err.join("\n")),
+    "WARN  [entgeltatlas.api] no rows for the 4-digit KldB code 8430: the API has answered every 4-digit code tried " +
+      "with none, though the 3-digit group (843) and the 5-digit codes (8430x) have figures. Ask for one of those.",
+  );
+  // A 3- or 5-digit code without rows, and a 4-digit code with rows, get no such note.
+  for (const [code, rows] of [["843", []], ["84304", []], ["8430", fx.entgelteResult]] as const) {
+    const cli = makeCli(() => jsonResponse(rows));
+    assert.equal(await run([...KEY, "entgelte", code], cli.deps), 0);
+    assert.deepEqual(cli.err, [], code);
+  }
+});

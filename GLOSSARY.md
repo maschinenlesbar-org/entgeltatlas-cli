@@ -8,7 +8,7 @@ salary**, sliced by five dimensions.
 
 | Term | Meaning |
 |---|---|
-| **KldB 2010** | *Klassifikation der Berufe 2010* — the BA's occupation code system. The `entgelte` command's required argument. Codes are 3–5 digits (e.g. `84304` = "Berufe in der Hochschullehre und -forschung – hoch komplexe Tätigkeiten"). Kept as a **string** (leading zeros matter). |
+| **KldB 2010** | *Klassifikation der Berufe 2010* — the BA's occupation code system. The `entgelte` command's required argument. Codes are 3–5 digits (e.g. `84304` = "Berufe in der Hochschullehre und -forschung – hoch komplexe Tätigkeiten"); the API has answered every 4-digit code tried with no rows, so use the 3-digit group or a 5-digit code (the CLI warns on an empty 4-digit answer). Kept as a **string** (leading zeros matter). |
 | **name → code** | This API has **no name search**. Resolve an occupation name to its KldB code via the BERUFENET / DKZ sibling APIs, or the [Klassifikationsserver](https://www.klassifikationsserver.de/). |
 
 ## The five dimensions

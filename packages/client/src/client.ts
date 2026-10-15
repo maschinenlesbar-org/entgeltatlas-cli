@@ -19,6 +19,21 @@ import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } fro
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
 
+/**
+ * Why an empty answer for `kldb` is probably the code's level, not a lack of data, or undefined:
+ * the API has answered every 4-digit code tried (8430, 4341, 8431 on 2026-10-15) with no rows,
+ * though their 3-digit groups and 5-digit codes have figures. An empty array otherwise means "no
+ * figure" (GLOSSARY.md), so the note is the only way to tell the two apart. 4-digit codes stay
+ * accepted: a code the API does serve must not be refused on that evidence.
+ */
+export function emptyAnswerNote(kldb: string, rows: readonly unknown[]): string | undefined {
+  if (rows.length > 0 || !/^[0-9]{4}$/.test(kldb)) return undefined;
+  return (
+    `no rows for the 4-digit KldB code ${kldb}: the API has answered every 4-digit code tried with none, ` +
+    `though the 3-digit group (${kldb.slice(0, 3)}) and the 5-digit codes (${kldb}x) have figures. Ask for one of those.`
+  );
+}
+
 /** A KldB-2010 occupation code as accepted by the API: 3–5 ASCII digits. */
 const KLDB_PATTERN = /^[0-9]{3,5}$/;
 
