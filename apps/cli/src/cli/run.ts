@@ -7,6 +7,7 @@ import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
 import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import { API_KEY_ENV_VAR } from "./io.js";
+import { COMMAND_NAMES } from "./shared.js";
 import {
   EntgeltatlasApiError,
   EntgeltatlasError,
@@ -273,7 +274,9 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   };
   addKey(envKey);
   for (const password of passwords) addKey(password);
-  for (const value of flagValues(argv, SECRET_FLAGS)) addKey(value);
+  // A command name after --api-key is a missing key, not a secret (parseApiKey says so):
+  // redacted, it turned the command in the help into ***.
+  for (const value of flagValues(argv, SECRET_FLAGS)) if (!(COMMAND_NAMES as readonly string[]).includes(value)) addKey(value);
   for (const value of values) if (looksLikeApiKey(value)) addKey(value);
   const urlList = [...userinfo];
   // Longest first, so a key is never left half-replaced by one of its own substrings.

@@ -382,3 +382,25 @@ test("a key with whitespace inside is a usage error from the flag and from the e
     assert.doesNotMatch(text, /bub-ega/, "the key is never repeated");
   }
 });
+
+test("--api-key followed by a command name says the key is missing, and the help stays readable (bug 2, 2026-10-15)", async () => {
+  // `entgeltatlas --api-key $KEY entgelte 84304` with an empty, unquoted variable took `entgelte` as
+  // the key: "unknown command (not shown …)", and the help showed *** for `entgelte`.
+  for (const argv of [["--api-key", "entgelte", "84304"], ["--api-key", "regionen"], ["--api-key=codes"]]) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0);
+    const text = untimed(cli.err.join("\n"));
+    const name = argv[0] === "--api-key" ? argv[1]! : argv[0]!.slice("--api-key=".length);
+    assert.match(text, new RegExp(`^ERROR \\[entgeltatlas\\.cli\\] .*"${name}" is an entgeltatlas command, not a key`, "m"));
+    assert.doesNotMatch(text, /\*\*\*/, "the command name is not redacted");
+    assert.doesNotMatch(text, /unknown command/);
+  }
+});
+
+test("COMMAND_NAMES lists exactly the program's commands", async () => {
+  const { COMMAND_NAMES } = await import("../src/cli/shared.js");
+  const { buildProgram } = await import("../src/cli/program.js");
+  const program = buildProgram(makeCli(() => jsonResponse([])).deps);
+  assert.deepEqual([...COMMAND_NAMES].sort(), [...program.commands.map((c) => c.name()), "help"].sort());
+});

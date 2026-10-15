@@ -51,6 +51,22 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
+ * The program's command names (`program.commands` and commander's `help`; a test keeps the list in
+ * step). Never a key: `--api-key` refuses one, and the run's redaction leaves one alone.
+ */
+export const COMMAND_NAMES = [
+  "obtain-key",
+  "config",
+  "entgelte",
+  "regionen",
+  "geschlechter",
+  "alter",
+  "branchen",
+  "codes",
+  "help",
+] as const;
+
+/**
  * commander value-parser for `--api-key`. A blank flag would replace the key seeded
  * from ENTGELTATLAS_API_KEY and send none at all, so it is a usage error rather than
  * "unset" (the CLI's own rule). Otherwise the key gets the library's treatment —
@@ -59,6 +75,14 @@ export function parseNonEmpty(value: string): string {
  */
 export function parseApiKey(value: string): string {
   parseNonEmpty(value);
+  // `entgeltatlas --api-key $KEY entgelte 84304` with an empty, unquoted variable hands commander
+  // the command as the key's value: say that, rather than "unknown command".
+  if ((COMMAND_NAMES as readonly string[]).includes(value)) {
+    throw new InvalidArgumentError(
+      `"${value}" is an entgeltatlas command, not a key: --api-key needs the key after it (an empty or ` +
+        `unset variable leaves it out). Pass the key, or leave --api-key out to use ${API_KEY_ENV_VAR} or the credentials file.`,
+    );
+  }
   const key = normalizeApiKey(value) as string;
   const reason = apiKeyProblem(key);
   if (reason !== undefined) throw new InvalidArgumentError(reason);

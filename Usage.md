@@ -19,7 +19,9 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 `--api-key` and `--user-agent` (and `ENTGELTATLAS_API_KEY`) must be sendable as an HTTP
 header: a blank value, a control character (CR/LF, DEL; for `--user-agent` a tab is fine) or a
 character above U+00FF is a usage error (exit 2) before any request, and so is whitespace inside
-the key (a tab or space from a paste: a key is one token). The key, from the flag or the env var,
+the key (a tab or space from a paste: a key is one token). A command name in place of the key
+(`--api-key $EMPTY entgelte 84304` with an empty variable) is a usage error that says the key is
+missing. The key, from the flag or the env var,
 is trimmed first, as the library does, so a trailing CR/LF from a key file is dropped
 rather than rejected. A rejected value is never echoed raw: the key is shown as `***`,
 and control characters in any echoed value as `\uXXXX` (`\n` for a line break). A
