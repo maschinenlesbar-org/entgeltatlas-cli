@@ -14,7 +14,7 @@
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText } from "./errors.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
-import { assertValid, describeType, headerValueProblem, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
+import { apiKeyProblem, assertValid, describeType, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
 import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
@@ -158,7 +158,7 @@ export class EntgeltatlasClient {
     // Only send X-API-Key when a non-blank key was supplied; never default one. The
     // key is trimmed first (normalizeApiKey), then checked like any header value.
     const key = normalizeApiKey(apiKey);
-    if (key !== undefined) assertValid("apiKey", key, headerValueProblem);
+    if (key !== undefined) assertValid("apiKey", key, apiKeyProblem);
     this.#engine = new RequestEngine({
       ...engineOptions,
       defaultHeaders: {

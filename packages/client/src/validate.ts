@@ -180,6 +180,15 @@ export const baseUrlProblem: Problem = (value) =>
  * (`"k\r"`) is the same key from the client, the env var and the CLI flag.
  * A non-string is returned as is, for the header check to reject.
  */
+/**
+ * Why a (trimmed, non-blank) API key cannot be sent, or undefined: what an HTTP header cannot
+ * carry (`headerValueProblem`), and whitespace inside — a key is one token. A tab or space from a
+ * paste went out as part of the header and ended in the API's empty 403, which looks like a
+ * network block; the credentials file already refused such a value.
+ */
+export const apiKeyProblem: Problem = (value) =>
+  headerValueProblem(value) ?? (typeof value === "string" && /\s/.test(value) ? "The key holds whitespace inside; a key is one token." : undefined);
+
 export function normalizeApiKey(raw: string | undefined): string | undefined {
   if (typeof raw !== "string") return raw;
   const key = raw.trim();

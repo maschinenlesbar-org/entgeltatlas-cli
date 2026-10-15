@@ -364,3 +364,21 @@ test("a subcommand's value option does not swallow the program's --log-format, i
   assert.ok(cli.err.length > 0 && cli.err.every((line) => line.startsWith("{")), cli.err.join("\n"));
   assert.match((JSON.parse(cli.err[0] ?? "") as Record<string, unknown>)["msg"] as string, /--level <code>' argument missing/);
 });
+
+test("a key with whitespace inside is a usage error from the flag and from the env var (bug 1, 2026-10-15)", async () => {
+  // A tab or space inside a pasted key went out as `X-API-Key: infosys\tbub-ega` and ended in the
+  // empty 403 that looks like a network block; the credentials file already refused it.
+  for (const [argv, env, name] of [
+    [["--api-key", "infosys\tbub-ega", "entgelte", "84304"], {}, /option '--api-key <key>'/],
+    [["--api-key", "infosys bub-ega", "entgelte", "84304"], {}, /option '--api-key <key>'/],
+    [["entgelte", "84304"], { ENTGELTATLAS_API_KEY: "infosys\tbub-ega" }, /Invalid ENTGELTATLAS_API_KEY/],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse(fx.entgelteResult), { ...env });
+    assert.equal(await run([...argv], cli.deps), 2, JSON.stringify(argv));
+    assert.equal(cli.mt.calls.length, 0, "nothing is sent");
+    const text = untimed(cli.err.join("\n"));
+    assert.match(text, name);
+    assert.match(text, /a key is one token/);
+    assert.doesNotMatch(text, /bub-ega/, "the key is never repeated");
+  }
+});

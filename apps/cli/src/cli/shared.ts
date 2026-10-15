@@ -10,6 +10,7 @@ import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/entgeltatlas-client/intern
 import { API_KEY_PHRASE, DEFAULT_BASE_URL, cleartextProblem, type RetryEvent } from "@maschinenlesbar.org/entgeltatlas-client/internal/engine";
 import { dimensionCodeProblem, type DimensionParam } from "@maschinenlesbar.org/entgeltatlas-client/internal/codes";
 import {
+  apiKeyProblem,
   baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
@@ -59,7 +60,7 @@ export function parseNonEmpty(value: string): string {
 export function parseApiKey(value: string): string {
   parseNonEmpty(value);
   const key = normalizeApiKey(value) as string;
-  const reason = headerValueProblem(key);
+  const reason = apiKeyProblem(key);
   if (reason !== undefined) throw new InvalidArgumentError(reason);
   return key;
 }
@@ -245,7 +246,7 @@ export interface ActionContext {
  */
 export function assertEnvKey(command: Command, global: GlobalOptions): void {
   if (global.apiKey === undefined || command.getOptionValueSourceWithGlobals("apiKey") !== "env") return;
-  const reason = headerValueProblem(global.apiKey);
+  const reason = apiKeyProblem(global.apiKey);
   if (reason !== undefined) throw new EntgeltatlasValidationError(`Invalid ${API_KEY_ENV_VAR}: ${reason}`);
 }
 

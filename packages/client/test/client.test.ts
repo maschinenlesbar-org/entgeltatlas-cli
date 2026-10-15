@@ -238,3 +238,14 @@ test("a number the answer cannot carry exactly is a parse error, never a changed
   const rows = await new EntgeltatlasClient({ apiKey: "k", transport: ok.transport }).entgelte("84304");
   assert.equal(rows[0]!.besetzung, 9007199254740991);
 });
+
+test("an apiKey with whitespace inside is refused at construction (bug 1, 2026-10-15)", () => {
+  for (const key of ["infosys\tbub-ega", "infosys bub-ega", "a b"]) {
+    assert.throws(() => new EntgeltatlasClient({ apiKey: key }), (err) => {
+      assert.ok(err instanceof EntgeltatlasValidationError, JSON.stringify(key));
+      assert.match(err.message, /a key is one token/);
+      return true;
+    });
+  }
+  assert.doesNotThrow(() => new EntgeltatlasClient({ apiKey: "  infosysbub-ega \t" }), "surrounding whitespace is trimmed");
+});

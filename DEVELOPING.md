@@ -138,8 +138,9 @@ the workspace). It flows through `EngineOptions.defaultHeaders`
 (set in `client.ts` from `apiKey`); the CLI seeds `--api-key` from
 `ENTGELTATLAS_API_KEY` with precedence **flag > env > the credentials file > none**. Flag, env var and
 `apiKey` share one rule: `normalizeApiKey` trims the key (blank = no key), then
-`headerValueProblem` checks the trimmed value (`Invalid apiKey: Value contains control
-characters.`); only a blank `--api-key` flag is a CLI-only usage error, because it
+`apiKeyProblem` checks the trimmed value: `headerValueProblem` (`Invalid apiKey: Value contains
+control characters.`), then whitespace inside (`… The key holds whitespace inside; a key is one
+token.`, the rule the credentials file already had); only a blank `--api-key` flag is a CLI-only usage error, because it
 would override the env key. The CLI seeds the env key with the source `"env"` and checks
 it only in a command that builds a client (`assertEnvKey` in `shared.ts`, the library's
 rule, the message naming `ENTGELTATLAS_API_KEY`), so help, `codes` (which builds no
