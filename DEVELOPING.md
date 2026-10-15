@@ -319,7 +319,10 @@ row where a code was expected, an empty reference list — is an `EntgeltatlasPa
 (`Unexpected response shape from <path>: expected a JSON array of salary rows; element 0
 has no kldb text.`), and an empty or 204 body is one too
 (`Empty response body from <path>`), never `[]`: an empty array is the documented
-"suppressed" answer, so the client must not produce one by coercion. The KldB is a
+"suppressed" answer, so the client must not produce one by coercion. A body holding a number
+JSON.parse cannot carry exactly (`1e400`, or an integer literal beyond 2^53 that it rounds:
+`12345678901234567890`) is one too (`… the number … cannot be represented exactly.`), never a
+changed figure. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.
 
 **The requested slice (result 02, Bug 1).** Every row carries the ids of its slice, and

@@ -215,3 +215,26 @@ test("a long server label in the slice error is cut, never inside a surrogate pa
     );
   }
 });
+
+test("a number the answer cannot carry exactly is a parse error, never a changed figure (bug 4, 2026-10-15)", async () => {
+  // `"besetzung":12345678901234567890` printed as 12345678901234567000 and 9007199254740993 as
+  // 9007199254740992, with exit 0; the row check accepted them because they are finite.
+  const row = (extra: string) =>
+    `[{"kldb":"84304","region":{"id":1,"bezeichnung":"D"},"gender":{"id":1,"bezeichnung":"G"},` +
+    `"ageCategory":{"id":1,"bezeichnung":"A"},"performanceLevel":{"id":4,"bezeichnung":"L"},` +
+    `"branche":{"id":1,"bezeichnung":"B"},"entgelt":5731,${extra}}]`;
+  for (const n of ["12345678901234567890", "9007199254740993", "-9007199254740993"]) {
+    const mt = makeMockTransport(() => rawResponse(row(`"besetzung":${n}`), "application/json"));
+    await assert.rejects(new EntgeltatlasClient({ apiKey: "k", transport: mt.transport }).entgelte("84304"), (err) => {
+      assert.ok(err instanceof EntgeltatlasParseError, n);
+      assert.match(err.message, new RegExp(`the number ${n} cannot be represented exactly\\.$`));
+      return true;
+    });
+  }
+  const list = makeMockTransport(() => rawResponse('[{"id":12345678901234567890,"bezeichnung":"x"}]', "application/json"));
+  await assert.rejects(new EntgeltatlasClient({ apiKey: "k", transport: list.transport }).regionen(), /cannot be represented exactly/);
+  // Exact values pass, digits inside strings included.
+  const ok = makeMockTransport(() => rawResponse(row('"besetzung":9007199254740991,"note":"12345678901234567890"'), "application/json"));
+  const rows = await new EntgeltatlasClient({ apiKey: "k", transport: ok.transport }).entgelte("84304");
+  assert.equal(rows[0]!.besetzung, 9007199254740991);
+});
