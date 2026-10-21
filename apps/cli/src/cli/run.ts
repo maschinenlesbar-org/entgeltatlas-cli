@@ -19,6 +19,7 @@ import {
   echoedCredentialForms,
   redactCredentials,
   redactSecrets,
+  quoteValue,
 } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import { looksLikeApiKey } from "@maschinenlesbar.org/entgeltatlas-client/internal/obtain-key";
 
@@ -250,7 +251,13 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
     token.startsWith("-") && token.includes("=") ? token.slice(token.indexOf("=") + 1) : token,
   );
   const envKey = env[API_KEY_ENV_VAR] ?? "";
-  const forms = (value: string): string[] => [value, escapeTerminalText(value), JSON.stringify(value).slice(1, -1)];
+  // As given, as commander's echo (escapeTerminalText) and a refusal (quoteValue) show it, and JSON-escaped.
+  const forms = (value: string): string[] => [
+    value,
+    escapeTerminalText(value),
+    JSON.stringify(value).slice(1, -1),
+    quoteValue(value, Number.MAX_SAFE_INTEGER).slice(1, -1),
+  ];
   const userinfo = new Set<string>();
   const echoed = new Set<string>();
   const passwords = new Set<string>();

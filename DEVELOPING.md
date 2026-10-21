@@ -207,7 +207,13 @@ error text) is cut at 500 characters, never inside a surrogate pair (`cutText`),
 message stays well-formed; any other value an own message quotes from a server answer or
 the user's input (a redirect target, a charset, an unknown filter key, an invalid URL)
 at `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a
-library caller; `EntgeltatlasApiError.body` keeps it all.
+library caller; `EntgeltatlasApiError.body` keeps it all. A refusal that quotes the value (the
+KldB code, a filter key, an invalid URL) does so visibly (`quoteValue`, exported): as JSON
+quotes it, plus DEL, C1, every format character (a zero-width space, a soft hyphen, a bidi
+control), U+2028/2029 and a lone surrogate as `\uXXXX`, cut at 200 characters with the "…"
+after the closing quote (`"84\u200b304"`); the CLI escapes commander's own echo of a rejected
+value the same way (`escapeTerminalText` in `run.ts`), and the redaction knows the escaped
+forms of a key.
 `apps/cli/test/conformance-p8-p9-p13-responses-and-errors.test.ts` is the shared check (with the
 P8 charset and P9 shape cases).
 

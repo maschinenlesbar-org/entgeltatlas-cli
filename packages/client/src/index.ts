@@ -57,6 +57,7 @@ export {
   EntgeltatlasSliceError,
   credentialsDroppedHint,
   credentialsIn,
+  quoteValue,
   redactCredentials,
   redactSecrets,
   redactUrl,

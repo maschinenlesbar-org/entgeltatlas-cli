@@ -12,7 +12,7 @@
 //   client.regionen()
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText } from "./errors.js";
+import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText, quoteValue } from "./errors.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import { apiKeyProblem, assertValid, describeType, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
 import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
@@ -206,7 +206,7 @@ export class EntgeltatlasClient {
     }
     if (!KLDB_PATTERN.test(kldb)) {
       throw new EntgeltatlasValidationError(
-        `Invalid KldB code "${kldb}": expected 3–5 digits (e.g. 84304). ` +
+        `Invalid KldB code ${quoteValue(kldb)}: expected 3–5 digits (e.g. 84304). ` +
           "This API takes the numeric KldB-2010 code, not an occupation name.",
       );
     }
@@ -229,7 +229,7 @@ export class EntgeltatlasClient {
         query[key] = value;
       } else {
         throw new EntgeltatlasValidationError(
-          `Invalid ${JSON.stringify(key)}: Expected a string, a finite number or a boolean, got ${describeType(value)}.`,
+          `Invalid ${quoteValue(key)}: Expected a string, a finite number or a boolean, got ${describeType(value)}.`,
         );
       }
     }

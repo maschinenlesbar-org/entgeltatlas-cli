@@ -439,8 +439,8 @@ test("own messages quote a server or user value at most 200 characters long (L3)
   await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.test\/x+… not followed/.test(err.message));
   const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
   await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /unsupported response charset "x+…"/.test(err.message));
-  assert.match(filterKeyProblem(long) ?? "", /^Unknown filter "x{200}…": /);
-  assert.match(baseUrlProblem(`https://${long}:99999`) ?? "", /^Invalid URL "https:\/\/x{192}…"\.$/);
+  assert.match(filterKeyProblem(long) ?? "", /^Unknown filter "x{200}"…: /);
+  assert.match(baseUrlProblem(`https://${long}:99999`) ?? "", /^Invalid URL "https:\/\/x{192}"…\.$/);
   const hint = credentialsDroppedHint({ from: "https://a.test/p", to: `https://b.test/${long}` });
   assert.ok(hint.length < 400 && hint.includes("…"), hint);
 });

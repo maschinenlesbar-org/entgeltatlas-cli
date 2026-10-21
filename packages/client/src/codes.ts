@@ -6,7 +6,7 @@
 // `regionen`/`geschlechter`/`alter`/`branchen` endpoints are the authoritative lists.
 
 import type { Problem } from "./validate.js";
-import { cutForMessage } from "./errors.js";
+import { quoteValue } from "./errors.js";
 
 /** The query-parameter letters of the five dimensions, in table order. */
 export const DIMENSION_PARAMS = ["l", "r", "g", "a", "b"] as const;
@@ -125,10 +125,10 @@ const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
  * `constructor` and `prototype` never pass.
  */
 export function filterKeyProblem(key: string, allowUnknown = false): string | undefined {
-  if (FORBIDDEN_KEYS.has(key)) return `${JSON.stringify(key)} is not a filter.`;
+  if (FORBIDDEN_KEYS.has(key)) return `${quoteValue(key)} is not a filter.`;
   if ((DIMENSION_PARAMS as readonly string[]).includes(key) || allowUnknown) return undefined;
   return (
-    `Unknown filter ${JSON.stringify(cutForMessage(key))}: the API takes l, r, g, a and b (see DIMENSIONS), and ` +
+    `Unknown filter ${quoteValue(key)}: the API takes l, r, g, a and b (see DIMENSIONS), and ` +
     "ignores any other parameter, answering the unfiltered slice. Pass { allowUnknownFilters: true } " +
     "to send a parameter the API added after this release."
   );

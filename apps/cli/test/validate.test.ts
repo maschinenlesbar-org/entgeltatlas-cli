@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertValid, type Problem } from "@maschinenlesbar.org/entgeltatlas-client/internal/validate";
-import { EntgeltatlasError, EntgeltatlasValidationError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
+import { EntgeltatlasError, EntgeltatlasValidationError, quoteValue } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
+import { filterKeyProblem } from "@maschinenlesbar.org/entgeltatlas-client/internal/codes";
 import * as lib from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { EntgeltatlasClient } from "@maschinenlesbar.org/entgeltatlas-client/internal/client";
@@ -176,4 +177,37 @@ test("validateBaseUrl strips trailing slashes and redacts credentials in its err
     () => lib.validateBaseUrl("ftp://user:s3cret@h.example/"),
     (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret"),
   );
+});
+
+test("a refusal quotes the value visibly: invisible, format and control characters escaped, cut at 200 (D10)", async () => {
+  assert.equal(quoteValue("a\u200bb"), '"a\\u200bb"');
+  assert.equal(quoteValue("\u202eabc\u00ad\u007f\u0085\u2028"), '"\\u202eabc\\u00ad\\u007f\\u0085\\u2028"');
+  assert.equal(quoteValue("x\ud800"), '"x\\ud800"');
+  assert.equal(quoteValue("a\u001bb\n"), '"a\\u001bb\\n"');
+  assert.equal(quoteValue("X".repeat(500)), `"${"X".repeat(200)}"…`);
+  assert.equal(lib.quoteValue, quoteValue);
+  assert.equal(filterKeyProblem("L\u200b")?.startsWith('Unknown filter "L\\u200b": '), true);
+});
+
+test("03 Bug 6: the library's KldB refusal quotes the value cut and escaped, never raw or whole", async () => {
+  const client = new lib.EntgeltatlasClient({ apiKey: "dummy-key-1234", transport: async () => { throw new Error("no request expected"); } });
+  await assert.rejects(client.entgelte("x".repeat(100_000)), (err: Error) => {
+    assert.ok(err instanceof EntgeltatlasValidationError);
+    assert.ok(err.message.length < 500, `${err.message.length}`);
+    assert.ok(err.message.includes(`"${"x".repeat(200)}"…`), err.message.slice(0, 300));
+    return true;
+  });
+  await assert.rejects(client.entgelte("84\u001b[2J04\u202e"), (err: Error) => {
+    assert.ok(!/[\u001b\u202e]/.test(err.message), err.message);
+    assert.ok(err.message.includes('"84\\u001b[2J04\\u202e"'), err.message);
+    return true;
+  });
+});
+
+test("a key echoed escaped (commander's echo, a quoted refusal) is still redacted (D10)", async () => {
+  const key = "secret\u00adkey1";
+  const o = await parity(["--api-key", key, "entgelte", "84304", "-l", key], () => undefined, { env: { ENTGELTATLAS_API_KEY: key } });
+  assert.equal(o.cli.code, 2);
+  assert.ok(o.cli.err.includes("***") || !o.cli.err.includes("secret"), o.cli.err);
+  assert.ok(!o.cli.err.includes("secret"), o.cli.err);
 });
