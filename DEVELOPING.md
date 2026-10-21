@@ -76,7 +76,7 @@ apps/cli/src/cli/
     index.ts     # #! bin shim
 ```
 
-Requires Node.js 22.12+ (`engines`); CI type-checks, builds and tests on Node 22/24.
+Requires Node.js 22.12+ (`engines`); CI type-checks, builds and tests on Node 22/24/26.
 
 Two seams keep everything testable in-process: **`Transport`** (the only HTTP
 seam; tests inject a mock) and **`CliDeps`** (client factory + I/O + `env`).
@@ -121,7 +121,7 @@ home) and `obtain-key` (`obtain-key.test.ts`, a mock transport) included, is in
 `apps/cli/test/`, and `apps/cli/test/helpers.ts` re-exports the client's helpers next to the
 CLI's own.
 
-CI (`ci.yml`) type-checks, builds and tests on Node 22/24, then packs the real tarball,
+CI (`ci.yml`) type-checks, builds and tests on Node 22/24/26, then packs the real tarball,
 checks the pack left nothing behind, installs it globally with the registry out of reach and
 runs the bin. `release.yml` (on a `v*` tag, made by `npm run bump`) verifies the tag against
 `apps/cli/package.json`, writes the SBOMs (scoped to the `apps/cli` workspace) and runs
