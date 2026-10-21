@@ -45,7 +45,7 @@ export interface EntgeltatlasClientOptions extends EngineOptions {
    * (normalizeApiKey); a key an HTTP header cannot carry throws an
    * EntgeltatlasValidationError. Obtain the public key with obtainKey() (see obtain-key.ts).
    */
-  apiKey?: string;
+  apiKey?: string | undefined;
 }
 
 /** A non-null, non-array JSON object. */

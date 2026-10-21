@@ -117,39 +117,39 @@ const FOLLOWED_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 export interface ObtainKeyOptions {
   /** Injectable transport; defaults to the built-in node:http/https one. */
-  transport?: Transport;
+  transport?: Transport | undefined;
   /** Override the source document (tests, mirrors). */
-  sourceUrl?: string;
+  sourceUrl?: string | undefined;
   /**
    * Time limit per request in milliseconds, whole response included. Defaults to
    * `DEFAULT_TIMEOUT_MS` (30 s), like the API client, so a stalled source cannot hang
    * `eval "$(entgeltatlas obtain-key --export)"`; 0 disables it. 0 to `MAX_TIMEOUT_MS`,
    * as in the API client; anything else rejects with an EntgeltatlasValidationError.
    */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /**
    * Cap on the response body in bytes. Defaults to `DEFAULT_MAX_RESPONSE_BYTES`
    * (100 MiB), like the API client; 0 disables it. A non-negative safe integer, as
    * in the API client; anything else rejects with an EntgeltatlasValidationError.
    */
-  maxResponseBytes?: number;
+  maxResponseBytes?: number | undefined;
   /**
    * Retries for a transient 429/503 from the key source, 0 to `MAX_RETRIES`
    * (default `DEFAULT_MAX_RETRIES`, 2), with the API client's policy: each waits
    * the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
    * retried), and never less than `retryDelayMs × attempt`.
    */
-  maxRetries?: number;
+  maxRetries?: number | undefined;
   /** Base backoff between retries in milliseconds (default 200, at most `MAX_RETRY_AFTER_MS`). */
-  retryDelayMs?: number;
+  retryDelayMs?: number | undefined;
   /** Injectable sleep, primarily for deterministic tests. */
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: ((ms: number) => Promise<void>) | undefined;
   /**
    * User-Agent header (default `DEFAULT_USER_AGENT`). Checked like the API client's:
    * a blank value or one an HTTP header cannot carry rejects with an
    * EntgeltatlasValidationError.
    */
-  userAgent?: string;
+  userAgent?: string | undefined;
 }
 
 export interface ObtainedKey {

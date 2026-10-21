@@ -111,7 +111,7 @@ npm run bump -- <patch|minor|major>  # bump apps/cli, commit, tag vX.Y.Z
 node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
 
-The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`),
+The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`, `types`),
 with the transport helpers and the fixtures (`helpers.ts`, `fixtures.ts`); everything that
 drives the CLI, the credentials file (`config.test.ts`, temporary directories, never the real
 home) and `obtain-key` (`obtain-key.test.ts`, a mock transport) included, is in
@@ -265,6 +265,12 @@ problem)` turns a reason into an `EntgeltatlasValidationError` with the message
 constructors throw). The CLI's value-parsers call the same functions, and `run.ts`
 maps an `EntgeltatlasValidationError` to exit `2` (an `ERROR` record of `entgeltatlas.cli`), so CLI and
 library accept and reject the same inputs.
+
+Every option field (`EntgeltatlasClientOptions`, `EngineOptions`, `EntgelteParams`,
+`EntgelteOptions`, `ObtainKeyOptions`, `DimensionCodeWording`) may be omitted or given as
+`undefined`, which means the same (the default), so `new EntgeltatlasClient({ apiKey:
+process.env.ENTGELTATLAS_API_KEY })` compiles under `exactOptionalPropertyTypes` too
+(`packages/client/test/types.test.ts` compiles such a consumer).
 
 The engine options are range-checked in the `RequestEngine` constructor (and the
 same way in `obtainKey()`): `timeoutMs` 0..`MAX_TIMEOUT_MS`, `maxRetries`

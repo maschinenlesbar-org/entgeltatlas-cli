@@ -54,15 +54,15 @@ export interface EntgeltEntry {
 /** Optional dimension filters for the salary lookup (all integer codes). */
 export interface EntgelteParams {
   /** l — performance/requirement level (1 Helfer .. 4 Experte). */
-  l?: number;
+  l?: number | undefined;
   /** r — region (1 Deutschland .. 30; irregular numbering, see `codes`). */
-  r?: number;
+  r?: number | undefined;
   /** g — gender (1 Gesamt, 2 Männer, 3 Frauen). */
-  g?: number;
+  g?: number | undefined;
   /** a — age band (1 Gesamt, 2 <25, 3 25–<55, 4 ≥55). */
-  a?: number;
+  a?: number | undefined;
   /** b — branch/industry (1 Gesamt .. 11). */
-  b?: number;
+  b?: number | undefined;
 }
 
 /** Options for `EntgeltatlasClient.entgelte()`. */
@@ -72,7 +72,7 @@ export interface EntgelteOptions {
    * the API adds after this release). Their values must be a string, a finite number or
    * a boolean; `__proto__`, `constructor` and `prototype` are never sent.
    */
-  allowUnknownFilters?: boolean;
+  allowUnknownFilters?: boolean | undefined;
 }
 
 /** An item from a reference/catalogue endpoint (/regionen, /geschlechter, ...). */

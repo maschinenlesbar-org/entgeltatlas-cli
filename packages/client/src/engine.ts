@@ -68,42 +68,42 @@ export interface EngineOptions {
    * breaks a rule of {@link validateBaseUrl} (unparseable, not http(s), a query or
    * fragment, surrounding whitespace) throws an EntgeltatlasValidationError.
    */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
-  transport?: Transport;
+  transport?: Transport | undefined;
   /**
    * Value of the User-Agent header (default `DEFAULT_USER_AGENT`). A blank value, a
    * control character other than tab, or a character above U+00FF throws an
    * EntgeltatlasValidationError.
    */
-  userAgent?: string;
+  userAgent?: string | undefined;
   /** Extra headers sent on every request (e.g. the X-API-Key); names and values are checked like `userAgent`. */
-  defaultHeaders?: Record<string, string>;
+  defaultHeaders?: Record<string, string> | undefined;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
    * only idle gaps: 0 to `MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables it. Enforced by
    * the engine for every transport: the transport gets an AbortSignal that fires at
    * the deadline, and the call rejects then whether the transport stops or not.
    */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /**
    * Number of automatic retries for transient (429/503) responses and reset
    * connections (`isTransientNetworkError`; GET/HEAD only), 0 to `MAX_RETRIES`
    * (default 2). Each waits the response's `Retry-After` (up to
    * `MAX_RETRY_AFTER_MS`; a longer one is not retried), or else `retryDelayMs * attempt`.
    */
-  maxRetries?: number;
+  maxRetries?: number | undefined;
   /**
    * Base backoff between retries in milliseconds (grows linearly; default 200, 0 to
    * `MAX_RETRY_AFTER_MS`). A Retry-After can lengthen a wait, never shorten it.
    */
-  retryDelayMs?: number;
+  retryDelayMs?: number | undefined;
   /**
    * Number of HTTP redirects (301/302/303/307/308) to follow, 0 to `MAX_REDIRECTS`.
    * Defaults to 5. Any other 3xx, one with a missing or malformed Location, and one
    * past this limit surface as an EntgeltatlasApiError naming the target.
    */
-  maxRedirects?: number;
+  maxRedirects?: number | undefined;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
@@ -113,14 +113,14 @@ export interface EngineOptions {
    * throws an EntgeltatlasValidationError otherwise (a negative or NaN timeout or
    * cap would silently switch that guard off).
    */
-  maxResponseBytes?: number;
+  maxResponseBytes?: number | undefined;
   /** Injectable sleep, primarily for deterministic tests. */
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: ((ms: number) => Promise<void>) | undefined;
   /**
    * Called once per retry, right before the backoff sleep, for each retried 429/503
    * and reset connection; never when there is no retry. A throw is swallowed.
    */
-  onRetry?: (event: RetryEvent) => void;
+  onRetry?: ((event: RetryEvent) => void) | undefined;
 }
 
 /** What `EngineOptions.onRetry` is told about one retry. */

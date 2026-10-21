@@ -137,9 +137,9 @@ export function filterKeyProblem(key: string, allowUnknown = false): string | un
 /** How a dimension-code reason names the code: a label (e.g. a CLI flag) and a hint. */
 export interface DimensionCodeWording {
   /** Put before "code" ("Unknown --region code 31"); omitted by default. */
-  label?: string;
+  label?: string | undefined;
   /** Appended in parentheses after the valid range. */
-  hint?: string;
+  hint?: string | undefined;
 }
 
 /**
