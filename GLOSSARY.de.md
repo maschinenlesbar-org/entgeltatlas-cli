@@ -26,7 +26,7 @@ ungefilterten Ausschnitt liefern könnte.
 | Flag | Parameter | Dimension | Codes |
 |---|---|---|---|
 | `-l` | `l` | **Anforderungsniveau** | 1 Helfer · 2 Fachkraft · 3 Spezialist · 4 Experte |
-| `-r` | `r` | **Region** | 1 Deutschland · 2 Ost · 3 West · 4–19 die 16 Länder · 20–30 elf Städte (**unregelmäßig** – nicht 1..16) |
+| `-r` | `r` | **Region** | 1 Deutschland · 2 Ost · 3 West · 4–19 die 16 Länder · 20–30 elf Städte (**unregelmäßig** – nicht 1..16). 2 Ost und 3 West stehen in der Liste, haben aber nie Zeilen geliefert (2026-10-21; die CLI warnt): vergleichen Sie stattdessen Länder |
 | `-g` | `g` | **Geschlecht** | 1 Gesamt · 2 Männer · 3 Frauen |
 | `-a` | `a` | **Alter** | 1 Gesamt · 2 unter 25 · 3 25 bis unter 55 · 4 ab 55 |
 | `-b` | `b` | **Branche** (Wirtschaftszweig) | 1 Gesamt … 11 (siehe `codes`) |

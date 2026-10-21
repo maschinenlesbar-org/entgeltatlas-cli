@@ -524,3 +524,24 @@ test("02 Bug 5: entgelte prints nothing and exits 1 when a row is of another occ
   assert.deepEqual(cli.out, []);
   assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.api\] GET \S+: the API answered another slice than the one requested: kldb 84304 was asked for, but row 0 has kldb "99999"/m);
 });
+
+test("01 Bug 1: an empty answer for Ost (-r 2) or West (-r 3) says the API has no rows for them, not 'suppressed'", async () => {
+  for (const [r, label] of [["2", "Ostdeutschland"], ["3", "Westdeutschland"]] as const) {
+    const cli = makeCli(() => jsonResponse([]));
+    assert.equal(await run([...KEY, "--compact", "entgelte", "71402", "-r", r, "-g", "1", "-a", "1", "-b", "1"], cli.deps), 0);
+    assert.deepEqual(cli.out, ["[]"], "stdout is unchanged");
+    assert.equal(
+      untimed(cli.err.join("\n")),
+      `WARN  [entgeltatlas.api] no rows for region ${r} (${label}): the API has answered every request for ` +
+        "Ostdeutschland (2) and Westdeutschland (3) with none, and leaves both out of an answer for all regions; " +
+        "this is not a suppressed figure. Compare Länder (4–19) or cities (20–30) instead.",
+    );
+  }
+  // Rows for them, or another region without rows: no such note.
+  const rows = makeCli(() => jsonResponse(fx.entgelteResult.map((row) => ({ ...row, region: { ...row.region, id: 2, bezeichnung: "Ostdeutschland" } }))));
+  assert.equal(await run([...KEY, "entgelte", "84304", "-r", "2"], rows.deps), 0);
+  assert.deepEqual(rows.err, []);
+  const other = makeCli(() => jsonResponse([]));
+  assert.equal(await run([...KEY, "entgelte", "84304", "-r", "17"], other.deps), 0);
+  assert.deepEqual(other.err, []);
+});

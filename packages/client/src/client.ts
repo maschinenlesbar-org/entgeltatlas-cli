@@ -30,19 +30,36 @@ import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } fro
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
 
+/** The regions the API has never answered with rows: Ostdeutschland and Westdeutschland. */
+const UNANSWERED_REGIONS: Readonly<Record<number, string>> = { 2: "Ostdeutschland", 3: "Westdeutschland" };
+
 /**
- * Why an empty answer for `kldb` is probably the code's level, not a lack of data, or undefined:
- * the API has answered every 4-digit code tried (8430, 4341, 8431 on 2026-10-15) with no rows,
- * though their 3-digit groups and 5-digit codes have figures. An empty array otherwise means "no
- * figure" (GLOSSARY.md), so the note is the only way to tell the two apart. 4-digit codes stay
- * accepted: a code the API does serve must not be refused on that evidence.
+ * Why an empty answer for `kldb` (with the dimension filters `params`) is probably the request,
+ * not a lack of data, or undefined. An empty array otherwise means "no figure" (GLOSSARY.md), so
+ * the note is the only way to tell them apart:
+ * - a 4-digit code: the API has answered every 4-digit code tried (8430, 4341, 8431 on
+ *   2026-10-15) with no rows, though their 3-digit groups and 5-digit codes have figures;
+ * - region 2 (Ostdeutschland) or 3 (Westdeutschland): every request for them answered no rows
+ *   (84304, 434, 71402 on 2026-10-21), and an answer for all regions leaves both out.
+ * The codes stay accepted: one the API does serve must not be refused on that evidence.
  */
-export function emptyAnswerNote(kldb: string, rows: readonly unknown[]): string | undefined {
-  if (rows.length > 0 || !/^[0-9]{4}$/.test(kldb)) return undefined;
-  return (
-    `no rows for the 4-digit KldB code ${kldb}: the API has answered every 4-digit code tried with none, ` +
-    `though the 3-digit group (${kldb.slice(0, 3)}) and the 5-digit codes (${kldb}x) have figures. Ask for one of those.`
-  );
+export function emptyAnswerNote(kldb: string, rows: readonly unknown[], params: EntgelteParams = {}): string | undefined {
+  if (rows.length > 0) return undefined;
+  if (/^[0-9]{4}$/.test(kldb)) {
+    return (
+      `no rows for the 4-digit KldB code ${kldb}: the API has answered every 4-digit code tried with none, ` +
+      `though the 3-digit group (${kldb.slice(0, 3)}) and the 5-digit codes (${kldb}x) have figures. Ask for one of those.`
+    );
+  }
+  const region = params.r === undefined ? undefined : UNANSWERED_REGIONS[params.r];
+  if (region !== undefined) {
+    return (
+      `no rows for region ${params.r} (${region}): the API has answered every request for Ostdeutschland (2) and ` +
+      "Westdeutschland (3) with none, and leaves both out of an answer for all regions; this is not a suppressed " +
+      "figure. Compare Länder (4–19) or cities (20–30) instead."
+    );
+  }
+  return undefined;
 }
 
 /** Options for the Entgeltatlas client (engine options plus the API key). */

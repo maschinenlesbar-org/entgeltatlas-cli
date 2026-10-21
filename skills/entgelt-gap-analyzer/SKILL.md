@@ -42,7 +42,11 @@ being compared, so the medians are comparable. `entgeltatlas codes` lists the co
 values.
 
 - **Gender gap** → vary `-g` (2 Männer vs 3 Frauen), same `-l`/`-r`/`-a`/`-b`.
-- **Regional** → vary `-r` (e.g. 2 Ost vs 3 West, or two Länder/cities).
+- **Regional** → vary `-r` between two Länder or cities (e.g. 12 Bayern vs 17 Sachsen).
+  **2 Ost and 3 West answer no rows** (an empty array plus a `WARN` saying so) — that
+  is not "Fallzahl zu klein". For an East vs West question, compare East and West
+  Länder (e.g. 17 Sachsen, 15 Brandenburg vs 12 Bayern, 11 Baden-Württemberg) and say
+  that the API offers no East/West aggregate.
 - **Level progression** → vary `-l` (1 Helfer → 4 Experte).
 
 ## Step 2 — Fetch one slice per point

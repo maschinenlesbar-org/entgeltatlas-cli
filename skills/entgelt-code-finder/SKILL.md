@@ -52,7 +52,9 @@ entgeltatlas branchen        # b codes
 
 Watch out: **region (`r`) numbering is irregular** — 1 Deutschland, 2 Ost, 3 West,
 4–19 the sixteen Länder, 20–30 eleven cities. It is *not* 1..16, so never guess a
-Bundesland by position; read it off `codes`/`regionen`.
+Bundesland by position; read it off `codes`/`regionen`. **2 Ost and 3 West are listed
+but answer no rows** (the CLI warns on stderr): don't offer them for a lookup; use a
+Land or a city.
 
 ## KldB occupation code
 

@@ -35,7 +35,7 @@ export function registerCommands(program: Command, deps: CliDeps): void {
         if (opts["branch"] !== undefined) params.b = opts["branch"] as number;
         const rows = await client.entgelte(kldb!, params);
         renderJson(deps, global, rows);
-        const note = emptyAnswerNote(kldb!, rows);
+        const note = emptyAnswerNote(kldb!, rows, params);
         if (note !== undefined) logOf(deps).warn("api", note);
       }),
     );

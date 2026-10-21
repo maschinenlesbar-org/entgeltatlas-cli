@@ -80,7 +80,7 @@ code is `1` ("GET <url>: the API answered another slice than the one requested")
 | Flag | Dimension | Values |
 |---|---|---|
 | `-l, --level <n>` | Anforderungsniveau | 1 Helfer · 2 Fachkraft · 3 Spezialist · 4 Experte |
-| `-r, --region <n>` | Region | 1 Deutschland … 30 (irregular; see `codes`/`regionen`) |
+| `-r, --region <n>` | Region | 1 Deutschland … 30 (irregular; see `codes`/`regionen`); 2 Ost and 3 West never answer rows |
 | `-g, --gender <n>` | Geschlecht | 1 Gesamt · 2 Männer · 3 Frauen |
 | `-a, --age <n>` | Alter | 1 Gesamt · 2 <25 · 3 25–<55 · 4 ≥55 |
 | `-b, --branch <n>` | Branche | 1 Gesamt … 11 |
@@ -89,6 +89,12 @@ A code outside these tables (the ones `codes` prints) is a usage error (exit 2) 
 any request: what the API does with an unknown code is not live-verified, and if it
 ignored the parameter you would silently get the unfiltered slice. Each flag takes one
 value: giving one twice (`-g 2 -g 3`) is a usage error too — run one call per slice.
+
+**Ost (`-r 2`) and West (`-r 3`) answer no rows.** The API lists them (`regionen`, `codes`),
+but every request for them answered `[]` (84304, 434 and 71402, 2026-10-21), and an answer for
+all regions leaves both out. The CLI then adds a `WARN` record of `entgeltatlas.api` saying
+so (stdout keeps the `[]`, exit code 0): it is not a suppressed figure. For East vs West,
+compare Länder (4–19) or cities (20–30).
 
 ```bash
 entgeltatlas entgelte 84304 -l 4 -r 11 -g 2      # Experte, Baden-Württemberg, Männer

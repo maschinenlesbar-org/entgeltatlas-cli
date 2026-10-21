@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EntgeltatlasClient, type EntgeltatlasClientOptions } from "../src/client.js";
+import { EntgeltatlasClient, emptyAnswerNote, type EntgeltatlasClientOptions } from "../src/client.js";
 import {
   EntgeltatlasParseError,
   EntgeltatlasSliceError,
@@ -273,4 +273,12 @@ test("02 Bug 5: a row of another occupation (kldb) is an EntgeltatlasSliceError,
   // A 3-digit group answers rows of that group; a padded request is compared as it was sent.
   const group = client(() => jsonResponse([{ ...row, kldb: "434" }]), { apiKey: "K" });
   assert.equal((await group.c.entgelte(" 434 ")).length, 1);
+});
+
+test("01 Bug 1: emptyAnswerNote names Ost/West as never answered", () => {
+  assert.match(emptyAnswerNote("84304", [], { r: 2 }) ?? "", /^no rows for region 2 \(Ostdeutschland\): /);
+  assert.match(emptyAnswerNote("434", [], { r: 3 }) ?? "", /^no rows for region 3 \(Westdeutschland\): /);
+  assert.equal(emptyAnswerNote("84304", [], { r: 17 }), undefined);
+  assert.equal(emptyAnswerNote("84304", [{}], { r: 2 }), undefined);
+  assert.equal(emptyAnswerNote("84304", []), undefined);
 });

@@ -25,7 +25,7 @@ tables), because the API might ignore it and return the unfiltered slice.
 | Flag | Param | Dimension | Codes |
 |---|---|---|---|
 | `-l` | `l` | **Anforderungsniveau** (requirement/performance level) | 1 Helfer · 2 Fachkraft · 3 Spezialist · 4 Experte |
-| `-r` | `r` | **Region** | 1 Deutschland · 2 Ost · 3 West · 4–19 the 16 Länder · 20–30 eleven cities (**irregular** — not 1..16) |
+| `-r` | `r` | **Region** | 1 Deutschland · 2 Ost · 3 West · 4–19 the 16 Länder · 20–30 eleven cities (**irregular** — not 1..16). 2 Ost and 3 West are listed but have answered no rows (2026-10-21; the CLI warns): compare Länder instead |
 | `-g` | `g` | **Geschlecht** | 1 Gesamt · 2 Männer · 3 Frauen |
 | `-a` | `a` | **Alter** | 1 Gesamt · 2 unter 25 · 3 25 bis unter 55 · 4 ab 55 |
 | `-b` | `b` | **Branche** (Wirtschaftszweig) | 1 Gesamt … 11 (see `codes`) |

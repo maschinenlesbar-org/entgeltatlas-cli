@@ -111,6 +111,9 @@ Rules — state these when they apply:
 - **Median ≠ mean** — don't call it "average".
 - **Irregular region codes** — `r` is not 1..16 Bundesländer (it interleaves
   Bund/Ost/West and cities); verify against `codes`/`regionen`.
+- **2 Ost and 3 West answer no rows** — an empty array with a `WARN` on stderr saying
+  so. Don't report it as "Fallzahl zu klein"; say the API offers no East/West figure
+  and offer a Land or a city.
 - **403 with an empty body is ambiguous** — a wrong or stale key and a refused network
   look the same (see the API-key paragraph above).
 - German labels (`bezeichnung`) — pass through, don't translate.
