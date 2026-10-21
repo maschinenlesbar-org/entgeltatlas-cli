@@ -223,7 +223,7 @@ test("a wrong-shaped 2xx body exits 1 with a shape error, not exit 0", async () 
   const code = await run([...KEY, "entgelte", "84304"], cli.deps);
   assert.equal(code, 1);
   assert.deepEqual(cli.out, []);
-  assert.match(cli.err.join("\n"), /Unexpected response shape from .*expected a JSON array of salary rows/);
+  assert.match(cli.err.join("\n"), /GET https:\/\/rest\.arbeitsagentur\.de\/\S*entgelte\/84304: unexpected response shape: expected a JSON array of salary rows/);
 });
 
 test("--max-retries is bounded to 0..10 (usage error, no request)", async () => {
@@ -365,7 +365,7 @@ test("02#1: entgelte prints nothing and exits 1 when the API answers another sli
   assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "11", "-g", "3"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
   // A malformed answer, the API's: a record of entgeltatlas.api (fix plan 2026-10-09, L9).
-  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.api\] The API answered another slice than the one requested/m);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.api\] GET https:\/\/rest\.arbeitsagentur\.de\/\S+: the API answered another slice than the one requested/m);
 });
 
 test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as in text (result 04 d19, C6)", async () => {

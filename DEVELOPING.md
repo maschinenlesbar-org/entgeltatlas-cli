@@ -330,9 +330,9 @@ pass, see GLOSSARY.md), and a
 reference endpoint a **non-empty** array of such codes. Anything else — a single
 object, an error object sent with a 200, a string, a HAL `_embedded` envelope, a salary
 row where a code was expected, an empty reference list — is an `EntgeltatlasParseError`
-(`Unexpected response shape from <path>: expected a JSON array of salary rows; element 0
+(`GET <url>: unexpected response shape: expected a JSON array of salary rows; element 0
 has no kldb text.`), and an empty or 204 body is one too
-(`Empty response body from <path>`), never `[]`: an empty array is the documented
+(`GET <url>: empty response body.`), never `[]`: an empty array is the documented
 "suppressed" answer, so the client must not produce one by coercion. A body holding a number
 JSON.parse cannot carry exactly is one too (`… the number … cannot be represented exactly.`),
 never a changed figure: one out of a double's range (`1e400`), one past 2^53 that prints as a
@@ -346,10 +346,18 @@ a double a server printed in its shortest form (`1E23`, `1.7976931348623157E308`
 the same double, prints as the same number and passes. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.
 
+Every error about an answer names the request, `GET <url>: …`, with the URL as the engine's
+`describeUrl` gives it (absolute, so a `--base-url` mirror's host is named; userinfo redacted;
+cut at 500 characters), like a network error: the shape errors above, the slice error below, a
+body that is not JSON (`the answer is not valid JSON`, naming a Content-Type other than JSON:
+`(expected JSON, got Content-Type "text/html")`), an empty body (`empty response body`), an
+inexact number and an unknown charset (`unsupported response charset "…"`).
+
 **The requested slice (result 02, Bug 1).** Every row carries the ids of its slice, and
 `entgelte()` compares them with the dimension filters it sent
 (`assertRequestedSlice`): a row whose `performanceLevel`/`region`/`gender`/`ageCategory`/
-`branche` id differs from `l`/`r`/`g`/`a`/`b` is an `EntgeltatlasSliceError` (an
+`branche` id differs from `l`/`r`/`g`/`a`/`b` is an `EntgeltatlasSliceError` (`GET <url>: the API
+answered another slice than the one requested: r=11 was asked for, but row 0 has …`; an
 `EntgeltatlasParseError` with `param`, `requested`, `received`, `row`; CLI exit 1, an ERROR record of `entgeltatlas.api`, nothing
 on stdout). A server that ignores a filter would otherwise hand back the Deutschland /
 Gesamt figure as the answer. An omitted dimension is not checked: the API then answers one

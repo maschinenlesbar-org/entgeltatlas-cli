@@ -86,7 +86,7 @@ const ROW_FIELD: Record<DimensionParam, (typeof ROW_DIMENSIONS)[number]> = {
  * dimension is not checked: the API answers one row per value of it (recorded live on
  * 2026-10-06: all four age bands for an omitted `a`).
  */
-function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknown>, path: string): void {
+function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknown>, request: string): void {
   for (const param of DIMENSION_PARAMS) {
     const wanted = query[param];
     if (wanted === undefined) continue;
@@ -95,7 +95,7 @@ function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknow
       const got = row[field];
       if (got.id !== wanted) {
         throw new EntgeltatlasSliceError(
-          `The API answered another slice than the one requested from ${path}: ${param}=${String(wanted)} was ` +
+          `${request}: the API answered another slice than the one requested: ${param}=${String(wanted)} was ` +
             `asked for, but row ${i} has ${field}.id ${got.id} (${quoteLabel(got.bezeichnung)}). It may have ` +
             "ignored the filter; no figure is returned rather than the wrong one.",
           { param, requested: wanted as number, received: got.id, row: i },
@@ -134,26 +134,27 @@ function entgeltRowProblem(value: unknown): string | undefined {
  * element. Anything else (an error object with a 200, a string, a HAL envelope, a
  * salary row where a code was expected) is not data and must not be printed as an
  * observation or turned into an empty — i.e. "suppressed" — result: it is an
- * EntgeltatlasParseError (CLI exit 1).
+ * EntgeltatlasParseError (CLI exit 1) naming the request (`GET <url>: unexpected response
+ * shape: …`, the URL as the engine's describeUrl gives it).
  */
 function assertArrayOf<T>(
   body: unknown,
-  path: string,
+  request: string,
   what: string,
   itemProblem: (value: unknown) => string | undefined,
   allowEmpty: boolean,
 ): T[] {
   if (!Array.isArray(body)) {
-    throw new EntgeltatlasParseError(`Unexpected response shape from ${path}: expected a JSON array of ${what}.`);
+    throw new EntgeltatlasParseError(`${request}: unexpected response shape: expected a JSON array of ${what}.`);
   }
   if (!allowEmpty && body.length === 0) {
-    throw new EntgeltatlasParseError(`Unexpected response from ${path}: an empty list (this list is never empty).`);
+    throw new EntgeltatlasParseError(`${request}: an empty list (this list is never empty).`);
   }
   for (let i = 0; i < body.length; i++) {
     const problem = itemProblem(body[i]);
     if (problem !== undefined) {
       throw new EntgeltatlasParseError(
-        `Unexpected response shape from ${path}: expected a JSON array of ${what}; element ${i} ${problem}.`,
+        `${request}: unexpected response shape: expected a JSON array of ${what}; element ${i} ${problem}.`,
       );
     }
   }
@@ -236,8 +237,9 @@ export class EntgeltatlasClient {
     const res = await this.#engine.getJson<unknown>(path, query);
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
-    const rows = assertArrayOf<EntgeltEntry>(res, path, "salary rows", entgeltRowProblem, true);
-    assertRequestedSlice(rows, query, path);
+    const request = `GET ${this.#engine.describeUrl(path, query)}`;
+    const rows = assertArrayOf<EntgeltEntry>(res, request, "salary rows", entgeltRowProblem, true);
+    assertRequestedSlice(rows, query, request);
     return rows;
   }
 
@@ -262,7 +264,7 @@ export class EntgeltatlasClient {
     const path = `${SERVICE}/${name}`;
     return assertArrayOf<ReferenceItem>(
       await this.#engine.getJson<unknown>(path),
-      path,
+      `GET ${this.#engine.describeUrl(path)}`,
       "codes ({id, bezeichnung})",
       labelledCodeProblem,
       false,

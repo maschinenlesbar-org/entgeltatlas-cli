@@ -327,15 +327,15 @@ const FOLLOWED_REDIRECTS = new Set([301, 302, 303, 307, 308]);
  * none). TextDecoder drops a leading byte order mark, which Buffer#toString keeps and
  * JSON.parse then rejects, so a BOM added by a gateway cannot turn a valid answer into
  * a parse error, and an `iso-8859-1` body keeps its umlauts. An unknown charset label
- * is an EntgeltatlasParseError naming it and `where`. Shared with obtainKey().
+ * is an EntgeltatlasParseError naming it and `request` (`GET <url>`). Shared with obtainKey().
  */
-export function decodeBody(body: Buffer, contentType: string, where: string): string {
+export function decodeBody(body: Buffer, contentType: string, request: string): string {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new EntgeltatlasParseError(`Unsupported response charset "${cutForMessage(sanitizeServerText(charset))}" from ${where}.`);
+    throw new EntgeltatlasParseError(`${request}: unsupported response charset "${cutForMessage(sanitizeServerText(charset))}".`);
   }
   return decoder.decode(body);
 }
@@ -827,6 +827,15 @@ export class RequestEngine {
     return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
+  /**
+   * The request URL as error messages show it: absolute (so a message names the host
+   * that gave a bad answer, which matters with a custom base URL), userinfo redacted
+   * and cut at 500 characters.
+   */
+  describeUrl(path: string, query?: QueryParams): string {
+    return cutForMessage(redactUrl(this.buildUrl(path, query)), MAX_DETAIL_LENGTH);
+  }
+
   /** Perform a request with Accept negotiation and transient-error retries. */
   async request(
     method: string,
@@ -973,26 +982,34 @@ export class RequestEngine {
     }
   }
 
-  /** Perform a GET expecting JSON and parse it into `T`. */
+  /**
+   * Perform a GET expecting JSON and parse it into `T`. Every error about the answer names
+   * the request (`GET <url>: …`, userinfo redacted).
+   */
   async getJson<T>(path: string, query?: QueryParams, accept = "application/json"): Promise<T> {
     const res = await this.request("GET", path, { query, accept });
-    const text = decodeBody(res.data, res.contentType, path);
+    const request = `GET ${this.describeUrl(path, query)}`;
+    const text = decodeBody(res.data, res.contentType, request);
     // Every endpoint answers a JSON document; a 204 or an empty body is not "no
     // data" (that is an empty array), so it is an error rather than null.
     if (res.status === 204 || text.trim().length === 0) {
-      throw new EntgeltatlasParseError(`Empty response body from ${path}`);
+      throw new EntgeltatlasParseError(`${request}: empty response body.`);
     }
     let parsed: T;
     try {
       parsed = JSON.parse(text) as T;
     } catch (cause) {
-      throw new EntgeltatlasParseError(`Failed to parse JSON response from ${path}`, { cause });
+      // An HTML maintenance or proxy page is the usual non-JSON answer: name its type,
+      // so it reads as an upstream problem rather than a client bug.
+      const type = res.contentType.split(";")[0]?.trim() ?? "";
+      const hint = type !== "" && !/json/i.test(type) ? ` (expected JSON, got Content-Type "${cleanDetail(type)}")` : "";
+      throw new EntgeltatlasParseError(`${request}: the answer is not valid JSON${hint}.`, { cause });
     }
     // JSON.parse rounds a number past 2^53, turns an out-of-range literal into Infinity and a
     // too-small one into 0, silently: refuse the answer rather than print a changed figure.
     const inexact = firstInexactNumber(text);
     if (inexact !== undefined) {
-      throw new EntgeltatlasParseError(`Unexpected response from ${path}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);
+      throw new EntgeltatlasParseError(`${request}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);
     }
     return parsed;
   }

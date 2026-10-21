@@ -72,7 +72,7 @@ omitted flag sends no parameter, and the API answers one row per value of that
 dimension (all four age bands for an omitted `-a`; recorded live on 2026-10-06), so pass
 the dimensions you mean. Every row is checked against the flags given: if the API
 answers another slice (a `Deutschland` row for `-r 11`), nothing is printed and the exit
-code is `1` ("The API answered another slice than the one requested"). Run
+code is `1` ("GET <url>: the API answered another slice than the one requested"). Run
 `entgeltatlas codes` to see all the numbers.
 
 | Flag | Dimension | Values |

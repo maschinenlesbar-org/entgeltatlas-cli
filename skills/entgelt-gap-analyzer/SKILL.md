@@ -58,7 +58,7 @@ Pull `entgelt` (median) from the row whose labels (`region`, `gender`, `ageCateg
 `performanceLevel`, `branche`) match the slice; don't assume `[0]` is it, since an
 omitted flag returns one row per value of that dimension. Each flag takes one value
 (`-g 2 -g 3` is a usage error), and a call whose answer is another slice than the one
-asked for exits `1` with nothing on stdout ("The API answered another slice …"): leave
+asked for exits `1` with nothing on stdout ("the API answered another slice …"): leave
 that point out and say why. Keep `besetzung` (headcount) — a tiny
 `besetzung` makes a comparison unreliable, and a suppressed slice has no number
 at all.

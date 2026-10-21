@@ -56,7 +56,7 @@ test("entgelte rejects a body that is not an array of objects", async () => {
       (err) =>
         err instanceof EntgeltatlasParseError &&
         err.message.startsWith(
-          "Unexpected response shape from /infosysbub/entgeltatlas/pc/v1/entgelte/84304: expected a JSON array of salary rows",
+          "GET https://rest.arbeitsagentur.de/infosysbub/entgeltatlas/pc/v1/entgelte/84304: unexpected response shape: expected a JSON array of salary rows",
         ),
       JSON.stringify(body),
     );
@@ -102,7 +102,7 @@ test("a reference endpoint returning a non-array is a parse error, not []", asyn
       () => c.branchen(),
       (err) =>
         err instanceof EntgeltatlasParseError &&
-        /^Unexpected response shape from \/infosysbub\/entgeltatlas\/pc\/v1\/branchen: expected a JSON array of codes/.test(err.message),
+        /^GET https:\/\/rest\.arbeitsagentur\.de\/infosysbub\/entgeltatlas\/pc\/v1\/branchen: unexpected response shape: expected a JSON array of codes/.test(err.message),
       JSON.stringify(body),
     );
   }
@@ -175,6 +175,7 @@ test("02#1: a row of another slice than the one requested is an EntgeltatlasSlic
       err.param === "r" &&
       err.requested === 11 &&
       err.received === 1 &&
+      err.message.startsWith("GET https://rest.arbeitsagentur.de/infosysbub/entgeltatlas/pc/v1/entgelte/84304?l=4&r=11&g=3: the API answered another slice") &&
       /r=11 was asked for, but row 0 has region.id 1 \("Deutschland"\)/.test(err.message),
   );
   // The matching slice passes, and an omitted dimension may come back as several rows.

@@ -44,7 +44,7 @@ test("getJson rejects an empty or 204 body with EntgeltatlasParseError", async (
     const e = new RequestEngine({ transport: mt.transport });
     await assert.rejects(
       () => e.getJson("/x"),
-      (err) => err instanceof EntgeltatlasParseError && err.message === "Empty response body from /x",
+      (err) => err instanceof EntgeltatlasParseError && err.message === "GET https://rest.arbeitsagentur.de/x: empty response body.",
     );
   }
 });
@@ -63,7 +63,7 @@ test("a number the JSON cannot carry exactly is a parse error, never a changed v
     const e = new RequestEngine({ transport: makeMockTransport(() => rawResponse(body(n), "application/json")).transport });
     await assert.rejects(e.getJson("/items/a"), (err: unknown) => {
       assert.ok(err instanceof EntgeltatlasParseError, n);
-      assert.equal(err.message, `Unexpected response from /items/a: the number ${n} cannot be represented exactly.`);
+      assert.equal(err.message, `GET https://rest.arbeitsagentur.de/items/a: the number ${n} cannot be represented exactly.`);
       return true;
     });
   }
@@ -434,7 +434,7 @@ test("own messages quote a server or user value at most 200 characters long (L3)
   const redirect = new RequestEngine({ maxRedirects: 0, transport: async () => ({ status: 302, headers: { location: `https://other.test/${long}` }, body: Buffer.alloc(0) }) });
   await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.test\/x+… not followed/.test(err.message));
   const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
-  await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /Unsupported response charset "x+…"/.test(err.message));
+  await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /unsupported response charset "x+…"/.test(err.message));
   assert.match(filterKeyProblem(long) ?? "", /^Unknown filter "x{200}…": /);
   assert.match(baseUrlProblem(`https://${long}:99999`) ?? "", /^Invalid URL "https:\/\/x{192}…"\.$/);
   const hint = credentialsDroppedHint({ from: "https://a.test/p", to: `https://b.test/${long}` });
@@ -608,4 +608,30 @@ test("a header named __proto__ is an ordinary header, never the prototype of the
   const fetchLike = new Headers([["__proto__", "x"], ["content-type", "application/json"]]);
   const f = new RequestEngine({ transport: async () => ({ status: 200, headers: fetchLike as unknown as Record<string, string>, body: Buffer.from('{"a":1}') }) });
   assert.deepEqual(await f.getJson("/x"), { a: 1 });
+});
+
+test("an answer error names the request: method and URL, userinfo redacted (D9)", async () => {
+  const answers: Array<[string, () => HttpResponse]> = [
+    ["not valid JSON", () => rawResponse("<html>", "text/html")],
+    ["empty response body", () => rawResponse(" ", "application/json")],
+    ["cannot be represented exactly", () => rawResponse('{"n":1e400}', "application/json")],
+    ["unsupported response charset", () => rawResponse("{}", "application/json; charset=x-bogus")],
+  ];
+  const base = new URL("https://rest.arbeitsagentur.de");
+  base.username = "alice";
+  base.password = "s3cret";
+  for (const [what, respond] of answers) {
+    const e = new RequestEngine({ baseUrl: base.href, transport: makeMockTransport(respond).transport });
+    await assert.rejects(e.getJson("/items", { q: "x" }), (err: unknown) => {
+      assert.ok(err instanceof EntgeltatlasParseError, what);
+      assert.ok(err.message.startsWith(`GET ${base.protocol}//***@${base.host}`), err.message);
+      assert.ok(err.message.includes("/items?q=x: ") && err.message.includes(what), err.message);
+      assert.ok(!err.message.includes("s3cret"), err.message);
+      return true;
+    });
+  }
+  // A non-JSON answer names its Content-Type, so it reads as an upstream page, not a client bug.
+  const html = new RequestEngine({ transport: makeMockTransport(() => rawResponse("<html>", "text/html; charset=utf-8")).transport });
+  await assert.rejects(html.getJson("/x"), (err: Error) =>
+    err.message === 'GET https://rest.arbeitsagentur.de/x: the answer is not valid JSON (expected JSON, got Content-Type "text/html").');
 });

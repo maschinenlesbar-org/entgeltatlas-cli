@@ -78,7 +78,7 @@ Returns a JSON array of observations; each has `entgelt` (median),
 `entgeltQ25`/`entgeltQ75` (quartiles), `besetzung` (headcount), and the labelled
 dimensions (`region`, `gender`, `ageCategory`, `performanceLevel`, `branche`, each
 `{id, bezeichnung}`). If the API answers another slice than the one you asked for (a
-`Deutschland` row for `-r 11`), the CLI prints nothing and exits `1` with "The API
+`Deutschland` row for `-r 11`), the CLI prints nothing and exits `1` with "the API
 answered another slice than the one requested" — report that, never a figure. If the
 array holds several rows (an omitted flag), pick by label, not by position.
 
