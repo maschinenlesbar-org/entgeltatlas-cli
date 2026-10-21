@@ -7,7 +7,7 @@ import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
 import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import { API_KEY_ENV_VAR } from "./io.js";
-import { COMMAND_NAMES } from "./shared.js";
+import { COMMAND_NAMES, OutputError } from "./shared.js";
 import {
   EntgeltatlasApiError,
   EntgeltatlasError,
@@ -373,10 +373,12 @@ export function processLogger(argv: readonly string[], env: Record<string, strin
  * The log area of an `EntgeltatlasError` that is neither an API error, a network error
  * nor a usage error: a malformed answer (`api`: bad JSON, the wrong shape, another slice
  * than the one requested, an unknown charset — the API's answer as much as an error
- * status is), else `cli`.
+ * status is), an answer that can't be printed (`output`: nested too deeply, too large),
+ * else `cli`.
  */
 function areaOf(err: EntgeltatlasError): string {
   if (err instanceof EntgeltatlasParseError) return "api";
+  if (err instanceof OutputError) return "output";
   return "cli";
 }
 

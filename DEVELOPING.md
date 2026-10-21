@@ -447,6 +447,18 @@ shared check.
   `entgeltatlas.output` (`Could not write to stdout: …`, in the format argv asks for:
   `processLogger`) and exits 1; any other stderr write error exits 1 silently.
   `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
+- **Rendering** (`renderJson` in `shared.ts`). An answer that can't be printed is an
+  `OutputError`, an ERROR record of `entgeltatlas.output` (exit `1`) that names the cause,
+  never a stack overflow or "Unexpected error": "The answer is nested too deeply to
+  pretty-print" (or "to print" with `--compact`), or "The answer is too large (more than
+  536870888 characters of JSON) to pretty-print", V8's longest string. "; try --compact" is
+  added only when the compact form of that very answer prints: it is probed, not assumed,
+  because that depends on the Node version and the stack. `--compact` takes V8's fast path
+  (`JSON.stringify(value)`) unless the answer holds a string or key of 64 Mi characters or
+  more (`holdsHugeString`: iterative, linear, an array walked by index and an object by
+  `for…in`, nothing allocated per value), which goes through the gap path (an empty gap, the
+  same text): on Node 26 the fast path aborts the process on a ~250 MB string from
+  JSON.parse, but it is also the only path that prints very deep nesting there.
 - Printed JSON is terminal-safe (`escapeControlChars` in `shared.ts`): the characters
   `JSON.stringify` leaves raw although a terminal acts on them — DEL, the C1 range
   U+0080–U+009F and the bidi controls (`isBidiControl`, exported by the library: U+061C,
@@ -562,7 +574,8 @@ stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer
 answer, an `EntgeltatlasParseError`: bad JSON, the wrong shape, another slice than the
 one requested, an unknown charset; and text replaced with U+FFFD, as `WARN`), `http` (the connection, the size-cap
 hint, the cleartext warning), `config`, `obtain-key` (its provenance note, and an
-error from the key source) and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics
+error from the key source) and `output` (a failed write to stdout, an answer too deeply
+nested or too large to print). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.
 `run()` builds the logger from argv before commander parses it (`logFormatFromArgv`: the
 first `--log-format`, the value of one of the program's own value options skipped, used only for the

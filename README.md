@@ -143,7 +143,7 @@ Data goes to stdout; errors, warnings and notes go to stderr. Each line on stder
 program and the area it comes from (`entgeltatlas.cli` for usage errors,
 `entgeltatlas.api` for the API's answers (a malformed one included) and the 401/403 hint, `entgeltatlas.http` for
 the connection, `entgeltatlas.config`, `entgeltatlas.obtain-key`, `entgeltatlas.output` for
-a failed write to stdout). An error about an answer names the request
+a failed write to stdout and an answer too deeply nested or too large to print). An error about an answer names the request
 (`GET <url>: the answer is not valid JSON`). Text in an answer is never changed silently:
 bytes that are not valid in its charset and half characters (lone surrogates) are replaced
 with U+FFFD, so the output stays readable for `jq`, and a `WARN` record of
