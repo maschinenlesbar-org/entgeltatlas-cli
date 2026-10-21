@@ -314,7 +314,13 @@ request, or both send the identical request.
 `apps/cli/test/conformance-p24-input-corpus.test.ts` (P24) runs one corpus of tricky values
 through every id that goes into a path (the KldB code; this API has no free-text filter) on both
 sides, and `conformance-p25-response-corpus.test.ts` (P25) a corpus of numbers a double can and
-can't carry, and an empty body, through `entgelte`; their bodies are shared across the *-cli repos.
+can't carry, and an empty body, through `entgelte` (the error naming the request); P26
+(`conformance-p26-output-integrity`) checks that stdout redirected to a file and cut short is an
+`ERROR` record with exit 1 (its `-o` tests are skipped, `HAS_OUTPUT_OPTION = false`: this CLI has
+no `-o`), and P27 (`conformance-p27-big-and-odd-answers`) big and odd answers (8 M numbers with
+`--compact` and 20 MB of DEL characters under a small heap, a text past V8's longest string once
+escaped, invalid text replaced with U+FFFD and a `WARN`); their bodies are shared across the
+*-cli repos.
 
 ### One data endpoint, a bare array
 
@@ -445,7 +451,10 @@ shared check.
   EPIPE on stderr is ignored, so a failed run keeps its own exit code (`2>&1 | true` no
   longer turns a usage error into 0). Any other stdout write error is an ERROR record of
   `entgeltatlas.output` (`Could not write to stdout: …`, in the format argv asks for:
-  `processLogger`) and exits 1; any other stderr write error exits 1 silently.
+  `processLogger`) and exits 1 — also a write cut short when stdout is a regular file
+  (`> out.json` under a file-size limit or on a full disk: EFBIG, ENOSPC), which
+  `stdoutWriter` (`io.ts`) writes with `writeAll` and reports as stdout's `error`, where
+  Node's stream ignored the short count and exited 0; any other stderr write error exits 1 silently.
   `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
 - **Rendering** (`renderJson` in `shared.ts`). An answer that can't be printed is an
   `OutputError`, an ERROR record of `entgeltatlas.output` (exit `1`) that names the cause,

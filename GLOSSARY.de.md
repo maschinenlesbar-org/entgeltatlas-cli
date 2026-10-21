@@ -81,7 +81,7 @@ damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`nu
   (die Antworten der API: ein Fehlerstatus und der 401/403-Hinweis danach sowie eine
   fehlerhafte Antwort – ungültiges JSON, die falsche Form, ein anderer Ausschnitt als der
   angefragte), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten), `config`, `obtain-key` und
-  `output` (ein Schreibfehler auf stdout, eine Antwort, die zu tief verschachtelt oder zu
+  `output` (ein Schreibfehler oder ein abgeschnittenes Schreiben auf stdout, eine Antwort, die zu tief verschachtelt oder zu
   groß zum Ausgeben ist). Ein Eintrag ist immer eine Zeile; Steuerzeichen
   darin werden maskiert.
 - **Ersetzter Text** – Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe

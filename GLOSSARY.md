@@ -76,7 +76,7 @@ CLI pass all of these through unchanged.
   commander's messages, unexpected errors, Node's process warnings), `api` (the API's answers: an error status and
   the 401/403 hint after it, and a malformed answer — bad JSON, the wrong shape, another
   slice than the one requested), `http` (the connection, the cleartext warning, and one WARN per retry before it waits),
-  `config`, `obtain-key` and `output` (a failed write to stdout, an answer too deeply nested or
+  `config`, `obtain-key` and `output` (a failed or cut-short write to stdout, an answer too deeply nested or
   too large to print). A record is always one
   line; control characters in it are escaped.
 - **Replaced text** — bytes of an answer that are not valid in its charset, and half
