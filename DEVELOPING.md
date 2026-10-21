@@ -311,6 +311,10 @@ and for redirect targets. `--base-url` calls the same `baseUrlProblem`.
 tests: `parity()` in `apps/cli/test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a
 request, or both send the identical request.
+`apps/cli/test/conformance-p24-input-corpus.test.ts` (P24) runs one corpus of tricky values
+through every id that goes into a path (the KldB code; this API has no free-text filter) on both
+sides, and `conformance-p25-response-corpus.test.ts` (P25) a corpus of numbers a double can and
+can't carry, and an empty body, through `entgelte`; their bodies are shared across the *-cli repos.
 
 ### One data endpoint, a bare array
 
