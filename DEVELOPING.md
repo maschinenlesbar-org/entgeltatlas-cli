@@ -479,7 +479,11 @@ shared check.
   U+FFFD.`), and the CLI's `action()` logs it as a `WARN` record of `entgeltatlas.api`. A throw
   in the hook is swallowed. `obtainKey()` decodes the same way; a key holding a U+FFFD does
   not match `KEY_FORMAT`. `apps/cli/test/conformance-p27-big-and-odd-answers.test.ts` (P27) checks
-  it on both sides.
+  it on both sides. A body too large to become one string (512 MB and more, possible only with
+  `maxResponseBytes: 0` or `--max-response-bytes 0`) is an `EntgeltatlasParseError`, `GET <url>:
+  the answer is too large to read as text (N bytes; the longest string is 536870888
+  characters).`, not a plain `Error` ("Unexpected error" in the CLI); an error status with such a
+  body keeps its `EntgeltatlasApiError`, without the body.
 - A body is decoded by the charset its Content-Type declares (`decodeBody`, UTF-8 when it
   names none; a leading BOM is dropped; an unknown label is an `EntgeltatlasParseError`
   naming it), in the client and in `obtainKey()`.
