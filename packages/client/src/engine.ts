@@ -495,12 +495,19 @@ export function checkResponse(raw: unknown, method: string, url: string, maxResp
 }
 
 /**
- * A transport failure as an EntgeltatlasError. The default transport rejects with an
- * EntgeltatlasNetworkError already (passed through); an injected one may throw
- * anything (a TypeError from fetch, a string, null), which is wrapped naming the
- * request, with the original as `cause`. Shared with obtainKey().
+ * A transport failure as an EntgeltatlasError naming the request:
+ * `<METHOD> <url> failed: <reason>` (userinfo redacted), with the original as `cause`.
+ * The default transport's own errors (a timeout, the size cap, a refused connection, a
+ * DNS failure) and the engine's deadline and size cap carry no URL and get the prefix;
+ * one that names the request already is passed through. An injected transport may
+ * throw anything (a TypeError from fetch, a string, null), which is wrapped the same
+ * way. Shared with obtainKey().
  */
 export function transportError(method: string, url: string, cause: unknown): EntgeltatlasError {
+  const prefix = `${method} ${redactUrl(url)} failed: `;
+  if (cause instanceof EntgeltatlasNetworkError) {
+    return cause.message.startsWith(prefix) ? cause : new EntgeltatlasNetworkError(`${prefix}${cause.message}`, { cause });
+  }
   if (cause instanceof EntgeltatlasError) return cause;
   const reason =
     cause instanceof Error && cause.message.trim() !== ""
@@ -508,9 +515,7 @@ export function transportError(method: string, url: string, cause: unknown): Ent
       : typeof cause === "string" && cause.trim() !== ""
         ? cause
         : "the transport failed without a message";
-  return new EntgeltatlasNetworkError(`${method} ${redactUrl(url)} failed: ${cleanDetail(reason)}`, {
-    cause,
-  });
+  return new EntgeltatlasNetworkError(`${prefix}${cleanDetail(reason)}`, { cause });
 }
 
 /**

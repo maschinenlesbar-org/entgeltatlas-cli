@@ -92,8 +92,11 @@ object, a `Map` or any name case is normalised by `plainHeaders`, so `Retry-Afte
 `Location` are always seen) and a byte body (any `ArrayBuffer` view, an `ArrayBuffer`
 or a string, from any realm), and applies `maxResponseBytes` to the body it got back
 (`sizeLimitMessage` names the option and `--max-response-bytes`). Whatever a transport
-throws becomes an `EntgeltatlasNetworkError` with the original as `cause`
-(`transportError`), and a reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's
+throws becomes an `EntgeltatlasNetworkError` naming the request, with the original as `cause`
+(`transportError`): the built-in transport's own errors and the engine's deadline and size cap
+too (`GET <url> failed: Request timed out after 500ms`, `… failed: connect ECONNREFUSED …`,
+`… failed: getaddrinfo ENOTFOUND …`, `… failed: Response exceeded maxResponseBytes …`, the
+userinfo redacted; `obtainKey()` names its source the same way), and a reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's
 `UND_ERR_SOCKET`, anywhere in the `cause` chain) of a GET is retried like a 503. A
 redirect to a non-http(s) target (`file:`, `data:`, `javascript:`) is never handed to
 the transport. `obtainKey()` uses the same helpers.

@@ -6,7 +6,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "@maschinenlesbar.org/entgeltatlas-client/internal/http";
 import { makeMockTransport, jsonResponse, rawResponse, queryOf, untimed } from "./helpers.js";
 import * as fx from "@maschinenlesbar.org/entgeltatlas-client/test/fixtures";
-import { credentialsIn } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
+import { EntgeltatlasNetworkError, credentialsIn } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 
 function makeCli(
   responder: (req: HttpRequest) => HttpResponse,
@@ -118,6 +118,19 @@ test("DEL and C1 control characters in server data are escaped in the JSON outpu
     assert.match(text, /Deutschland\\u007f\\u0085\\u009b2J/);
     assert.deepEqual(JSON.parse(text), served);
   }
+});
+
+test("a refused connection names the request in its ERROR record and exits 6", async () => {
+  const cli = makeCli(() => {
+    throw new EntgeltatlasNetworkError("connect ECONNREFUSED 127.0.0.1:443");
+  });
+  const code = await run([...KEY, "regionen"], cli.deps);
+  assert.equal(code, 6);
+  assert.match(
+    untimed(cli.err.join("\n")),
+    /^ERROR \[entgeltatlas\.http\] GET https:\/\/rest\.arbeitsagentur\.de\/infosysbub\/entgeltatlas\/pc\/v1\/regionen failed: connect ECONNREFUSED 127\.0\.0\.1:443$/,
+  );
+  assert.deepEqual(cli.out, []);
 });
 
 test("a 403 exits 3 with a hint that names both a wrong key and a refused network", async () => {

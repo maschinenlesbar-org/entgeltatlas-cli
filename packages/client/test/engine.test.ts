@@ -530,6 +530,40 @@ test("onRetry must be a function", () => {
   assert.throws(() => new RequestEngine({ onRetry: 5 as never }), EntgeltatlasValidationError);
 });
 
+test("a timeout, the size cap, a refused connection and a DNS failure name the request", async () => {
+  // They said only "Request timed out after 20ms", "Response exceeded maxResponseBytes (…)",
+  // "connect ECONNREFUSED 127.0.0.1:9" and "getaddrinfo ENOTFOUND …", where a reset says
+  // "GET <url> failed: socket hang up".
+  const url = "http://127.0.0.1:9/infosysbub/entgeltatlas/pc/v1/regionen";
+  const refused = new EntgeltatlasNetworkError("connect ECONNREFUSED 127.0.0.1:9");
+  const dns = new EntgeltatlasNetworkError("getaddrinfo ENOTFOUND rest.invalid");
+  const cases: Array<[string, ConstructorParameters<typeof RequestEngine>[0], RegExp, unknown]> = [
+    ["engine deadline", { transport: () => new Promise<HttpResponse>(() => {}), timeoutMs: 20 }, /^Request timed out after 20ms$/, undefined],
+    ["size cap", { transport: async () => rawResponse("x".repeat(100), "application/json"), maxResponseBytes: 10 }, /^Response exceeded maxResponseBytes \(10 bytes/, undefined],
+    ["refused", { transport: async () => { throw refused; } }, /^connect ECONNREFUSED 127\.0\.0\.1:9$/, refused],
+    ["dns", { transport: async () => { throw dns; } }, /^getaddrinfo ENOTFOUND rest\.invalid$/, dns],
+  ];
+  for (const [name, options, reason, cause] of cases) {
+    const e = new RequestEngine({ baseUrl: "http://user:pw@127.0.0.1:9", maxRetries: 0, ...options });
+    await assert.rejects(e.getJson("/infosysbub/entgeltatlas/pc/v1/regionen"), (err) => {
+      assert.ok(err instanceof EntgeltatlasNetworkError, name);
+      assert.ok(err.message.startsWith(`GET ${url} failed: `), `${name}: ${err.message}`);
+      assert.match(err.message.slice(`GET ${url} failed: `.length), reason, name);
+      assert.ok(err.cause instanceof EntgeltatlasNetworkError, `${name}: the original is the cause`);
+      if (cause !== undefined) assert.equal(err.cause, cause, name);
+      return true;
+    });
+  }
+  // A message that names the request already is not prefixed twice.
+  const named = new RequestEngine({
+    baseUrl: "http://127.0.0.1:9",
+    transport: async () => {
+      throw new EntgeltatlasNetworkError(`GET ${url} failed: x`);
+    },
+  });
+  await assert.rejects(named.getJson("/infosysbub/entgeltatlas/pc/v1/regionen"), { message: `GET ${url} failed: x` });
+});
+
 test("a reset connection that outlasts the retries names the request and the retries (bug 5, 2026-10-15)", async () => {
   // The default transport rejects a reset with a bare "socket hang up" (the Node error is its
   // cause); passed through, the CLI's last record named neither the host nor the retries.
