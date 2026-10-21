@@ -18,6 +18,7 @@ export {
   cleartextCredentialsProblem,
   cleartextProblem,
   decodeBody,
+  isBidiControl,
   isTransientNetworkError,
   parseRetryAfter,
   transientRetryDelay,

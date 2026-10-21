@@ -256,6 +256,22 @@ export function retryAfterTooLong(response: { status: number; headers: object })
 }
 
 /**
+ * True for the Unicode bidirectional formatting characters: ALM (U+061C), LRM/RLM
+ * (U+200E/U+200F), the embeddings and overrides U+202A–U+202E and the isolates
+ * U+2066–U+2069. A terminal applies them to the text that follows, so an override
+ * in server text can reorder what the user sees ("Trojan Source" spoofing).
+ */
+export function isBidiControl(code: number): boolean {
+  return (
+    code === 0x061c ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069)
+  );
+}
+
+/**
  * Strip control characters (all C0 except tab and newline, plus DEL and the C1
  * range) from a string that originates in an attacker-controlled response — the
  * error `detail` and any echoed Content-Type. `JSON.parse` decodes an escaped
@@ -264,7 +280,7 @@ export function retryAfterTooLong(response: { status: number; headers: object })
  * terminal when the message is printed to stderr (title spoofing, screen
  * clearing, hidden output). This only covers text flowing into an error message:
  * the CLI's JSON output is escaped separately (escapeControlChars in
- * cli/shared.ts), since `JSON.stringify` alone leaves DEL and the C1 range raw. Implemented as a char-code filter to keep zero control-byte literals
+ * cli/shared.ts), since `JSON.stringify` alone leaves DEL, the C1 range and the bidi controls raw. Implemented as a char-code filter to keep zero control-byte literals
  * in this source file.
  */
 function sanitizeServerText(text: string): string {

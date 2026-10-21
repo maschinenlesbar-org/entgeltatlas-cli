@@ -434,6 +434,11 @@ shared check.
   `entgeltatlas.output` (`Could not write to stdout: …`, in the format argv asks for:
   `processLogger`) and exits 1; any other stderr write error exits 1 silently.
   `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` spawns the built bin to check both.
+- Printed JSON is terminal-safe (`escapeControlChars` in `shared.ts`): the characters
+  `JSON.stringify` leaves raw although a terminal acts on them — DEL, the C1 range
+  U+0080–U+009F and the bidi controls (`isBidiControl`, exported by the library: U+061C,
+  U+200E, U+200F, U+202A–U+202E, U+2066–U+2069) — are written as `\uXXXX`. The output parses
+  to the same value; a U+202E in a label prints as `\u202e`.
 - The README ships in the npm tarball and is what npmjs.com shows, so a relative link in it
   points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
   `LICENSE`); every other document is linked by its absolute GitHub URL.

@@ -121,6 +121,27 @@ test("DEL and C1 control characters in server data are escaped in the JSON outpu
   }
 });
 
+test("bidi controls in server data are escaped in the JSON output, so they can't reorder the terminal", async () => {
+  // A right-to-left override (U+202E) in a label reached the terminal raw and reordered the line on screen.
+  const bidi = [0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069];
+  const entry = fx.entgelteResult[0]!;
+  const served = [
+    {
+      ...entry,
+      region: { ...entry.region, bezeichnung: `Deutschland${String.fromCharCode(0x202e)}dnalnetieW` },
+      gender: { id: 1, bezeichnung: String.fromCharCode(...bidi) },
+    },
+  ];
+  for (const format of [[], ["--compact"]]) {
+    const cli = makeCli(() => jsonResponse(served));
+    assert.equal(await run([...KEY, ...format, "entgelte", "84304"], cli.deps), 0);
+    const text = cli.out.join("\n");
+    assert.match(text, /Deutschland\\u202ednalnetieW/, format.join(" "));
+    assert.deepEqual([...text].filter((c) => bidi.includes(c.charCodeAt(0))), [], format.join(" "));
+    assert.deepEqual(JSON.parse(text), served);
+  }
+});
+
 test("a refused connection names the request in its ERROR record and exits 6", async () => {
   const cli = makeCli(() => {
     throw new EntgeltatlasNetworkError("connect ECONNREFUSED 127.0.0.1:443");
