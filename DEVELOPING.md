@@ -463,7 +463,10 @@ shared check.
   `JSON.stringify` leaves raw although a terminal acts on them — DEL, the C1 range
   U+0080–U+009F and the bidi controls (`isBidiControl`, exported by the library: U+061C,
   U+200E, U+200F, U+202A–U+202E, U+2066–U+2069) — are written as `\uXXXX`. The output parses
-  to the same value; a U+202E in a label prints as `\u202e`.
+  to the same value; a U+202E in a label prints as `\u202e`. It counts them first, refuses a text that escaped would
+  pass V8's longest string ("The answer is too large to print (N characters once its control
+  characters are escaped).", an ERROR of `entgeltatlas.output`), and builds the rest in 64 Ki
+  chunks joined once, so 20 MB of DEL characters print within a small heap.
 - The README ships in the npm tarball and is what npmjs.com shows, so a relative link in it
   points only at a file `files` ships (`LICENSING.md`, `CONTRIBUTING.md`, `DATA_LICENSE.md`,
   `LICENSE`); every other document is linked by its absolute GitHub URL.
