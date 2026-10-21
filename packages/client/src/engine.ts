@@ -383,7 +383,9 @@ export interface CheckedResponse {
  */
 export function plainHeaders(headers: object): PlainHeaders {
   const h = headers as { get?: unknown; forEach?: unknown };
-  const record: PlainHeaders = {};
+  // A record built from an answer has no prototype: a header named `__proto__` is an own
+  // entry like any other, never the record's prototype (whose entries would read as headers).
+  const record = Object.create(null) as PlainHeaders;
   if (typeof h.get === "function" && typeof h.forEach === "function") {
     (h.forEach as (cb: (value: string, name: string) => void) => void).call(headers, (value, name) => {
       record[String(name).toLowerCase()] = String(value);
