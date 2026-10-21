@@ -665,11 +665,34 @@ export function userinfoForms(url: string): string[] {
 const JSON_NUMBER = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 
 /**
+ * Whether the double `value` (finite) is exactly the number `literal` (a JSON number token)
+ * writes, checked where a double can be off by a whole number or more: at and past 2^53, where
+ * every double is an integer, and at 0, which a literal too small for a double becomes.
+ */
+function exactAtTheEdges(literal: string, value: number): boolean {
+  if (value !== 0 && Math.abs(value) <= Number.MAX_SAFE_INTEGER) return true;
+  const [, mantissa = "", exponent = "0"] = /^-?([\d.]+)(?:[eE]([+-]?\d+))?$/.exec(literal) ?? [];
+  if (value === 0) return !/[1-9]/.test(mantissa);
+  // The literal as digits × 10^shift, without trailing zeros.
+  const [whole = "", fraction = ""] = mantissa.split(".");
+  let digits = (whole + fraction).replace(/^0+/, "");
+  let shift = Number(exponent) - fraction.length;
+  const trimmed = digits.replace(/0+$/, "");
+  shift += digits.length - trimmed.length;
+  digits = trimmed;
+  // A fraction can't equal a double this big, and a finite value bounds the shift.
+  if (shift < 0) return false;
+  return BigInt(digits) * 10n ** BigInt(shift) === BigInt(Math.abs(value));
+}
+
+/**
  * The first number literal in `json` (JSON that parsed) that JSON.parse cannot carry exactly, or
- * undefined: one out of a double's range (`1e400` became Infinity) or an integer beyond 2^53 that
- * it rounds (`12345678901234567890` became `12345678901234567000`). A decimal fraction keeps a
- * double's usual precision, as JSON means it. A linear scan that skips strings; a reviver would
- * recurse per nesting level and overflow on deep data.
+ * undefined: one out of a double's range (`1e400` became Infinity, printed as `null`), one past
+ * 2^53 that it rounds, in any form (`12345678901234567890`, `12345678901234567890.0`,
+ * `9007199254740993e0`, `9007199254740992.5`), and a non-zero one too small for a double
+ * (`1e-400` became 0). Below 2^53 a decimal fraction keeps a double's usual precision, as JSON
+ * means it. A linear scan that skips strings; a reviver would recurse per nesting level and
+ * overflow on deep data.
  */
 function firstInexactNumber(json: string): string | undefined {
   for (let i = 0; i < json.length; i++) {
@@ -686,8 +709,7 @@ function firstInexactNumber(json: string): string | undefined {
       const literal = JSON_NUMBER.exec(json)?.[0];
       if (literal === undefined) continue;
       const value = Number(literal);
-      if (!Number.isFinite(value)) return literal;
-      if (!Number.isSafeInteger(value) && /^-?\d+$/.test(literal) && BigInt(literal) !== BigInt(value)) return literal;
+      if (!Number.isFinite(value) || !exactAtTheEdges(literal, value)) return literal;
       i += literal.length - 1;
     }
   }
@@ -934,8 +956,8 @@ export class RequestEngine {
     } catch (cause) {
       throw new EntgeltatlasParseError(`Failed to parse JSON response from ${path}`, { cause });
     }
-    // JSON.parse rounds an integer beyond 2^53 and turns an out-of-range literal into Infinity,
-    // silently: refuse the answer rather than print a changed figure.
+    // JSON.parse rounds a number past 2^53, turns an out-of-range literal into Infinity and a
+    // too-small one into 0, silently: refuse the answer rather than print a changed figure.
     const inexact = firstInexactNumber(text);
     if (inexact !== undefined) {
       throw new EntgeltatlasParseError(`Unexpected response from ${path}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);

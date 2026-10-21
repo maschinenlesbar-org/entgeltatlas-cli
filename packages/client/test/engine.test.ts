@@ -49,6 +49,34 @@ test("getJson rejects an empty or 204 body with EntgeltatlasParseError", async (
   }
 });
 
+test("a number the JSON cannot carry exactly is a parse error, never a changed value", async () => {
+  // JSON.parse rounds 12345678901234567890 (in any form: .0, e0, E-1) and 9007199254740992.5 to the
+  // nearest double, turns 1e400 into Infinity (printed as null) and 1e-400 into 0, silently.
+  const body = (n: string) => `{"id":"a","n":${n},"text":"12345678901234567890 in a string"}`;
+  for (const n of [
+    "12345678901234567890", "-9007199254740993", "1e400", "-1E400", "12345678901234567890.0", "9007199254740993e0",
+    "90071992547409930E-1", "9007199254740992.5", "-9007199254740992.5", "1e-400", "-0.0001e-399", "1e23",
+  ]) {
+    const e = new RequestEngine({ transport: makeMockTransport(() => rawResponse(body(n), "application/json")).transport });
+    await assert.rejects(e.getJson("/items/a"), (err: unknown) => {
+      assert.ok(err instanceof EntgeltatlasParseError, n);
+      assert.equal(err.message, `Unexpected response from /items/a: the number ${n} cannot be represented exactly.`);
+      return true;
+    });
+  }
+  // What a double carries exactly, or as JSON means it (a decimal fraction below 2^53), passes:
+  // a salary of 5731.5 keeps its cents.
+  const exact: Array<[string, number]> = [
+    ["9007199254740991", 9007199254740991], ["9007199254740992.0", 2 ** 53], ["9007199254740992e0", 2 ** 53],
+    ["90071992547409920E-1", 2 ** 53], ["1e21", 1e21], ["1.2e21", 1.2e21], ["0", 0], ["-0", -0], ["0.0e-500", 0],
+    ["1.10", 1.1], ["0.1", 0.1], ["1.00000000000000001", 1], ["5e-324", 5e-324], ["5731.5", 5731.5], ["-2", -2],
+  ];
+  for (const [n, value] of exact) {
+    const e = new RequestEngine({ transport: makeMockTransport(() => rawResponse(body(n), "application/json")).transport });
+    assert.equal((await e.getJson<{ n: number }>("/x")).n, value, n);
+  }
+});
+
 test("getJson throws EntgeltatlasParseError on invalid JSON", async () => {
   const mt = makeMockTransport(() => rawResponse("not json", "application/json"));
   const e = new RequestEngine({ transport: mt.transport });
