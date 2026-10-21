@@ -13,7 +13,7 @@ single-line with `--compact`). The API needs an `X-API-Key` — see
 | `--timeout <ms>` · `--max-response-bytes <n>` | time limit for a whole request (default 30 s, `0` = none) · cap on a response body (default 100 MiB, `0` = none); running out of either ends in `GET <url> failed: <reason>` (exit 6) |
 | `--max-retries <n>` | retries for a transient 429/503 or a reset connection, `0`–`10` (default 2); each waits 200 ms × attempt, or the server's `Retry-After` (seconds or HTTP-date) when that is longer — never less, so `Retry-After: 0` can't cause a burst. A `Retry-After` above 30 s is not retried: the error names the requested wait and says to try again later. Each retry logs one WARN record of `entgeltatlas.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`); a reset that outlasts them ends in `GET <url> failed: socket hang up (after 2 retries)` |
 | `--user-agent <ua>` | User-Agent header |
-| `--compact` | single-line JSON |
+| `--compact` | single-line JSON; prints nesting too deep to pretty-print (which is a clean error suggesting `--compact`) |
 | `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [entgeltatlas.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 
 `--api-key` and `--user-agent` (and `ENTGELTATLAS_API_KEY`) must be sendable as an HTTP
