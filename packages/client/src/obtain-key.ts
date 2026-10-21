@@ -291,7 +291,9 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
     });
   }
 
-  const text = decodeBody(response.body, String(headerValue(response.headers["content-type"]) ?? ""), `GET ${redactUrl(url)}`);
+  // Bytes that are not valid text become U+FFFD; a key holding one does not match KEY_FORMAT,
+  // so the replacement can never change the key that is printed.
+  const { text } = decodeBody(response.body, String(headerValue(response.headers["content-type"]) ?? ""), `GET ${redactUrl(url)}`);
   // The page states the key once. Two different values make it ambiguous, and a
   // value that isn't shaped like a key (a placeholder, a template expression) is not
   // one: guessing would be worse than failing.

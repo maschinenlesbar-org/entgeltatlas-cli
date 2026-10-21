@@ -469,6 +469,17 @@ shared check.
   `entgeltatlas.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only,
   whole seconds, ms under 1 s). `obtainKey()` has its own loop and does not call it. Tests:
   `packages/client/test/engine.test.ts`, `apps/cli/test/retry-log.test.ts`.
+- **Text is never changed silently.** Bytes that are not valid in the declared (or default
+  UTF-8) charset (`decodeBody` decodes with a `fatal` TextDecoder first, then lossily and
+  counts what it replaced) and lone surrogates written as JSON escapes (`"\ud800"`,
+  `wellFormedEscapes`, one linear pass) become U+FFFD, so the result is well-formed text that
+  `jq` reads. One bad character never sinks a whole answer: it is not an error, but the engine
+  option `onWarning(message)` is told the count and the request (`GET <url>: 2 characters of
+  the answer were not valid text (invalid bytes or a lone surrogate) and replaced with
+  U+FFFD.`), and the CLI's `action()` logs it as a `WARN` record of `entgeltatlas.api`. A throw
+  in the hook is swallowed. `obtainKey()` decodes the same way; a key holding a U+FFFD does
+  not match `KEY_FORMAT`. `apps/cli/test/conformance-p27-big-and-odd-answers.test.ts` (P27) checks
+  it on both sides.
 - A body is decoded by the charset its Content-Type declares (`decodeBody`, UTF-8 when it
   names none; a leading BOM is dropped; an unknown label is an `EntgeltatlasParseError`
   naming it), in the client and in `obtainKey()`.
@@ -541,7 +552,7 @@ stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors, Node's process warnings),
 `api` (the API's answers: an error status and the 401/403 key hint, and a malformed
 answer, an `EntgeltatlasParseError`: bad JSON, the wrong shape, another slice than the
-one requested, an unknown charset), `http` (the connection, the size-cap
+one requested, an unknown charset; and text replaced with U+FFFD, as `WARN`), `http` (the connection, the size-cap
 hint, the cleartext warning), `config`, `obtain-key` (its provenance note, and an
 error from the key source) and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly; the former `Hint: ` prefix is gone, a hint is an `INFO` record.

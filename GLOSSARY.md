@@ -78,5 +78,8 @@ CLI pass all of these through unchanged.
   slice than the one requested), `http` (the connection, the cleartext warning, and one WARN per retry before it waits),
   `config`, `obtain-key` and `output` (a failed write to stdout). A record is always one
   line; control characters in it are escaped.
+- **Replaced text** — bytes of an answer that are not valid in its charset, and half
+  characters (lone surrogates), are replaced with U+FFFD and reported in one `WARN` record of
+  `entgeltatlas.api` with the count and the request; the run still succeeds.
 
 See [DATA_LICENSE.md](DATA_LICENSE.md) for attribution and reuse terms.

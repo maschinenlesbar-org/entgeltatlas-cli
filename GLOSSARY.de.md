@@ -83,5 +83,8 @@ damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`nu
   angefragte), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten), `config`, `obtain-key` und
   `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen
   darin werden maskiert.
+- **Ersetzter Text** – Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe
+  Zeichen (einzelne Surrogate) werden durch U+FFFD ersetzt und in einem `WARN`-Eintrag von
+  `entgeltatlas.api` mit Anzahl und Anfrage gemeldet; der Lauf gelingt trotzdem.
 
 Namensnennung und Bedingungen zur Weiterverwendung: siehe [DATA_LICENSE.md](DATA_LICENSE.md).
