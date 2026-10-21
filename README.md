@@ -172,7 +172,7 @@ const ea = new EntgeltatlasClient({ apiKey: process.env.ENTGELTATLAS_API_KEY });
 // Pass every dimension for exactly one row: an omitted one comes back as one row per value.
 const rows = await ea.entgelte("84304", { l: 4, r: 1, g: 1, a: 1, b: 1 });
 // rows[0].entgelt is the MEDIAN gross monthly EUR — unless negative: then it is a marker
-// (-1 suppressed, -2 above the contribution ceiling), not an amount.
+// (-1 suppressed, -2 above the contribution ceiling, -100 no figure), not an amount.
 ```
 
 Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
@@ -191,8 +191,9 @@ sends the key only to the base URL's origin.
 
 - `entgelt` is the **median** (not the mean), in **EUR gross per month**, full-time.
 - **A negative figure is a marker, not an amount.** Recorded live, a suppressed slice
-  (too few observations) comes back as `-1` (`besetzung` negative too), and a quartile
-  above the contribution ceiling as `-2`. `null` means the same: no figure. An empty
+  (too few observations) comes back as `-1` (`besetzung` negative too), a quartile
+  above the contribution ceiling as `-2`, and a slice without a figure as `-100` on all
+  four figures (its meaning is not documented). `null` means the same: no figure. An empty
   array is no figure too, but it has several causes — a 4-digit code, region 2 Ost or 3 West,
   a level the 5-digit code contradicts, a branch crossed with gender or age, an unknown code —
   and the CLI names the ones it can recognise in a `WARN` record. Never report these as € or treat them as `0`; see [GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md).

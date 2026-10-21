@@ -399,8 +399,10 @@ row per value of it.
 ### Read the figures defensively
 
 - `entgelt` is the **median** gross monthly EUR (BA does not compute a mean).
-- Every numeric field is `number | null`: a **suppressed** small cell yields
-  `null`/empty — the client and CLI never coerce it to `0`.
+- Every numeric field is `number | null`: a **suppressed** small cell yields a negative
+  marker live (`-1`, `besetzung` `-42`/`-3`; `-2` above the ceiling; `-100` a slice without
+  a figure, see GLOSSARY.md), `null` per the community spec — the client and CLI pass them
+  through and never coerce them to `0`.
 - High earners are **censored** at `region.beitragsBemessungsGrenze`.
 - The types are fully concrete (no `JsonObject`), but marked nullable because the
   OpenAPI spec is **community-reverse-engineered** and suppression behaviour is

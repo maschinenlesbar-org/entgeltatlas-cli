@@ -85,7 +85,8 @@ sides; a negative one is a marker, not an amount. Report absolute and percent.
 ## Traps
 
 - **Suppressed slice → no comparison.** If either side is negative (`-1`: Fallzahl
-  too small; `-2`: above the contribution ceiling, unknown) or `null`/empty, say so and
+  too small; `-2`: above the contribution ceiling, unknown; `-100`: no figure, reason
+  undocumented) or `null`/empty, say so and
   do **not** substitute 0, the marker, or an invented value. An empty array with a
   `WARN` on stderr has the cause the note names (a region, level or branch the API
   doesn't answer) — report that, not "Fallzahl zu klein".

@@ -108,7 +108,12 @@ entgeltatlas entgelte 84304 -l 4 -r 11 -g 2      # Experte, Baden-Württemberg, 
 
 Returns a JSON **array** of observations, each with `entgelt` (median),
 `entgeltQ25`/`entgeltQ75` (quartiles), `besetzung` (headcount), and the labelled
-dimensions. A suppressed cell has `entgelt: null` (or an empty array) — **not `0`**.
+dimensions. **A negative figure is a marker, not an amount** — **never `0`** or €: `-1` on the
+three figures (with a negative `besetzung`, `-42` or `-3`) is a suppressed slice (too few
+observations), `-2` (on a quartile, once on the median) a value above the contribution ceiling,
+and `-100` on all four figures (the Helfer row of 434, a branch of 84304) a slice without a
+figure whose meaning the API does not document. An empty array is no figure either; see
+above for its causes. See GLOSSARY.md.
 
 ## Reference lists (live)
 

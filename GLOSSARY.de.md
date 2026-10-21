@@ -48,7 +48,11 @@ kennzeichnet die API das mit **negativen Zahlen**, nicht mit `null`: `entgelt`,
 `entgeltQ25` und `entgeltQ75` kommen als `-1`, `besetzung` ebenfalls negativ (dort `-42`).
 Ein Quartil oberhalb der Beitragsbemessungsgrenze kam als `-2` (`entgeltQ75: -2` neben
 einem echten Median): Entgelte oberhalb der Grenze sind nicht bekannt, was die
-Webanwendung der BA als „> BBG“ zeigt. Diese Bedeutungen sind aus jener Antwort und den
+Webanwendung der BA als „> BBG“ zeigt. Am 21.10.2026 aufgezeichnet: `besetzung` kommt auch als
+`-3` neben einem Median `-1`, ein Median selbst einmal als `-2`, und eine ganze Zeile als
+**`-100`** in allen vier Werten (`entgelt`, beide Quartile, `besetzung`; die Helfer-Zeile der
+Gruppe 434, eine Branchenzeile von 84304) – ein Ausschnitt ohne Wert, dessen Bedeutung nicht
+dokumentiert ist (vielleicht „dieses Niveau gibt es in der Gruppe nicht“). Diese Bedeutungen sind aus jener Antwort und den
 Hilfetexten der Webanwendung abgeleitet, nicht dokumentiert; die Regel ist daher einfach:
 **Jeder negative Wert ist eine Kennzeichnung, kein Betrag** – nie in € angeben, nie
 damit eine Lücke oder einen Mittelwert rechnen. **`null`**-Werte (aus der

@@ -97,7 +97,9 @@ Rules — state these when they apply:
 - **A negative figure is a marker, not an amount.** `-1` (with a negative
   `besetzung`) = suppressed, too few cases — say "keine Angabe / Fallzahl zu klein";
   `-2` on a quartile = above the contribution ceiling, value unknown — say "über der
-  Beitragsbemessungsgrenze". `null` means "keine Angabe" too.
+  Beitragsbemessungsgrenze"; `-100` on all four figures = no figure for this slice, its
+  meaning undocumented (seen for a level a group doesn't have) — say "keine Angabe" and
+  don't name a reason. Any other negative value is a marker too. `null` means "keine Angabe" too.
 - **An empty array is not always "Fallzahl zu klein".** Read stderr first: the CLI
   adds a `WARN` naming the cause when the request explains it (a 4-digit code, region
   2/3, a level the 5-digit code contradicts, a branch combined with gender or age) —

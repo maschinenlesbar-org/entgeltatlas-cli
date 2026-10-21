@@ -46,7 +46,11 @@ protection. Recorded live on 2026-10-06, the API marks this with **negative numb
 not `null`: `entgelt`, `entgeltQ25` and `entgeltQ75` come back as `-1`, and `besetzung`
 as a negative number too (`-42` in that answer). A quartile above the social-insurance
 ceiling came back as `-2` (`entgeltQ75: -2` next to a real median): earnings above the
-ceiling are not known, which the BA's web app shows as "> BBG". These meanings are read
+ceiling are not known, which the BA's web app shows as "> BBG". Recorded on 2026-10-21:
+`besetzung` also comes as `-3` next to a `-1` median, a median itself once as `-2`, and a
+whole row as **`-100`** on all four figures (`entgelt`, both quartiles, `besetzung`; the
+Helfer row of group 434, a branch row of 84304) — a slice without a figure, its meaning not
+documented (perhaps "no such level in this group"). These meanings are read
 from that answer and the web app's help texts, not from documentation, so the rule is
 simple: **any negative figure is a marker, not an amount** — never report it in €,
 never compute a gap or a mean with it. **`null`** figures (from the community spec; not seen
