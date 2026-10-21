@@ -545,3 +545,13 @@ test("01 Bug 1: an empty answer for Ost (-r 2) or West (-r 3) says the API has n
   assert.equal(await run([...KEY, "entgelte", "84304", "-r", "17"], other.deps), 0);
   assert.deepEqual(other.err, []);
 });
+
+test("01 Bug 2: an empty answer the request explains (a contradicting level, a branch by gender) gets a WARN note", async () => {
+  const level = makeCli(() => jsonResponse([]));
+  assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "2", "-r", "1", "-g", "1", "-a", "1", "-b", "1"], level.deps), 0);
+  assert.deepEqual(level.out, ["[]"]);
+  assert.match(untimed(level.err.join("\n")), /^WARN  \[entgeltatlas\.api\] no rows for KldB 84304 at level 2 \(Fachkraft\): the fifth digit/);
+  const branch = makeCli(() => jsonResponse([]));
+  assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "1", "-g", "2", "-a", "1", "-b", "5"], branch.deps), 0);
+  assert.match(untimed(branch.err.join("\n")), /^WARN  \[entgeltatlas\.api\] no rows for branch 5 with gender 2 and age Gesamt: /);
+});

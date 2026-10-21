@@ -13,7 +13,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText, quoteValue } from "./errors.js";
-import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
+import { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import {
   apiKeyProblem,
   assertValid,
@@ -40,7 +40,12 @@ const UNANSWERED_REGIONS: Readonly<Record<number, string>> = { 2: "Ostdeutschlan
  * - a 4-digit code: the API has answered every 4-digit code tried (8430, 4341, 8431 on
  *   2026-10-15) with no rows, though their 3-digit groups and 5-digit codes have figures;
  * - region 2 (Ostdeutschland) or 3 (Westdeutschland): every request for them answered no rows
- *   (84304, 434, 71402 on 2026-10-21), and an answer for all regions leaves both out.
+ *   (84304, 434, 71402 on 2026-10-21), and an answer for all regions leaves both out;
+ * - a level that contradicts a 5-digit code, whose fifth digit is its level (`84304 -l 2`);
+ * - a branch other than Gesamt with a gender or age other than Gesamt: the API answers a branch
+ *   only for gender and age Gesamt (the all-dimensions answer for 84304 on 2026-10-21 holds no
+ *   other combination; `-g 2 -b 5` answered no rows).
+ * An unknown code (`99999`) answers no rows too; nothing in the request tells it apart.
  * The codes stay accepted: one the API does serve must not be refused on that evidence.
  */
 export function emptyAnswerNote(kldb: string, rows: readonly unknown[], params: EntgelteParams = {}): string | undefined {
@@ -59,7 +64,28 @@ export function emptyAnswerNote(kldb: string, rows: readonly unknown[], params: 
       "figure. Compare Länder (4–19) or cities (20–30) instead."
     );
   }
+  const own = /^[0-9]{4}([1-4])$/.exec(kldb)?.[1];
+  if (own !== undefined && params.l !== undefined && params.l !== Number(own)) {
+    return (
+      `no rows for KldB ${kldb} at level ${params.l} (${levelName(params.l)}): the fifth digit of a 5-digit code is its ` +
+      `level (${own}, ${levelName(Number(own))}), so the API answers no other. Leave -l out or give ${own}.`
+    );
+  }
+  const g = params.g ?? 1;
+  const a = params.a ?? 1;
+  if (params.b !== undefined && params.b !== 1 && (g !== 1 || a !== 1)) {
+    const named = (n: number): string => (n === 1 ? "Gesamt" : String(n));
+    return (
+      `no rows for branch ${params.b} with gender ${named(g)} and age ${named(a)}: the API answers a branch other than ` +
+      "Gesamt (b=1) only for gender and age Gesamt (g=1, a=1); it does not cross a branch with gender or age."
+    );
+  }
   return undefined;
+}
+
+/** The name of an Anforderungsniveau (`l`) code, from DIMENSIONS. */
+function levelName(code: number): string {
+  return DIMENSIONS[0]?.values.find((v) => v.id === code)?.bezeichnung ?? String(code);
 }
 
 /** Options for the Entgeltatlas client (engine options plus the API key). */

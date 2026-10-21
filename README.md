@@ -192,8 +192,10 @@ sends the key only to the base URL's origin.
 - `entgelt` is the **median** (not the mean), in **EUR gross per month**, full-time.
 - **A negative figure is a marker, not an amount.** Recorded live, a suppressed slice
   (too few observations) comes back as `-1` (`besetzung` negative too), and a quartile
-  above the contribution ceiling as `-2`. `null` or an empty array mean the same: no
-  figure. Never report these as € or treat them as `0`; see [GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md).
+  above the contribution ceiling as `-2`. `null` means the same: no figure. An empty
+  array is no figure too, but it has several causes — a 4-digit code, region 2 Ost or 3 West,
+  a level the 5-digit code contradicts, a branch crossed with gender or age, an unknown code —
+  and the CLI names the ones it can recognise in a `WARN` record. Never report these as € or treat them as `0`; see [GLOSSARY.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/GLOSSARY.md).
 - High earners are **censored** at the social-insurance ceiling
   (`region.beitragsBemessungsGrenze`), so the top can look artificially flat.
 

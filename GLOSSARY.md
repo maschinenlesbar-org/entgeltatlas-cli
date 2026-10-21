@@ -49,9 +49,20 @@ ceiling came back as `-2` (`entgeltQ75: -2` next to a real median): earnings abo
 ceiling are not known, which the BA's web app shows as "> BBG". These meanings are read
 from that answer and the web app's help texts, not from documentation, so the rule is
 simple: **any negative figure is a marker, not an amount** — never report it in €,
-never compute a gap or a mean with it. An **empty array** or **`null`** figures (from the
-community spec; not seen live) mean the same: no figure — **never `0`**. The client and
-CLI pass all of these through unchanged.
+never compute a gap or a mean with it. **`null`** figures (from the community spec; not seen
+live) mean the same: no figure — **never `0`**. The client and CLI pass all of these through
+unchanged.
+
+### An empty array
+
+An **empty array** is the common live answer, and it has several causes, none of them a
+figure: a 4-digit KldB code (every one tried answered `[]`); region 2 Ost or 3 West (never
+answered); a level that contradicts a 5-digit code's fifth digit (`84304 -l 2`); a branch other
+than Gesamt combined with a gender or age other than Gesamt (the API does not cross them); and
+a code that doesn't exist (`99999`). For all but the last the CLI adds a `WARN` record of
+`entgeltatlas.api` naming the cause; stdout keeps the `[]`. **The answer's structure**
+(recorded for 84304 on 2026-10-21): level × region × (gender × age, with branch Gesamt, or
+branch, with gender and age Gesamt); 28 regions, without Ost and West.
 
 ## Auth terms
 

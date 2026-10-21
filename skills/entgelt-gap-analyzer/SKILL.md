@@ -41,7 +41,9 @@ skill / BERUFENET to resolve a name). Hold every dimension constant except the o
 being compared, so the medians are comparable. `entgeltatlas codes` lists the code
 values.
 
-- **Gender gap** → vary `-g` (2 Männer vs 3 Frauen), same `-l`/`-r`/`-a`/`-b`.
+- **Gender gap** → vary `-g` (2 Männer vs 3 Frauen), same `-l`/`-r`/`-a`, and `-b 1`:
+  the API answers a branch other than Gesamt only for gender and age Gesamt, so there is
+  no gender gap *within* a branch (an empty array plus a `WARN` saying so).
 - **Regional** → vary `-r` between two Länder or cities (e.g. 12 Bayern vs 17 Sachsen).
   **2 Ost and 3 West answer no rows** (an empty array plus a `WARN` saying so) — that
   is not "Fallzahl zu klein". For an East vs West question, compare East and West
@@ -84,7 +86,9 @@ sides; a negative one is a marker, not an amount. Report absolute and percent.
 
 - **Suppressed slice → no comparison.** If either side is negative (`-1`: Fallzahl
   too small; `-2`: above the contribution ceiling, unknown) or `null`/empty, say so and
-  do **not** substitute 0, the marker, or an invented value.
+  do **not** substitute 0, the marker, or an invented value. An empty array with a
+  `WARN` on stderr has the cause the note names (a region, level or branch the API
+  doesn't answer) — report that, not "Fallzahl zu klein".
 - **Censoring hides top-end gaps.** Both medians are capped at the social-insurance
   ceiling (`beitragsBemessungsGrenze`); for high earners the *real* gap may be
   larger than the medians show — flag this.

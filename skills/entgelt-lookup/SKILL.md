@@ -97,7 +97,12 @@ Rules — state these when they apply:
 - **A negative figure is a marker, not an amount.** `-1` (with a negative
   `besetzung`) = suppressed, too few cases — say "keine Angabe / Fallzahl zu klein";
   `-2` on a quartile = above the contribution ceiling, value unknown — say "über der
-  Beitragsbemessungsgrenze". `null` or an empty array mean "keine Angabe" too.
+  Beitragsbemessungsgrenze". `null` means "keine Angabe" too.
+- **An empty array is not always "Fallzahl zu klein".** Read stderr first: the CLI
+  adds a `WARN` naming the cause when the request explains it (a 4-digit code, region
+  2/3, a level the 5-digit code contradicts, a branch combined with gender or age) —
+  report that cause and fix the request. Without a note it is suppression or a code
+  that doesn't exist: say "keine Angabe" and check the code with entgelt-code-finder.
   **Never** report any of these as an amount or as 0 €.
 - The upper end is **censored** at the social-insurance ceiling
   (`region.beitragsBemessungsGrenze`), so `entgelt`/Q75 can look flat at the top —

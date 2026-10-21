@@ -282,3 +282,23 @@ test("01 Bug 1: emptyAnswerNote names Ost/West as never answered", () => {
   assert.equal(emptyAnswerNote("84304", [{}], { r: 2 }), undefined);
   assert.equal(emptyAnswerNote("84304", []), undefined);
 });
+
+test("01 Bug 2: emptyAnswerNote names a level the 5-digit code contradicts and a branch crossed with gender or age", () => {
+  assert.equal(
+    emptyAnswerNote("84304", [], { l: 2 }),
+    "no rows for KldB 84304 at level 2 (Fachkraft): the fifth digit of a 5-digit code is its level (4, Experte), " +
+      "so the API answers no other. Leave -l out or give 4.",
+  );
+  assert.equal(emptyAnswerNote("84304", [], { l: 4 }), undefined);
+  assert.equal(emptyAnswerNote("434", [], { l: 2 }), undefined, "a 3-digit group has every level");
+  assert.equal(
+    emptyAnswerNote("84304", [], { g: 2, b: 5 }),
+    "no rows for branch 5 with gender 2 and age Gesamt: the API answers a branch other than Gesamt (b=1) only for " +
+      "gender and age Gesamt (g=1, a=1); it does not cross a branch with gender or age.",
+  );
+  assert.match(emptyAnswerNote("84304", [], { a: 3, b: 2 }) ?? "", /^no rows for branch 2 with gender Gesamt and age 3: /);
+  for (const params of [{ b: 5 }, { g: 1, a: 1, b: 5 }, { g: 2, b: 1 }, { g: 2 }]) {
+    assert.equal(emptyAnswerNote("84304", [], params), undefined, JSON.stringify(params));
+  }
+  assert.equal(emptyAnswerNote("84304", [{}], { g: 2, b: 5 }), undefined);
+});

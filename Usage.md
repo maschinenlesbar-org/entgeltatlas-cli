@@ -90,6 +90,12 @@ any request: what the API does with an unknown code is not live-verified, and if
 ignored the parameter you would silently get the unfiltered slice. Each flag takes one
 value: giving one twice (`-g 2 -g 3`) is a usage error too — run one call per slice.
 
+**An empty array has several causes** (see GLOSSARY.md), none of them a figure: a 4-digit code,
+`-r 2`/`-r 3` (below), a level that contradicts a 5-digit code's fifth digit (`84304 -l 2`), a
+branch other than 1 with a gender or age other than 1 (the API answers a branch only for gender
+and age Gesamt), and a code that doesn't exist (`99999`, no note). For each but the last the CLI
+adds a `WARN` record of `entgeltatlas.api` naming the cause; stdout keeps the `[]`, exit code 0.
+
 **Ost (`-r 2`) and West (`-r 3`) answer no rows.** The API lists them (`regionen`, `codes`),
 but every request for them answered `[]` (84304, 434 and 71402, 2026-10-21), and an answer for
 all regions leaves both out. The CLI then adds a `WARN` record of `entgeltatlas.api` saying

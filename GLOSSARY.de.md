@@ -51,9 +51,21 @@ einem echten Median): Entgelte oberhalb der Grenze sind nicht bekannt, was die
 Webanwendung der BA als „> BBG“ zeigt. Diese Bedeutungen sind aus jener Antwort und den
 Hilfetexten der Webanwendung abgeleitet, nicht dokumentiert; die Regel ist daher einfach:
 **Jeder negative Wert ist eine Kennzeichnung, kein Betrag** – nie in € angeben, nie
-damit eine Lücke oder einen Mittelwert rechnen. Ein **leeres Array** oder **`null`**-Werte
-(aus der Community-Spezifikation, live nicht gesehen) bedeuten dasselbe: kein Wert –
-**niemals `0`**. Client und CLI geben all das unverändert weiter.
+damit eine Lücke oder einen Mittelwert rechnen. **`null`**-Werte (aus der
+Community-Spezifikation, live nicht gesehen) bedeuten dasselbe: kein Wert – **niemals `0`**.
+Client und CLI geben all das unverändert weiter.
+
+### Ein leeres Array
+
+Ein **leeres Array** ist die häufige Live-Antwort, und es hat mehrere Ursachen, keine davon ist
+ein Wert: ein 4-stelliger KldB-Code (jeder probierte lieferte `[]`); Region 2 Ost oder 3 West
+(nie beantwortet); ein Niveau, das der fünften Ziffer eines 5-stelligen Codes widerspricht
+(`84304 -l 2`); eine Branche außer Gesamt zusammen mit einem Geschlecht oder Alter außer Gesamt
+(die API kreuzt sie nicht); und ein Code, den es nicht gibt (`99999`). Außer im letzten Fall
+schreibt die CLI einen `WARN`-Eintrag von `entgeltatlas.api` mit der Ursache; stdout behält das
+`[]`. **Der Aufbau der Antwort** (für 84304 am 21.10.2026 aufgezeichnet): Niveau × Region ×
+(Geschlecht × Alter bei Branche Gesamt, oder Branche bei Geschlecht und Alter Gesamt);
+28 Regionen, ohne Ost und West.
 
 ## Begriffe zur Authentifizierung
 
