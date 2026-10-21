@@ -335,10 +335,14 @@ has no kldb text.`), and an empty or 204 body is one too
 (`Empty response body from <path>`), never `[]`: an empty array is the documented
 "suppressed" answer, so the client must not produce one by coercion. A body holding a number
 JSON.parse cannot carry exactly is one too (`… the number … cannot be represented exactly.`),
-never a changed figure: one out of a double's range (`1e400`), one past 2^53 in any written form
-(`12345678901234567890`, `…890.0`, `9007199254740993e0`, `9007199254740992.5`), or a non-zero one
+never a changed figure: one out of a double's range (`1e400`), one past 2^53 that prints as a
+different number, in any written form (`12345678901234567890`, which prints as
+`12345678901234567000`, `…890.0`, `9007199254740993e0`, `9007199254740992.5`), or a non-zero one
 too small for a double (`1e-400`, which would become 0). Below 2^53 a decimal fraction keeps a
-double's precision (a salary of `5731.5` passes). The KldB is a
+double's precision (a salary of `5731.5` passes). Past 2^53 the check compares the number as
+written with the number as printed (`String(value)`), not with the double's exact binary value:
+a double a server printed in its shortest form (`1E23`, `1.7976931348623157E308`) reads back as
+the same double, prints as the same number and passes. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.
 
 **The requested slice (result 02, Bug 1).** Every row carries the ids of its slice, and
