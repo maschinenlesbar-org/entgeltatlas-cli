@@ -94,7 +94,18 @@ const ROW_FIELD: Record<DimensionParam, (typeof ROW_DIMENSIONS)[number]> = {
  * dimension is not checked: the API answers one row per value of it (recorded live on
  * 2026-10-06: all four age bands for an omitted `a`).
  */
-function assertRequestedSlice(rows: EntgeltEntry[], query: Record<string, unknown>, request: string): void {
+function assertRequestedSlice(rows: EntgeltEntry[], kldb: string, query: Record<string, unknown>, request: string): void {
+  // The occupation is the first coordinate of the slice: live, every row's kldb equals the
+  // requested code (a 3-digit group and a 5-digit code alike; 2026-10-21, result 02 Bug 5).
+  rows.forEach((row, i) => {
+    if (row.kldb !== kldb) {
+      throw new EntgeltatlasSliceError(
+        `${request}: the API answered another slice than the one requested: kldb ${kldb} was asked for, but ` +
+          `row ${i} has kldb ${quoteLabel(row.kldb)}. No figure is returned rather than another occupation's.`,
+        { param: "kldb", requested: kldb, received: row.kldb, row: i },
+      );
+    }
+  });
   for (const param of DIMENSION_PARAMS) {
     const wanted = query[param];
     if (wanted === undefined) continue;
@@ -246,7 +257,7 @@ export class EntgeltatlasClient {
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
     const request = `GET ${this.#engine.describeUrl(path, query)}`;
     const rows = assertArrayOf<EntgeltEntry>(res, request, "salary rows", entgeltRowProblem, true);
-    assertRequestedSlice(rows, query, request);
+    assertRequestedSlice(rows, code, query, request);
     return rows;
   }
 

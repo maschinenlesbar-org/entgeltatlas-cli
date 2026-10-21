@@ -306,18 +306,20 @@ export class EntgeltatlasValidationError extends EntgeltatlasError {}
 export class EntgeltatlasParseError extends EntgeltatlasError {}
 
 /**
- * The API answered a slice other than the one requested: a row's dimension id differs
- * from the filter that was sent (e.g. `r=11` asked, a `Deutschland` row received), so
- * the figures are not an answer to the question. An EntgeltatlasParseError (CLI exit 1),
- * with the mismatch in `param` / `requested` / `received` / `row`.
+ * The API answered a slice other than the one requested: a row's occupation (`kldb`) or
+ * dimension id differs from what was sent (e.g. `r=11` asked, a `Deutschland` row received;
+ * `84304` asked, a `99999` row received), so the figures are not an answer to the question.
+ * An EntgeltatlasParseError (CLI exit 1), with the mismatch in `param` (`"kldb"` or the
+ * dimension letter) / `requested` / `received` (strings for `kldb`, numbers for a dimension)
+ * / `row`.
  */
 export class EntgeltatlasSliceError extends EntgeltatlasParseError {
   readonly param: string;
-  readonly requested: number;
-  readonly received: number;
+  readonly requested: number | string;
+  readonly received: number | string;
   readonly row: number;
 
-  constructor(message: string, mismatch: { param: string; requested: number; received: number; row: number }) {
+  constructor(message: string, mismatch: { param: string; requested: number | string; received: number | string; row: number }) {
     super(message);
     this.param = mismatch.param;
     this.requested = mismatch.requested;

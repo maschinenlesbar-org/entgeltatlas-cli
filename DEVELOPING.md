@@ -384,10 +384,13 @@ inexact number and an unknown charset (`unsupported response charset "…"`).
 
 **The requested slice (result 02, Bug 1).** Every row carries the ids of its slice, and
 `entgelte()` compares them with the dimension filters it sent
-(`assertRequestedSlice`): a row whose `performanceLevel`/`region`/`gender`/`ageCategory`/
-`branche` id differs from `l`/`r`/`g`/`a`/`b` is an `EntgeltatlasSliceError` (`GET <url>: the API
+(`assertRequestedSlice`): a row whose `kldb` differs from the code requested (live, every
+row's `kldb` equals it, for a 3-digit group and a 5-digit code alike; result 02 of
+2026-10-21, Bug 5), or whose `performanceLevel`/`region`/`gender`/`ageCategory`/
+`branche` id differs from `l`/`r`/`g`/`a`/`b`, is an `EntgeltatlasSliceError` (`GET <url>: the API
 answered another slice than the one requested: r=11 was asked for, but row 0 has …`; an
-`EntgeltatlasParseError` with `param`, `requested`, `received`, `row`; CLI exit 1, an ERROR record of `entgeltatlas.api`, nothing
+`EntgeltatlasParseError` with `param` (`"kldb"` or the dimension letter), `requested`,
+`received` (strings for `kldb`), `row`; CLI exit 1, an ERROR record of `entgeltatlas.api`, nothing
 on stdout). A server that ignores a filter would otherwise hand back the Deutschland /
 Gesamt figure as the answer. An omitted dimension is not checked: the API then answers one
 row per value of it.

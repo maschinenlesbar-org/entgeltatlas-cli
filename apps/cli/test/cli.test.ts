@@ -496,7 +496,8 @@ test("an empty answer for a 4-digit KldB code is explained in a WARN record (bug
       "with none, though the 3-digit group (843) and the 5-digit codes (8430x) have figures. Ask for one of those.",
   );
   // A 3- or 5-digit code without rows, and a 4-digit code with rows, get no such note.
-  for (const [code, rows] of [["843", []], ["84304", []], ["8430", fx.entgelteResult]] as const) {
+  // (A row carries the code it answers, as the 3- and 5-digit answers do live.)
+  for (const [code, rows] of [["843", []], ["84304", []], ["8430", fx.entgelteResult.map((r) => ({ ...r, kldb: "8430" }))]] as const) {
     const cli = makeCli(() => jsonResponse(rows));
     assert.equal(await run([...KEY, "entgelte", code], cli.deps), 0);
     assert.deepEqual(cli.err, [], code);
@@ -515,4 +516,11 @@ test("terminal controls are escaped in chunks: the same text as one pass, across
     (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
   assert.equal(out[0], expected);
   assert.deepEqual(JSON.parse(out[0]!), { text });
+});
+
+test("02 Bug 5: entgelte prints nothing and exits 1 when a row is of another occupation", async () => {
+  const cli = makeCli(() => jsonResponse([{ ...fx.entgelteResult[0]!, kldb: "99999" }]));
+  assert.equal(await run([...KEY, "--compact", "entgelte", "84304", "-l", "4", "-r", "1", "-g", "1", "-a", "1", "-b", "1"], cli.deps), 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[entgeltatlas\.api\] GET \S+: the API answered another slice than the one requested: kldb 84304 was asked for, but row 0 has kldb "99999"/m);
 });

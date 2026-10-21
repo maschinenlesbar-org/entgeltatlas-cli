@@ -178,7 +178,7 @@ const rows = await ea.entgelte("84304", { l: 4, r: 1, g: 1, a: 1, b: 1 });
 Errors are typed (`EntgeltatlasApiError`, `EntgeltatlasNetworkError`,
 `EntgeltatlasValidationError`, `EntgeltatlasParseError`). A row of another slice than
 the one requested — e.g. a `Deutschland` row for `r: 11`, as from a server that ignored
-the filter — is an `EntgeltatlasSliceError` (an `EntgeltatlasParseError`; CLI exit 1),
+the filter, or a row of another occupation (`kldb`) — is an `EntgeltatlasSliceError` (an `EntgeltatlasParseError`; CLI exit 1),
 never the answer. A custom `transport` (e.g. one
 built on `fetch`) gets the same guarantees as the built-in one: the engine enforces
 `timeoutMs` (passing an `AbortSignal` in `request.signal`) and `maxResponseBytes`, reads

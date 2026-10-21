@@ -253,3 +253,24 @@ test("an apiKey with whitespace inside is refused at construction (bug 1, 2026-1
   }
   assert.doesNotThrow(() => new EntgeltatlasClient({ apiKey: "  infosysbub-ega \t" }), "surrounding whitespace is trimmed");
 });
+
+test("02 Bug 5: a row of another occupation (kldb) is an EntgeltatlasSliceError, not the answer", async () => {
+  const row = fx.entgelteResult[0]!;
+  for (const other of ["99999", "843", "infosysbub"]) {
+    const { c } = client(() => jsonResponse([{ ...row, kldb: other }]), { apiKey: "K" });
+    await assert.rejects(
+      () => c.entgelte("84304", { l: 4, r: 1, g: 1, a: 1, b: 1 }),
+      (err) =>
+        err instanceof EntgeltatlasSliceError &&
+        err.param === "kldb" &&
+        err.requested === "84304" &&
+        err.received === other &&
+        err.row === 0 &&
+        err.message.includes(`kldb 84304 was asked for, but row 0 has kldb ${JSON.stringify(other)}`),
+      other,
+    );
+  }
+  // A 3-digit group answers rows of that group; a padded request is compared as it was sent.
+  const group = client(() => jsonResponse([{ ...row, kldb: "434" }]), { apiKey: "K" });
+  assert.equal((await group.c.entgelte(" 434 ")).length, 1);
+});
