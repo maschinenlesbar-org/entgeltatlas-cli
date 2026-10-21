@@ -313,13 +313,26 @@ an outage. `obtainKey()`'s `sourceUrl` gets the same class (`httpUrlProblem`).
 `EntgeltatlasNetworkError` stays for the default transport's per-hop scheme check
 and for redirect targets. `--base-url` calls the same `baseUrlProblem`.
 
+Every value that goes into a request passes one library function for its kind (the kit's rules,
+decision D8 of the 2026-10-21 round): `tokenProblem`/`normalizeToken` for a token (an id or a
+code: trimmed, NFC; refused when blank — whitespace, control and format characters and combining
+marks count as nothing (`isBlank`) — or when it holds a lone surrogate or any control or format
+character), `textProblem`/`normalizeText` for free text (the same, but ZWJ/ZWNJ and inner
+TAB/LF/CR are allowed) and `splitList`/`listProblem` for a comma list (item by item, an empty
+item named). The KldB code is a token of 3–5 ASCII digits (`kldbProblem`), sent trimmed; an
+`allowUnknownFilters` name is a token and its string value text. This API has no free-text
+filter and no list option; the functions are exported for library callers. A refusal quotes
+the value visibly (`quoteValue`); the CLI's KldB parser quotes it only for an invisible or
+control character, so a key typed in its place is not echoed.
+
 `apps/cli/test/validate.test.ts` holds the unit tests and `apps/cli/test/parity.test.ts` the parity
 tests: `parity()` in `apps/cli/test/helpers.ts` runs one input through `run()` and through the
 library on one recording mock transport, and a test asserts both reject without a
 request, or both send the identical request.
 `apps/cli/test/conformance-p24-input-corpus.test.ts` (P24) runs one corpus of tricky values
-through every id that goes into a path (the KldB code; this API has no free-text filter) on both
-sides, and `conformance-p25-response-corpus.test.ts` (P25) a corpus of numbers a double can and
+through every token that goes into a path (the KldB code; this API has no free-text filter and no
+list option) on both sides, including values that hold only invisible characters or a control,
+format or half character, each refused with the character shown escaped, and `conformance-p25-response-corpus.test.ts` (P25) a corpus of numbers a double can and
 can't carry, and an empty body, through `entgelte` (the error naming the request); P26
 (`conformance-p26-output-integrity`) checks that stdout redirected to a file and cut short is an
 `ERROR` record with exit 1 (its `-o` tests are skipped, `HAS_OUTPUT_OPTION = false`: this CLI has
@@ -332,7 +345,7 @@ escaped, invalid text replaced with U+FFFD and a `WARN`); their bodies are share
 
 `GET /infosysbub/entgeltatlas/pc/v1/entgelte/{kldb}` with optional integer query
 dims `l,r,g,a,b`. It returns a **bare JSON array** (no envelope) of
-`EntgeltEntry`. `client.entgelte()` validates the KldB (3–5 digits) and checks the
+`EntgeltEntry`. `client.entgelte()` validates the KldB (3–5 digits once trimmed, `kldbProblem`) and checks the
 documented shape (P9): `entgelte` must answer a JSON array of **salary rows** (each
 with a `kldb` string and the five dimension objects `region`, `gender`, `ageCategory`,
 `performanceLevel`, `branche`, each `{ id: <integer>, bezeichnung: <string> }`, and the
@@ -413,7 +426,9 @@ documented keys: any other key — `{ region: 11 }` (the CLI's flag name), `{ L:
 (`filterKeyProblem`) before any request, because the API ignores an unknown parameter
 and answers the unfiltered slice with HTTP 200. `{ allowUnknownFilters: true }` (dip-bundestag's
 shape) sends a parameter the API adds later, as a string, finite number or boolean;
-`__proto__`, `constructor` and `prototype` never go out. A dimension value must be one
+`__proto__`, `constructor` and `prototype` never go out, the name must be a token
+(`tokenProblem`: not empty, nothing invisible) and a string value is text (`textProblem`, sent
+as `normalizeText` makes it: trimmed, NFC; a blank or invisible value is refused). A dimension value must be one
 integer code (an array, `NaN`, a string or `null` is rejected). In the CLI, a single-value
 option given twice (`-g 2 -g 3`, `--timeout 1 --timeout 2`) is a usage error naming the
 option (`rejectRepeatedOptions` in `run.ts`), not "last one wins".

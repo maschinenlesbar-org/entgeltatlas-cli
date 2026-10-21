@@ -14,7 +14,18 @@
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText, quoteValue } from "./errors.js";
 import { DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
-import { apiKeyProblem, assertValid, describeType, isPlainObject, normalizeApiKey, optionsObject } from "./validate.js";
+import {
+  apiKeyProblem,
+  assertValid,
+  describeType,
+  isPlainObject,
+  kldbProblem,
+  normalizeApiKey,
+  normalizeText,
+  normalizeToken,
+  optionsObject,
+  textProblem,
+} from "./validate.js";
 import type { EntgeltEntry, EntgelteOptions, EntgelteParams, ReferenceItem } from "./types.js";
 
 const SERVICE = "/infosysbub/entgeltatlas/pc/v1";
@@ -33,9 +44,6 @@ export function emptyAnswerNote(kldb: string, rows: readonly unknown[]): string 
     `though the 3-digit group (${kldb.slice(0, 3)}) and the 5-digit codes (${kldb}x) have figures. Ask for one of those.`
   );
 }
-
-/** A KldB-2010 occupation code as accepted by the API: 3–5 ASCII digits. */
-const KLDB_PATTERN = /^[0-9]{3,5}$/;
 
 /** Options for the Entgeltatlas client (engine options plus the API key). */
 export interface EntgeltatlasClientOptions extends EngineOptions {
@@ -189,8 +197,9 @@ export class EntgeltatlasClient {
    * dimensions (l/r/g/a/b). Returns one observation per slice — an array, which
    * is empty when the requested cell is suppressed (too few observations).
    *
-   * Rejects with an EntgeltatlasValidationError, before any request, for a KldB
-   * code that is not 3–5 digits and for a dimension code outside its table in
+   * The KldB code is sent trimmed and in composed Unicode (`normalizeToken`). Rejects with
+   * an EntgeltatlasValidationError, before any request, for a KldB code that is not 3–5
+   * digits once trimmed or holds an invisible or control character (`kldbProblem`) and for a dimension code outside its table in
    * DIMENSIONS (see dimensionCodeProblem).
    */
   async entgelte(kldb: string, params: EntgelteParams = {}, options: EntgelteOptions = {}): Promise<EntgeltEntry[]> {
@@ -204,12 +213,8 @@ export class EntgeltatlasClient {
         `Invalid params: Expected an object of dimension filters ({ l, r, g, a, b }), got ${describeType(params)}.`,
       );
     }
-    if (!KLDB_PATTERN.test(kldb)) {
-      throw new EntgeltatlasValidationError(
-        `Invalid KldB code ${quoteValue(kldb)}: expected 3–5 digits (e.g. 84304). ` +
-          "This API takes the numeric KldB-2010 code, not an occupation name.",
-      );
-    }
+    // A token (D8): checked and sent trimmed and in composed Unicode; then 3–5 digits.
+    const code = normalizeToken(assertValid("KldB code", kldb, kldbProblem));
     const { allowUnknownFilters = false } = optionsObject("options", options);
     // Every key the caller set, own and enumerable — a JSON-parsed "__proto__" included.
     const query: Record<string, string | number | boolean> = {};
@@ -221,8 +226,10 @@ export class EntgeltatlasClient {
         // One integer code from the dimension's table: an array, NaN, a string or null
         // is rejected (the API takes one value, and might ignore a bad one).
         query[key] = assertValid(key, value as number, dimensionCodeProblem(key as DimensionParam));
+      } else if (typeof value === "string") {
+        // A parameter the API added later: its value is text (D8), never blank or invisible.
+        query[key] = normalizeText(assertValid(quoteValue(key), value, textProblem));
       } else if (
-        typeof value === "string" ||
         typeof value === "boolean" ||
         (typeof value === "number" && Number.isFinite(value))
       ) {
@@ -233,7 +240,7 @@ export class EntgeltatlasClient {
         );
       }
     }
-    const path = `${SERVICE}/entgelte/${kldb}`;
+    const path = `${SERVICE}/entgelte/${code}`;
     const res = await this.#engine.getJson<unknown>(path, query);
     // The API is documented to return an array of observations; anything else is
     // a ParseError, never wrapped or coerced (an empty array means suppressed).

@@ -40,7 +40,14 @@ export {
   headerValueProblem,
   httpUrlProblem,
   intRangeProblem,
+  kldbProblem,
+  listProblem,
   normalizeApiKey,
+  normalizeText,
+  normalizeToken,
+  splitList,
+  textProblem,
+  tokenProblem,
   userinfoEscapeProblem,
 } from "./validate.js";
 export { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem } from "./codes.js";

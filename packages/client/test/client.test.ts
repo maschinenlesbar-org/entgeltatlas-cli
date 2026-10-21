@@ -155,7 +155,10 @@ test("P10: allowUnknownFilters sends an extra parameter, never __proto__ and nev
   const { c, mt } = client(() => jsonResponse([]), { apiKey: "K" });
   await c.entgelte("84304", { l: 4, x: "1" } as never, { allowUnknownFilters: true });
   assert.equal(new URL(mt.last().url).search, "?l=4&x=1");
-  for (const params of [JSON.parse('{"__proto__": 1}'), { constructor: 1 }, { x: [1, 2] }, { x: { y: 1 } }]) {
+  // A string value is text (D8): sent trimmed and composed; a blank or invisible one, or an empty name, is refused.
+  await c.entgelte("84304", { x: " Mu\u0308ller " } as never, { allowUnknownFilters: true });
+  assert.equal(new URL(mt.last().url).searchParams.get("x"), "Müller");
+  for (const params of [JSON.parse('{"__proto__": 1}'), { constructor: 1 }, { x: [1, 2] }, { x: { y: 1 } }, { "": "x" }, { x: "" }, { x: "  " }, { x: "\u200b" }, { x: "a\u001bb" }, { "x\u200b": "1" }]) {
     await assert.rejects(
       () => c.entgelte("84304", params as never, { allowUnknownFilters: true }),
       EntgeltatlasValidationError,

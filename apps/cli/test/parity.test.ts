@@ -256,3 +256,22 @@ test("parity #5: run() maps the library's base-URL error to the usage exit code,
   assert.equal(code, 2);
   assert.deepEqual(err.map(untimed), ["ERROR [entgeltatlas.cli] Invalid baseUrl: Only http: and https: base URLs are supported."]);
 });
+
+test("parity: a padded KldB code is sent trimmed, like every token (D8)", async () => {
+  for (const kldb of [" 84304 ", "84304\n", "\t843"]) {
+    const r = await parity([...KEY, "entgelte", kldb], (t) => client(t).entgelte(kldb));
+    assert.equal(r.cli.code, 0, `${JSON.stringify(kldb)}: ${r.cli.err}`);
+    assert.equal(r.lib.ok, true, String(r.lib.error));
+    assert.deepEqual(r.lib.requests.map((q) => q.url), r.cli.requests.map((q) => q.url));
+    assert.match(r.cli.requests[0]?.url ?? "", new RegExp(`/entgelte/${kldb.trim()}$`));
+  }
+});
+
+test("parity: a KldB code with an invisible or control character is refused, the character shown escaped (D8, D10)", async () => {
+  for (const [kldb, escape] of [["843\u200b04", "\\u200b"], ["84304\u00ad", "\\u00ad"], ["8\u001b4304", "\\u001b"]] as const) {
+    const r = await parity([...KEY, "entgelte", kldb], (t) => client(t).entgelte(kldb));
+    assertBothReject(r, JSON.stringify(kldb));
+    assert.ok(r.cli.err.includes(escape), r.cli.err);
+    assert.ok((r.lib.error as Error).message.includes(escape), String(r.lib.error));
+  }
+});

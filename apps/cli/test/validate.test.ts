@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertValid, type Problem } from "@maschinenlesbar.org/entgeltatlas-client/internal/validate";
+import { assertValid, kldbProblem, listProblem, normalizeText, normalizeToken, splitList, textProblem, tokenProblem, type Problem } from "@maschinenlesbar.org/entgeltatlas-client/internal/validate";
 import { EntgeltatlasError, EntgeltatlasValidationError, quoteValue } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import { filterKeyProblem } from "@maschinenlesbar.org/entgeltatlas-client/internal/codes";
 import * as lib from "../src/index.js";
@@ -210,4 +210,34 @@ test("a key echoed escaped (commander's echo, a quoted refusal) is still redacte
   assert.equal(o.cli.code, 2);
   assert.ok(o.cli.err.includes("***") || !o.cli.err.includes("secret"), o.cli.err);
   assert.ok(!o.cli.err.includes("secret"), o.cli.err);
+});
+
+test("the kit's request-value rules: text, token and list (D8)", () => {
+  // Blank: whitespace, control and format characters and combining marks are nothing.
+  for (const v of ["", " ", "\u00a0", "\u200b", "\u00ad", "\u0301\u0308", " \u200b "]) {
+    assert.equal(tokenProblem(v), "Expected a non-empty value.", JSON.stringify(v));
+    assert.equal(textProblem(v), "Expected a non-empty value.", JSON.stringify(v));
+  }
+  assert.equal(tokenProblem("a\u200db"), '"a\\u200db" contains an invisible or control character (U+200D).');
+  assert.equal(tokenProblem("\ud800x"), '"\\ud800x" contains half of a character (a lone surrogate).');
+  assert.equal(tokenProblem(" a1 "), undefined);
+  assert.equal(normalizeToken(" e\u0301 "), "\u00e9");
+  // Text keeps ZWJ/ZWNJ and inner TAB/LF, refuses other controls and format characters.
+  assert.equal(textProblem("a\u200db"), undefined);
+  assert.equal(textProblem("a\tb"), undefined);
+  assert.match(textProblem("a\u001bb") ?? "", /contains a control character \(U\+001B\)/);
+  assert.match(textProblem("a\u00adb") ?? "", /contains an invisible character \(U\+00AD\)/);
+  assert.equal(normalizeText(" Mu\u0308ller "), "Müller");
+  // Lists: item by item, an empty item named.
+  assert.deepEqual(splitList("a1, a2"), ["a1", " a2"]);
+  assert.equal(listProblem(splitList("a1, a2")), undefined);
+  assert.equal(listProblem(splitList("a1,,a2")), "item 2 of 3: Expected a non-empty value.");
+  assert.equal(listProblem([]), "Expected at least one value.");
+  // The KldB code is a token, then 3–5 digits as sent.
+  assert.equal(kldbProblem(" 84304 "), undefined);
+  assert.match(kldbProblem("843\u200b04") ?? "", /^"843\\u200b04" contains an invisible or control character \(U\+200B\)\.$/);
+  assert.match(kldbProblem("Softwareentwickler") ?? "", /^"Softwareentwickler" is not a KldB-2010 code: expected 3–5 digits/);
+  for (const name of ["textProblem", "tokenProblem", "normalizeToken", "normalizeText", "splitList", "listProblem", "kldbProblem"] as const) {
+    assert.equal(typeof lib[name], "function", name);
+  }
 });

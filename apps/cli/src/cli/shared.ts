@@ -15,7 +15,10 @@ import {
   baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
+  kldbProblem,
   normalizeApiKey,
+  normalizeToken,
+  tokenProblem,
 } from "@maschinenlesbar.org/entgeltatlas-client/internal/validate";
 
 /** The name the API key is stored under in the credentials file (`entgeltatlas config set api-key`). */
@@ -146,17 +149,22 @@ export function parseDimensionCode(param: DimensionParam): (value: string) => nu
 }
 
 /**
- * commander value-parser for a KldB-2010 occupation code: 3–5 ASCII digits.
- * Fails fast on an obviously-invalid code (e.g. an occupation name) before any
- * request is made.
+ * commander value-parser for a KldB-2010 occupation code: the library's rules, a token
+ * (`tokenProblem`: an invisible or control character is refused, the value quoted with it
+ * escaped) of 3–5 ASCII digits once trimmed (`kldbProblem`), returned as it is sent
+ * (`normalizeToken`). Fails fast on an obviously-invalid code (e.g. an occupation name) before
+ * any request is made; that reason does not repeat the value, which may be a key typed in the
+ * wrong place (commander's echo of it is hidden too, `withoutStrayValues`).
  */
 export function parseKldb(value: string): string {
-  if (!/^[0-9]{3,5}$/.test(value)) {
+  const invisible = tokenProblem(value);
+  if (invisible !== undefined) throw new InvalidArgumentError(invisible);
+  if (kldbProblem(value) !== undefined) {
     throw new InvalidArgumentError(
       "Expected a 3–5 digit KldB-2010 code (e.g. 84304). This API takes the numeric code, not an occupation name.",
     );
   }
-  return value;
+  return normalizeToken(value);
 }
 
 /**
