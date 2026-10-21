@@ -343,7 +343,11 @@ too small for a double (`1e-400`, which would become 0), or a subnormal one (bel
 double's precision (a salary of `5731.5` passes). Past 2^53 the check compares the number as
 written with the number as printed (`String(value)`), not with the double's exact binary value:
 a double a server printed in its shortest form (`1E23`, `1.7976931348623157E308`) reads back as
-the same double, prints as the same number and passes. The KldB is a
+the same double, prints as the same number and passes. The scan (`scanNumbers`, linear,
+skipping strings, no reviver) can also deliver declared big integers: the engine option
+`bigIntegerKeys` (a set of member names) makes the value of each such member its exact
+literal, as a JSON string, whatever its size. This API's answers need none, so the client
+declares none; every undeclared number keeps the rule above. The KldB is a
 **path segment** (a string, to preserve leading zeros), not a query param.
 
 Every error about an answer names the request, `GET <url>: …`, with the URL as the engine's
