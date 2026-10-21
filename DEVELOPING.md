@@ -172,7 +172,8 @@ No key is bundled —
 `obtain-key` (packages/client/src/obtain-key.ts) reads it from the web app's page
 (`KEY_SOURCE_URL`, `https://web.arbeitsagentur.de/entgeltatlas/`) at run time, with the client's limits and retry policy (30 s timeout, 100 MiB cap,
 `DEFAULT_MAX_RETRIES` retries of a transient 429/503 via the shared
-`transientRetryDelay`, all range-checked like the client's; the CLI passes `--timeout`,
+`transientRetryDelay`, and of a reset connection (`isTransientNetworkError`, waiting
+`retryDelayMs × attempt`; the final error says `(after N retries)`, as the client's does), all range-checked like the client's; the CLI passes `--timeout`,
 `--max-response-bytes`, `--max-retries` and `--user-agent`) and up to `MAX_KEY_SOURCE_REDIRECTS`
 (5) same-origin redirects — a redirect to another host is not followed. It takes the
 value of the inline configuration's `clientId: '…'` (also double-quoted or with a

@@ -341,3 +341,38 @@ test("P17: a redirect obtainKey does not follow is named, with its reason; a no-
     (err) => err instanceof EntgeltatlasError && err.message.startsWith("No X-API-Key found at https://web.arbeitsagentur.de/entgeltatlas/start:"),
   );
 });
+
+test("04 Bug 7: obtainKey retries a reset connection like the client, and names the retries", async () => {
+  const reset = (): never => {
+    throw Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+  };
+  // Two resets, then the page: the key is read on the third request.
+  let calls = 0;
+  const waits: number[] = [];
+  const sleep = async (ms: number) => void waits.push(ms);
+  const flaky = async (): Promise<HttpResponse> => (++calls <= 2 ? reset() : rawResponse(SOURCE_DOC, "text/html"));
+  const result = await obtainKey({ transport: flaky, maxRetries: 2, retryDelayMs: 10, sleep });
+  assert.equal(result.key, EXPECTED_KEY);
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [10, 20]);
+  // Always reset: maxRetries + 1 requests, then an error naming the request and the retries.
+  let tries = 0;
+  await assert.rejects(
+    obtainKey({ transport: async () => { tries++; return reset(); }, maxRetries: 2, retryDelayMs: 10, sleep }),
+    (err: unknown) =>
+      err instanceof EntgeltatlasNetworkError &&
+      err.message === `GET ${KEY_SOURCE_URL} failed: socket hang up (after 2 retries)`,
+  );
+  assert.equal(tries, 3);
+  // maxRetries 0: one request, no retry note; a refused connection is not retried.
+  let once = 0;
+  await assert.rejects(obtainKey({ transport: async () => { once++; return reset(); }, maxRetries: 0, sleep }), (err: Error) => err.message === `GET ${KEY_SOURCE_URL} failed: socket hang up`);
+  assert.equal(once, 1);
+  let refused = 0;
+  const refuse = async (): Promise<HttpResponse> => {
+    refused++;
+    throw Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1"), { code: "ECONNREFUSED" });
+  };
+  await assert.rejects(obtainKey({ transport: refuse, maxRetries: 2, sleep }), EntgeltatlasNetworkError);
+  assert.equal(refused, 1);
+});

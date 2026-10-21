@@ -54,6 +54,7 @@ import {
   headerValue,
   followedElsewhere,
   intOption,
+  isTransientNetworkError,
   splitUserinfo,
   transientRetryDelay,
   transportError,
@@ -234,9 +235,22 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
       const elsewhere = followedElsewhere("GET", url, (raw as { url?: unknown }).url);
       if (elsewhere !== undefined) throw elsewhere;
     } catch (cause) {
+      // A reset connection is retried like a 503, as the API client does
+      // (isTransientNetworkError); a refused connection, a DNS failure or a timeout is not.
+      if (isTransientNetworkError(cause) && attempt < retry.maxRetries) {
+        attempt += 1;
+        await sleep(retry.retryDelayMs * attempt);
+        continue;
+      }
       // A source behind Basic auth (a private mirror): its credentials are cut from
-      // transport text, as the API client does for its base URL.
-      const err = transportError("GET", url, cause);
+      // transport text, as the API client does for its base URL. A reset after retries
+      // says how many ran, like the client's error.
+      const retried = isTransientNetworkError(cause) && attempt > 0 ? ` (after ${attempt} ${attempt === 1 ? "retry" : "retries"})` : "";
+      const named = transportError("GET", url, cause);
+      const err =
+        retried === "" || !(named instanceof EntgeltatlasNetworkError)
+          ? named
+          : new EntgeltatlasNetworkError(`${named.message}${retried}`, { cause: named.cause });
       const scrubbed = redactCredentials(err.message, sourceCredentials);
       if (scrubbed === err.message || !(err instanceof EntgeltatlasNetworkError)) throw err;
       throw new EntgeltatlasNetworkError(scrubbed);
