@@ -229,9 +229,13 @@ characters is matched in its raw form. A key read from the credentials file beco
 secret of the run the moment it is read (`deps.addSecret`, by `action()`, `config get`
 and `config set`), like the flag and the env value. The userinfo of every URL argument and of `ENTGELTATLAS_API_KEY`
 (`credentialsIn`, which finds it whether the value parses or not, then
-`redactCredentials`) becomes `***@` on stdout and stderr. Only a value that starts with
+`redactCredentials`) becomes `***@` on stdout and stderr. Only a URL with
 a scheme counts (a bare `a:b@c` is a User-Agent or a search text as often as a
-credential), except as the `--base-url` value; the `--api-key` value, the
+credential), except as the `--base-url` value. It is found wherever it starts inside an
+argument (`urlsWithin`): padded, after a dash or a control character, inside a phrase; each
+`://` is found with `indexOf` and its scheme by walking back, so the search stays linear in a
+long argument, and at most 64 URLs are read from one argument. Its percent-encoded form with
+the `@` (`bob%3Apw%40`), as a request URL carries it, is replaced too. The `--api-key` value, the
 `ENTGELTATLAS_API_KEY` value and any argument shaped like a UUID key
 (`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
 `obtain-key` prints the key. The forms a server echoes a userinfo back in are replaced
