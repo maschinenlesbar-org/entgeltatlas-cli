@@ -736,3 +736,18 @@ test("bigIntegerKeys: a declared member's number is its exact literal as a strin
   assert.equal(firstInexactNumber('{"a":"1e400","b":3e-324}'), "3e-324");
   assert.deepEqual(scanNumbers('{"a":1}'), { json: '{"a":1}', inexact: undefined });
 });
+
+test("a number literal with a long run of zeros is checked in linear time", () => {
+  // `1.<100 000 zeros>1e300`: the trailing-zero regex `/0+$/` tried a match at every zero of a
+  // run that doesn't end the text, quadratic (seconds); the index loops take milliseconds.
+  const literal = `1.${"0".repeat(100_000)}1e300`;
+  const started = performance.now();
+  const inexact = firstInexactNumber(`{"x":${literal}}`);
+  const ms = performance.now() - started;
+  assert.equal(inexact, literal);
+  assert.ok(ms < 1000, `${Math.round(ms)} ms`);
+  // The same result as before for the ordinary cases: exact literals pass, zeros on both ends
+  // are not significant digits.
+  assert.equal(firstInexactNumber('{"a":0.000,"b":100,"c":1.50e2,"d":-0.0,"e":9007199254740993}'), "9007199254740993");
+  assert.equal(firstInexactNumber('{"a":1000000000000000000000,"b":0.00100}'), undefined);
+});
