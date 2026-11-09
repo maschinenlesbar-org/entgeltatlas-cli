@@ -4,6 +4,7 @@ import { EntgeltatlasClient, emptyAnswerNote, type EntgeltatlasClientOptions } f
 import { RequestEngine } from "../src/engine.js";
 import {
   EntgeltatlasApiError,
+  EntgeltatlasNetworkError,
   EntgeltatlasParseError,
   EntgeltatlasSliceError,
   EntgeltatlasValidationError,
@@ -410,4 +411,70 @@ test("a number literal and a Content-Type a message quotes are scrubbed (securit
   const html = await c("<html>", `text/x-${pw}; charset=utf-8`).regionen().catch((caught: unknown) => caught);
   assert.ok(html instanceof EntgeltatlasParseError && /expected JSON/.test(html.message), String(html));
   assert.ok(!html.message.includes(pw), html.message);
+});
+
+test("a credential or the API key echoed in a redirect's Location never names the request in a message (security audit class D2)", async () => {
+  // A password with characters a URL's query percent-encodes in a spelling of its own (`'` as %27).
+  const pw = "pä\"s's-W0rd";
+  const key = "4c0ffee5-1d2e-4f3a-9b8c-7d6e5f4a3b2c";
+  const basic = Buffer.from(`alice:${pw}`, "utf8").toString("base64");
+  const secrets = [pw, `alice:${pw}`, basic, key];
+  const percentDecoded = (text: string): string =>
+    text.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example`;
+  const locations = [
+    `https://elsewhere.example/login?user=alice&pw=${encodeURIComponent(pw)}`,
+    `https://elsewhere.example/login?pw=${pw}`,
+    `https://elsewhere.example/${encodeURIComponent(`alice:${pw}`)}/x`,
+    `https://elsewhere.example/auth?basic=${basic}`,
+    `/relative/${pw}`,
+    `https://elsewhere.example/k?apikey=${key}`,
+  ];
+  for (const location of locations) {
+    // Every request answered with a 302 there: the redirect limit, naming the last request and target.
+    const retried: string[] = [];
+    const looping = new EntgeltatlasClient({
+      apiKey: key,
+      baseUrl: base,
+      maxRetries: 0,
+      transport: async () => ({ status: 302, headers: { location }, body: Buffer.alloc(0) }),
+    });
+    const loop = await looping.regionen().catch((caught: unknown) => caught);
+    assert.ok(loop instanceof EntgeltatlasApiError && /^HTTP 302 .*\(stopped after 5 redirects\)$/.test(loop.message), String(loop));
+    // One redirect, then a 401, a reset, an invalid answer and a 503 retried once: the request
+    // named (and the one onRetry is told about) is the followed one.
+    for (const after of ["401", "reset", "invalid", "503"] as const) {
+      let calls = 0;
+      const once = new EntgeltatlasClient({
+        apiKey: key,
+        baseUrl: base,
+        maxRetries: after === "503" ? 1 : 0,
+        retryDelayMs: 0,
+        sleep: async () => {},
+        onRetry: (event) => retried.push(event.url),
+        transport: async (req) => {
+          calls += 1;
+          if (calls === 1) return { status: 302, headers: { location }, body: Buffer.alloc(0) };
+          // A transport's text names the URL it was given.
+          if (after === "reset") throw Object.assign(new Error(`socket hang up (${req.url})`), { code: "ECONNRESET" });
+          if (after === "invalid") return { status: 99, headers: {}, body: Buffer.alloc(0) };
+          return rawResponse("{}", "application/json", after === "503" ? 503 : 401);
+        },
+      });
+      const err = await once.regionen().catch((caught: unknown) => caught);
+      assert.ok(err instanceof EntgeltatlasApiError || err instanceof EntgeltatlasNetworkError, String(err));
+      const e = err as EntgeltatlasApiError;
+      const seen = percentDecoded([e.message, e.url ?? "", e.location ?? "", JSON.stringify(e.credentialsDropped ?? {})].join("\n"));
+      for (const secret of secrets) assert.ok(!seen.includes(secret), `${location} ${after}: ${seen}`);
+    }
+    const seen = percentDecoded([loop.message, loop.url, loop.location ?? "", ...retried].join("\n"));
+    assert.ok(retried.length > 0);
+    for (const secret of secrets) assert.ok(!seen.includes(secret), `${location}: ${seen}`);
+  }
 });

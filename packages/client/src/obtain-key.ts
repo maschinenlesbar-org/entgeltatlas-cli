@@ -61,6 +61,7 @@ import {
   splitUserinfo,
   transientRetryDelay,
   transportError,
+  urlSpellings,
   userinfoForms,
   type CheckedResponse,
 } from "./engine.js";
@@ -201,10 +202,12 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
   );
 
   const sourceCredentials = userinfoForms(sourceUrl);
-  // And the forms a server echoes them in (the Basic value, `user:password`, the password),
-  // longest first: an error body or a transport's text can carry any of them.
+  // And the forms a server echoes them in (the Basic value, `user:password`, the password), each
+  // also percent-encoded (a Location), longest first: an error body, a transport's text or a
+  // redirect target can carry any of them.
   const sourceEchoes = credentialsIn(sourceUrl)
     .flatMap(echoedCredentialForms)
+    .flatMap(urlSpellings)
     .sort((a, b) => b.length - a.length);
   const scrubSource = (text: string): string => redactSecrets(redactCredentials(text, sourceCredentials), sourceEchoes);
   // A source behind Basic auth (a private mirror) gets its userinfo as an Authorization
@@ -212,6 +215,18 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
   // never leaves that origin.
   const start = splitUserinfo(sourceUrl);
   let url = start.url;
+  // The URL as messages name it: after a redirect, the Location as the source sent it with its
+  // credentials scrubbed, then resolved. Resolving first would percent-encode an echoed password
+  // in a new spelling (`'` as `%27` in a query) no scrub matches.
+  let shownUrl = redactUrl(url);
+  const shownLocation = (location: string): string => {
+    const sent = scrubSource(location);
+    try {
+      return redactUrl(new URL(sent, shownUrl).href);
+    } catch {
+      return redactUrl(sent);
+    }
+  };
   let response: CheckedResponse;
   let redirects = 0;
   let attempt = 0;
@@ -260,7 +275,8 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
         retried === "" || !(named instanceof EntgeltatlasNetworkError)
           ? named
           : new EntgeltatlasNetworkError(`${named.message}${retried}`, { cause: named.cause });
-      const scrubbed = scrubSource(err.message);
+      // The text names the URL the transport was given; a message names the one shown.
+      const scrubbed = scrubSource(err.message.split(redactUrl(url)).join(shownUrl));
       if (scrubbed === err.message || !(err instanceof EntgeltatlasNetworkError)) throw err;
       throw new EntgeltatlasNetworkError(scrubbed);
     }
@@ -273,26 +289,28 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
     if (!FOLLOWED_REDIRECTS.has(response.status)) break;
     const next = resolveLocation(response.headers["location"], url);
     if (next === undefined) break; // the error says "no Location header"
+    const shownNext = shownLocation(headerValue(response.headers["location"]) ?? "");
     next.username = "";
     next.password = "";
     // Only same-origin hops: the key is trusted because of where it is published,
     // so a redirect to another host (or scheme) is not followed, nor a loop.
     if (!/^https?:$/.test(next.protocol)) {
-      unfollowed = { location: redactUrl(next.href), reason: "a URL that is not http(s)" };
+      unfollowed = { location: shownNext, reason: "a URL that is not http(s)" };
       break;
     }
     if (next.origin !== new URL(url).origin) {
       unfollowed = {
-        location: redactUrl(next.href),
+        location: shownNext,
         reason: "another origin: the key is read only from its source's own origin",
       };
       break;
     }
     if (redirects >= MAX_KEY_SOURCE_REDIRECTS) {
-      unfollowed = { location: redactUrl(next.href), redirectsFollowed: redirects };
+      unfollowed = { location: shownNext, redirectsFollowed: redirects };
       break;
     }
     url = next.href;
+    shownUrl = shownNext;
     redirects += 1;
   }
 
@@ -302,7 +320,7 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
     const why = unfollowed?.reason === undefined ? "" : ` (the redirect leads to ${unfollowed.reason})`;
     throw new EntgeltatlasKeySourceError({
       status: response.status,
-      url,
+      url: shownUrl,
       method: "GET",
       body: scrubSource(response.body.toString("utf8")),
       ...(retryAfterTooLong(response) !== undefined ? { retryAfterMs: retryAfterTooLong(response) as number } : {}),
@@ -316,31 +334,31 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
 
   // Bytes that are not valid text become U+FFFD; a key holding one does not match KEY_FORMAT,
   // so the replacement can never change the key that is printed.
-  const { text } = decodeBody(response.body, String(headerValue(response.headers["content-type"]) ?? ""), `GET ${redactUrl(url)}`);
+  const { text } = decodeBody(response.body, String(headerValue(response.headers["content-type"]) ?? ""), `GET ${shownUrl}`);
   // The page states the key once. Two different values make it ambiguous, and a
   // value that isn't shaped like a key (a placeholder, a template expression) is not
   // one: guessing would be worse than failing.
   const values = findClientIds(text).filter((value) => !isPlaceholder(value));
   if (values.length > 1) {
     throw new EntgeltatlasError(
-      `The key source ${redactUrl(url)} states conflicting keys (${values.length} different clientId values). ` +
+      `The key source ${shownUrl} states conflicting keys (${values.length} different clientId values). ` +
         `Check it by hand before relying on this command.`,
     );
   }
   const key = values[0];
   if (key === undefined) {
     throw new EntgeltatlasError(
-      `No X-API-Key found at ${redactUrl(url)}: the page states no clientId. The web app may have ` +
+      `No X-API-Key found at ${shownUrl}: the page states no clientId. The web app may have ` +
         `changed format or stopped publishing the key — check it by hand before relying on this command.`,
     );
   }
   if (!KEY_FORMAT.test(key)) {
     throw new EntgeltatlasError(
-      `The key source ${redactUrl(url)} states a clientId that is not shaped like a key (3–64 lower-case ` +
+      `The key source ${shownUrl} states a clientId that is not shaped like a key (3–64 lower-case ` +
         `letters, digits and hyphens), so it is not used. Check the page by hand.`,
     );
   }
-  return { key, sourceUrl: redactUrl(url) };
+  return { key, sourceUrl: shownUrl };
 }
 
 /** Resolve a Location header against the request URL; undefined if missing or malformed. */

@@ -596,7 +596,12 @@ shared check.
   origin. `apps/cli/test/conformance-p3-redirect-credentials.test.ts` is the shared check. Any other 3xx, a missing or malformed Location, or
   the limit surface as `EntgeltatlasApiError` (exit 1) naming the target:
   `redirect to <url> not followed (stopped after 5 redirects)` /
-  `redirect not followed (no Location header)`.
+  `redirect not followed (no Location header)`. After a redirect, every message (and
+  `onRetry`'s `url`) names the request as the engine shows it, not as it was sent: the
+  `Location` with the base URL's credentials and the API key scrubbed as the server sent it,
+  then resolved (`shownTarget`; `obtainKey` does the same for a source's credentials).
+  Resolving first would spell an echoed password anew (`'` as `%27` in a query), which no
+  scrub matches. The request itself still goes to the `Location` as sent.
 
 ## Website
 

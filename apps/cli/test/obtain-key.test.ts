@@ -388,3 +388,31 @@ test("a key source behind Basic auth: an error body echoing its credentials keep
   assert.ok(err instanceof EntgeltatlasKeySourceError, String(err));
   for (const secret of [basic, `alice:${pw}`, pw]) assert.ok(!err.body.includes(secret) && !err.message.includes(secret), err.body);
 });
+
+test("a key source behind Basic auth: a credential echoed in a redirect's Location never names the request (security audit class D2)", async () => {
+  // A password a query spells anew once resolved (`'` as %27): scrubbed as sent, then resolved.
+  const pw = "pä\"s's-W0rd";
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example/key`;
+  const percentDecoded = (text: string): string =>
+    text.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+  for (const location of [`/login?pw=${pw}`, `/login?pw=${encodeURIComponent(pw)}`, `https://elsewhere.example/login?pw=${pw}`]) {
+    // Followed (same origin) and then a 500, or refused (another origin), or a loop.
+    for (const then of [500, 302]) {
+      let calls = 0;
+      const transport = async (): Promise<HttpResponse> => {
+        calls += 1;
+        return calls === 1 || then === 302 ? { status: 302, headers: { location }, body: Buffer.alloc(0) } : rawResponse("", "text/plain", 500);
+      };
+      const err = await obtainKey({ sourceUrl: base, transport, maxRetries: 0 }).catch((caught: unknown) => caught);
+      assert.ok(err instanceof EntgeltatlasKeySourceError, String(err));
+      const seen = percentDecoded([err.message, err.url, err.location ?? ""].join("\n"));
+      assert.ok(!seen.includes(pw), `${location} ${then}: ${seen}`);
+    }
+  }
+});

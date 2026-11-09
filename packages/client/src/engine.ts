@@ -154,7 +154,7 @@ export interface RetryEvent {
   delayMs: number;
   /** The HTTP status that caused the retry; absent for a reset connection. */
   status?: number;
-  /** The URL being retried, userinfo redacted. */
+  /** The URL being retried, userinfo redacted (after a redirect, credentials echoed in it scrubbed). */
   url: string;
 }
 
@@ -504,17 +504,6 @@ function resolveLocation(location: string | undefined, base: string): URL | unde
   }
 }
 
-/**
- * The absolute, printable form of a `Location` header: resolved against the request
- * URL, userinfo redacted, control characters stripped and whitespace folded (it is
- * server text bound for stderr). An unparseable value is shown sanitised as it came.
- */
-function redirectTarget(requestUrl: string, location: string): string | undefined {
-  const resolved = resolveLocation(location, requestUrl);
-  const clean = sanitizeServerText(resolved ? redactUrl(resolved.href) : location);
-  return clean === "" ? undefined : clean;
-}
-
 /** Response headers as the engine reads them: a plain record with lower-case names. */
 export type PlainHeaders = Record<string, string | string[] | undefined>;
 
@@ -700,7 +689,7 @@ const MAX_DETAIL_LENGTH = 500;
  * a URL, a redirect's Location, percent-encodes it. A form that has no such spelling (a lone
  * surrogate) is kept as it is.
  */
-function urlSpellings(form: string): string[] {
+export function urlSpellings(form: string): string[] {
   try {
     return [form, encodeURIComponent(form)];
   } catch {
@@ -1113,7 +1102,10 @@ export class RequestEngine {
     }
   }
 
-  /** Tell `onRetry` about a retry, then wait. A throwing callback never breaks the request. */
+  /**
+   * Tell `onRetry` about a retry (`url` as messages show it: userinfo redacted, credentials
+   * scrubbed), then wait. A throwing callback never breaks the request.
+   */
   private async backOff(attempt: number, delayMs: number, url: string, status?: number): Promise<void> {
     try {
       this.onRetry?.({
@@ -1121,7 +1113,7 @@ export class RequestEngine {
         maxRetries: this.maxRetries,
         delayMs,
         ...(status !== undefined ? { status } : {}),
-        url: redactUrl(url),
+        url,
       });
     } catch {
       // a logging hook is no reason to fail the request
@@ -1175,6 +1167,10 @@ export class RequestEngine {
     const credentialOrigin = originOf(start.url);
     let dropped: CredentialsDropped | undefined;
     let url = start.url;
+    // The URL as messages name it: after a redirect, the Location as the server sent it with the
+    // credentials and the key scrubbed, then resolved (`shownTarget`). Resolving first would
+    // percent-encode an echoed password in a new spelling (`'` as `%27` in a query) no scrub matches.
+    let shown = redactUrl(url);
 
     // Only an idempotent request is sent again: request() is public, and a POST re-sent
     // after a reset may be applied twice. The client itself sends GETs only.
@@ -1205,7 +1201,7 @@ export class RequestEngine {
         // not retried — a slow upstream should not be asked again at once.
         if (idempotent && hasTransientCode(cause) && attempt < this.maxRetries) {
           attempt += 1;
-          await this.backOff(attempt, this.retryDelayMs * attempt, url);
+          await this.backOff(attempt, this.retryDelayMs * attempt, shown);
           continue;
         }
         // A reset names only itself ("socket hang up"): say which request it broke off and,
@@ -1215,23 +1211,23 @@ export class RequestEngine {
           const reason = cause instanceof Error && cause.message.trim() !== "" ? cause.message : "connection reset";
           const retries = attempt === 0 ? "" : ` (after ${attempt} ${attempt === 1 ? "retry" : "retries"})`;
           throw new EntgeltatlasNetworkError(
-            `${method} ${redactUrl(url)} failed: ${cleanDetail(this.scrub(reason))}${retries}`,
+            `${method} ${shown} failed: ${cleanDetail(this.scrub(reason.split(redactUrl(url)).join(shown)))}${retries}`,
             { cause: this.scrubCause(cause) },
           );
         }
-        throw this.toNetworkError(method, url, cause);
+        throw this.toNetworkError(method, url, shown, cause);
       }
       // An injected transport may resolve with anything; check it before reading it.
       let response: CheckedResponse;
       try {
         response = checkResponse(raw, method, url, this.maxResponseBytes);
       } catch (err) {
-        throw this.toNetworkError(method, url, err);
+        throw this.toNetworkError(method, url, shown, err);
       }
       // A transport that followed a redirect itself took the request to a host the
       // engine never checked: don't trust its answer.
       const elsewhere = followedElsewhere(method, url, (raw as { url?: unknown }).url);
-      if (elsewhere !== undefined) throw elsewhere;
+      if (elsewhere !== undefined) throw this.toNetworkError(method, url, shown, elsewhere);
 
       const status = response.status;
       // Honour Retry-After; without a usable one, back off linearly. A Retry-After
@@ -1244,7 +1240,7 @@ export class RequestEngine {
         : undefined;
       if (wait !== undefined) {
         attempt += 1;
-        await this.backOff(attempt, wait, url, status);
+        await this.backOff(attempt, wait, shown, status);
         continue;
       }
 
@@ -1257,7 +1253,7 @@ export class RequestEngine {
       if (next !== undefined && redirects >= this.maxRedirects) {
         // A loop (or a long chain): say how far it got rather than a bare 3xx.
         // (With maxRedirects 0 nothing was followed; the plain text says enough.)
-        throw this.toApiError(method, url, status, response.body, location, redirects || undefined, dropped);
+        throw this.toApiError(method, shown, status, response.body, location, redirects || undefined, dropped);
       }
       if (next !== undefined) {
         // SECURITY: the credentials belong to the start URL's origin. A redirect to
@@ -1267,8 +1263,9 @@ export class RequestEngine {
         next.username = "";
         next.password = "";
         if (hasCredentials && dropped === undefined && next.origin !== credentialOrigin) {
-          dropped = { from: originOf(url) ?? "", to: next.origin };
+          dropped = { from: originOf(url) ?? "", to: sanitizeServerText(this.scrub(next.origin)) };
         }
+        shown = this.shownTarget(location as string, shown);
         url = next.href;
         redirects += 1;
         continue;
@@ -1279,7 +1276,7 @@ export class RequestEngine {
       // Scrubbed and sanitised at the source: it is the server's and a message may quote it.
       const contentType = sanitizeServerText(this.scrub(String(headerValue(response.headers["content-type"]) ?? "")));
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, location, undefined, dropped, retryAfterTooLong(response));
+        throw this.toApiError(method, shown, status, response.body, location, undefined, dropped, retryAfterTooLong(response));
       }
 
       return {
@@ -1394,6 +1391,23 @@ export class RequestEngine {
   }
 
   /**
+   * A redirect's `Location` as messages name it: the credentials and the API key scrubbed as sent,
+   * before resolving it against `from` (the current request as shown) percent-encodes what is
+   * left of them in a new spelling; then userinfo redacted and control and format characters
+   * dropped (`sanitizeServerText`). A value that doesn't resolve is shown cleaned as it came.
+   */
+  private shownTarget(location: string, from: string): string {
+    const sent = this.scrub(location);
+    let target: string;
+    try {
+      target = redactUrl(new URL(sent, from).href);
+    } catch {
+      target = redactUrl(sent);
+    }
+    return sanitizeServerText(target);
+  }
+
+  /**
    * A transport failure as the `cause` of the error the engine raises: the original
    * when its text carries no secret, otherwise a copy with them scrubbed (message,
    * `code` and the cause chain kept), so logging the error with its causes can't
@@ -1418,10 +1432,11 @@ export class RequestEngine {
    * A transport failure as an EntgeltatlasError (transportError), with the base URL's
    * credentials and the key scrubbed from its message and its cause chain.
    */
-  private toNetworkError(method: string, url: string, cause: unknown): EntgeltatlasError {
+  private toNetworkError(method: string, url: string, shown: string, cause: unknown): EntgeltatlasError {
     const err = transportError(method, url, typeof cause === "string" ? this.scrub(cause) : cause);
     if (!(err instanceof EntgeltatlasNetworkError)) return err;
-    const message = this.scrub(err.message);
+    // The text names the URL the transport was given; a message names the one shown.
+    const message = this.scrub(err.message.split(redactUrl(url)).join(shown));
     const inner = this.scrubCause(err.cause);
     if (message === err.message && inner === err.cause) return err;
     return new EntgeltatlasNetworkError(message, inner === undefined ? undefined : { cause: inner });
@@ -1461,7 +1476,7 @@ export class RequestEngine {
     if (detail !== undefined) detail = cleanDetail(this.scrub(detail));
     // Name the target of a redirect that was not followed.
     const location =
-      status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
+      status >= 300 && status < 400 && locationHeader ? this.shownTarget(locationHeader, url) || undefined : undefined;
     return new EntgeltatlasApiError({
       status,
       url,
