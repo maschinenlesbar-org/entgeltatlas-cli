@@ -138,7 +138,8 @@ job's digests, create the GitHub Release with `gh` (tarball, SBOMs, notes). So n
 code runs where the tarball is built or where the write token is. Update the tool by changing
 its version in `tools/sbom/package.json` and running `npm install --package-lock-only
 --ignore-scripts` there; don't chain its install into an npm script.
-`apps/cli/test/release-workflow.test.ts` reads the workflow and the lockfile and checks it.
+`apps/cli/test/conformance-p31-release-pipeline.test.ts` (P31) reads the workflow and the
+lockfile and checks it.
 `publish.yml` runs `npm publish --workspace apps/cli`.
 
 ## Entgeltatlas-specific notes
@@ -389,7 +390,18 @@ no `-o`), and P27 (`conformance-p27-big-and-odd-answers`) big and odd answers (8
 `--compact` and 20 MB of DEL characters under a small heap, a text past V8's longest string once
 escaped, two million one-byte chunks under a small heap, invalid text replaced with U+FFFD and a
 `WARN`); their bodies are shared across the
-*-cli repos.
+*-cli repos. **P28–P31** (security audit 2026-10-27, reference `create-cli-template`): **P28**
+hostile error answers (a number with a long run of zeros checked in linear time; server text cut
+before it is cleaned; a 16 MB error message one ERROR record and millions of lone surrogates
+repaired within a small heap, both in the bin, 30 s; the base URL's credentials scrubbed from
+decoded error text, from a slice error's quoted kldb and from a redirect's Location, whose 302
+loop ends at the redirect limit), **P29** base-URL credentials (a token userinfo scrubbed, a
+backslash and a repaired scheme refused, requests to the parsed host, linear stdout redaction;
+the glued-URL case is skipped: this CLI's stdout redaction matches argv's userinfo exactly and
+has no pattern pass), **P30** output links (all skipped, `HAS_OUTPUT_OPTION = false`: no `-o`;
+the adapter has stand-ins for the shapes the body uses), **P31** the release pipeline (read as
+text). The API key is scrubbed by the same code; the client's `client.test.ts` checks it for the
+escaped echo, a quoted label and the Location.
 
 ### One data endpoint, a bare array
 
