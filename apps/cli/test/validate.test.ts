@@ -169,10 +169,20 @@ test("baseUrlProblem: parse, scheme, query/fragment and whitespace, with the CLI
   assert.equal(p("http://h.example "), "A base URL cannot have surrounding whitespace.");
   assert.equal(p(42 as unknown as string), 'Invalid URL "42".');
   assert.equal(p(new URL("https://h.example") as unknown as string), 'Invalid URL "https://h.example/".');
+  // A backslash, and a scheme not followed by exactly "//" and the host (security audit F, F4).
+  assert.equal(p("https://u:pw@a.example\\@b.example"), 'A base URL cannot contain a backslash (\\); write "/" instead.');
+  assert.equal(p("https:\\\\h.example"), 'A base URL cannot contain a backslash (\\); write "/" instead.');
+  for (const value of ["http:h.example", "http:/h.example", "http:///h.example", "HTTPS:h.example"]) {
+    assert.equal(p(value), 'Expected an absolute http(s) URL ("https://" and the host).', value);
+  }
+  assert.equal(p("http:///h.example/?q=1"), "A base URL cannot have a query (?) or fragment (#).");
+  assert.equal(p("HTTPS://H.example"), undefined);
 });
 
 test("validateBaseUrl strips trailing slashes and redacts credentials in its error", () => {
   assert.equal(lib.validateBaseUrl("https://h.example/x//"), "https://h.example/x");
+  // The URL as WHATWG parses it: the host lower-cased, a default port dropped.
+  assert.equal(lib.validateBaseUrl("https://API.Example:443/v1/"), "https://api.example/v1");
   assert.throws(
     () => lib.validateBaseUrl("ftp://user:s3cret@h.example/"),
     (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret"),

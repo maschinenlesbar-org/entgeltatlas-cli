@@ -366,7 +366,10 @@ const CREDENTIAL_HEADERS = ["authorization", "x-api-key", "oauthaccesstoken", "c
  * value is checked here, raw, before the slash strip.
  */
 export function validateBaseUrl(raw: string): string {
-  return assertValid("baseUrl", raw, baseUrlProblem).replace(/\/+$/, "");
+  // The base URL as WHATWG parses it, the reading every check of it makes (the host, the
+  // cleartext warning, the origin credentials are bound to), not a text-based reading of the
+  // string: a transport that reads the URL as text reaches the same host.
+  return new URL(assertValid("baseUrl", raw, baseUrlProblem)).href.replace(/\/+$/, "");
 }
 
 /**
@@ -1037,11 +1040,13 @@ export class RequestEngine {
     // A JavaScript caller may pass null for "no options"; anything else but an object is an error.
     const options = optionsObject("options", rawOptions);
     // Only an omitted baseUrl selects the default; validateBaseUrl checks the raw
-    // value before the trailing-slash strip, so "https://h/ " cannot slip past it.
-    this.#baseUrl = validateBaseUrl(options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl);
+    // value before the trailing-slash strip, so "https://h/ " cannot slip past it, and
+    // requests go to the URL as WHATWG parses it.
+    const typed = options.baseUrl === undefined ? DEFAULT_BASE_URL : options.baseUrl;
+    this.#baseUrl = validateBaseUrl(typed);
     // The userinfo as typed and as sent (WHATWG percent-encodes some of its characters: a server
     // that echoes the request URL echoes that spelling).
-    const userinfos = [...new Set([...credentialsIn(this.#baseUrl), ...credentialsIn(new URL(this.#baseUrl).href)])];
+    const userinfos = [...new Set([...credentialsIn(typed), ...credentialsIn(this.#baseUrl)])];
     this.#credentials = [
       ...new Set(
         userinfos.flatMap((raw) => {

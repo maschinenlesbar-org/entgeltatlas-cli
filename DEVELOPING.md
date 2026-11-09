@@ -337,14 +337,23 @@ same rule.
 
 The `RequestEngine` constructor checks `baseUrl` with `validateBaseUrl` /
 `baseUrlProblem` on the raw value, before the trailing-slash strip: unparseable
-(including `""`), a scheme other than `http:`/`https:`, a query or fragment, a `%`
-in the user name or password that isn't an escape (`userinfoEscapeProblem`: Node would
-throw "URI malformed" at request time; a literal `%` is `%25`), or
-surrounding whitespace (rejected, not trimmed: `new URL()` would trim it silently
-while the engine joins the raw string to every path) throws an
+(including `""`), a scheme other than `http:`/`https:`, a query or fragment, a backslash
+(WHATWG ends an http(s) host at one, so `https://u:pw@a.example\@b.example` is a.example to
+the parser and b.example to code that reads the text; the message never quotes the value), a
+`%` in the user name or password that isn't an escape (`userinfoEscapeProblem`: Node would
+throw "URI malformed" at request time; a literal `%` is `%25`),
+surrounding whitespace (rejected, not trimmed: `new URL()` would trim it silently), or a
+scheme not followed by exactly `//` and the host (`http:host`, `http:/host`, `http:///host`,
+which WHATWG repairs silently into `http://host`: `Expected an absolute http(s) URL
+("https://" and the host).`) throws an
 `EntgeltatlasValidationError` (`Invalid baseUrl: Only http: and https: base URLs are
 supported.`), never an `EntgeltatlasNetworkError`: it is a configuration error, not
-an outage. `obtainKey()`'s `sourceUrl` gets the same class (`httpUrlProblem`).
+an outage. Requests go to the base URL as WHATWG parses it (`validateBaseUrl` returns its
+`href` without trailing slashes): the host lower-cased, a default port dropped, the path
+percent-encoded where WHATWG does it; messages show that spelling and a custom transport gets
+it. `credentialsIn` reads a userinfo where WHATWG does: after any slashes and backslashes a
+special scheme skips (`http:///u:pw@h`, `https:\\u:pw@h`, `http:u:pw@h`), up to a backslash
+too. `obtainKey()`'s `sourceUrl` gets the same class (`httpUrlProblem`).
 `EntgeltatlasNetworkError` stays for the default transport's per-hop scheme check
 and for redirect targets. `--base-url` calls the same `baseUrlProblem`.
 

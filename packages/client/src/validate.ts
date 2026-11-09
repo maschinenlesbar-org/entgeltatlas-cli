@@ -162,16 +162,26 @@ export const userinfoEscapeProblem: Problem = (value) => {
 /**
  * A base URL: an absolute `http:`/`https:` URL (a path prefix is fine) without a
  * query or fragment — request paths are appended to it as a string, so `http://h/?x=1`
- * would request `/?x=1/infosysbub/...` and `http://h/#f` would request `/` — with a
- * decodable userinfo (userinfoEscapeProblem), and without surrounding whitespace
- * (baseUrlWhitespaceProblem). The reasons are the CLI's `--base-url` messages.
+ * would request `/?x=1/infosysbub/...` and `http://h/#f` would request `/` — without a
+ * backslash, with a decodable userinfo (userinfoEscapeProblem), without surrounding
+ * whitespace (baseUrlWhitespaceProblem), and with its scheme followed by exactly `//` and the
+ * host. The reasons are the CLI's `--base-url` messages, and none repeats a password:
+ *
+ * - a backslash: WHATWG ends an http(s) host at one, as at a `/`, while text-based code reads
+ *   on, so `https://u:pw@a.example\@b.example` was checked as a.example by one reader and as
+ *   b.example by another; the message never quotes the value;
+ * - `http:host`, `http:/host`, `http:///host` (or `HTTPS:host`): WHATWG skips any slashes after
+ *   an http(s) scheme and repairs the URL silently, so the host requested would not be the one
+ *   typed, and code that reads the userinfo after `://` would miss it.
  */
 export const baseUrlProblem: Problem = (value) =>
   (typeof value === "string" ? undefined : `Invalid URL ${quoteValue(String(value))}.`) ??
   schemeProblem(value, "base URLs") ??
   (/[?#]/.test(value) ? "A base URL cannot have a query (?) or fragment (#)." : undefined) ??
+  (value.includes("\\") ? 'A base URL cannot contain a backslash (\\); write "/" instead.' : undefined) ??
   userinfoEscapeProblem(value) ??
-  baseUrlWhitespaceProblem(value);
+  baseUrlWhitespaceProblem(value) ??
+  (/^https?:\/\/[^/]/i.test(value) ? undefined : 'Expected an absolute http(s) URL ("https://" and the host).');
 
 /**
  * The canonical form of an API key: trimmed, and `undefined` when blank (a blank
