@@ -92,7 +92,10 @@ transport) that fires at the deadline; `checkResponse` requires an integer statu
 object, a `Map` or any name case is normalised by `plainHeaders`, so `Retry-After` and
 `Location` are always seen) and a byte body (any `ArrayBuffer` view, an `ArrayBuffer`
 or a string, from any realm), and applies `maxResponseBytes` to the body it got back
-(`sizeLimitMessage` names the option and `--max-response-bytes`). Whatever a transport
+(`sizeLimitMessage` names the option and `--max-response-bytes`). The built-in transport joins
+a body's small chunks as they arrive (`COALESCE_CHUNKS`, 1024 of them, or `COALESCE_BYTES`, 64 KiB),
+so its memory follows the bytes, not the number of chunks a server sends (a Buffer per one-byte
+chunk held about 210 bytes of heap each). Whatever a transport
 throws becomes an `EntgeltatlasNetworkError` naming the request, with the original as `cause`
 (`transportError`): the built-in transport's own errors and the engine's deadline and size cap
 too (`GET <url> failed: Request timed out after 500ms`, `… failed: connect ECONNREFUSED …`,
@@ -384,7 +387,8 @@ can't carry, and an empty body, through `entgelte` (the error naming the request
 `ERROR` record with exit 1 (its `-o` tests are skipped, `HAS_OUTPUT_OPTION = false`: this CLI has
 no `-o`), and P27 (`conformance-p27-big-and-odd-answers`) big and odd answers (8 M numbers with
 `--compact` and 20 MB of DEL characters under a small heap, a text past V8's longest string once
-escaped, invalid text replaced with U+FFFD and a `WARN`); their bodies are shared across the
+escaped, two million one-byte chunks under a small heap, invalid text replaced with U+FFFD and a
+`WARN`); their bodies are shared across the
 *-cli repos.
 
 ### One data endpoint, a bare array
