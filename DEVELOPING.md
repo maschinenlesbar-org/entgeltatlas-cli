@@ -257,7 +257,8 @@ the `@` (`bob%3Apw%40`), as a request URL carries it, is replaced too. The `--ap
 (`looksLikeApiKey`) become `***` on stderr (`redactSecrets`). Not on stdout, where
 `obtain-key` prints the key. The forms a server echoes a userinfo back in are replaced
 too: the `Basic` value and the decoded `user:password` on stdout and stderr, the
-password alone (4 characters or more) on stderr only, since it may well occur in the
+password alone (4 characters or more; for a user name without a password, `TOKEN@host`, the
+token, sent as Basic `TOKEN:`) on stderr only, since it may well occur in the
 data. Commander's error message is terminal-escaped first
 (`escapeTerminalText`: CR and LF become `\r` and `\n`, the other C0 controls, DEL,
 C1 and format characters `\uXXXX`), so an ESC
@@ -276,7 +277,8 @@ The engine keeps the base URL and the default headers (with the API key) in real
 `#private` fields, and the client its engine, so `console.log(client)`,
 `util.inspect` and `JSON.stringify` never show them. The base URL's userinfo (raw
 and percent-decoded, `userinfoForms`), the forms a server echoes it back in (the `Basic`
-value, the decoded `user:password`, the password alone from 4 characters:
+value, the decoded `user:password`, the password alone from 4 characters, or the user name
+when there is no password, a token sent as Basic `TOKEN:`:
 `echoedCredentialForms`; the `Basic` value in Latin-1, as the engine sends it, and in UTF-8)
 and the key are scrubbed from error bodies and details, from transport error text and from the
 `cause` chain (`scrub` / `scrubCause`). The userinfo is taken as typed and as WHATWG spells it in
