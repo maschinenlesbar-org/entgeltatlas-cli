@@ -293,7 +293,9 @@ never leaves part of a secret), and the slice error's `received` kldb through
 `scrubServerValue`; the number literal and the Content-Type a message quotes are scrubbed at the
 source. `obtainKey` scrubs a source URL's userinfo in all its echoed forms from its errors.
 `redactUrl` cuts the userinfo out of a URL that doesn't parse too, so a
-validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`) and the
+validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`; a value typed
+without its scheme, `my_user:pw@host`, is read as the CLI reads a `--base-url`, so its
+userinfo is `***@` too) and the
 built-in transport's `Invalid URL: …` never repeat a password. `obtainKey` names a
 source URL without its userinfo, in its errors and in `ObtainedKey.sourceUrl`.
 `apps/cli/test/conformance-p2-library-redaction.test.ts` is the shared check.

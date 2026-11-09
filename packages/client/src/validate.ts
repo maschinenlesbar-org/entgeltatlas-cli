@@ -5,7 +5,7 @@
 // value-parsers call the same function and turn the reason into a usage error, so
 // the rule exists exactly once.
 
-import { EntgeltatlasValidationError, quoteValue, redactUrl } from "./errors.js";
+import { EntgeltatlasValidationError, credentialsIn, quoteValue, redactCredentials, redactUrl } from "./errors.js";
 
 /** Why `value` is invalid, or `undefined` if it is valid. */
 export type Problem<T = string> = (value: T) => string | undefined;
@@ -115,6 +115,16 @@ export const headerNameProblem: Problem = (value) =>
 export const baseUrlWhitespaceProblem: Problem = (value) =>
   value !== value.trim() ? "A base URL cannot have surrounding whitespace." : undefined;
 
+/**
+ * `value` as a refusal quotes it: its userinfo redacted, also when it was typed without a
+ * scheme (`my_user:pw@host`, read as the CLI reads a --base-url): redactUrl finds a userinfo only
+ * after `<scheme>://`, so the library's message quoted such a password in clear.
+ */
+function shownUrl(value: string): string {
+  const shown = String(redactUrl(value));
+  return /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) ? shown : redactCredentials(shown, credentialsIn(`http://${value}`));
+}
+
 /** A parseable URL with an `http:` or `https:` scheme; `what` names it in the reason. */
 function schemeProblem(value: string, what: string): string | undefined {
   let url: URL;
@@ -122,7 +132,7 @@ function schemeProblem(value: string, what: string): string | undefined {
     url = new URL(value);
   } catch {
     // Redacted before it is cut, so a cut never leaves part of a password unmatched.
-    return `Invalid URL ${quoteValue(String(redactUrl(value)))}.`;
+    return `Invalid URL ${quoteValue(shownUrl(value))}.`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return `Only http: and https: ${what} are supported.`;

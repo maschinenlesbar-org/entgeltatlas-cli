@@ -177,6 +177,14 @@ test("baseUrlProblem: parse, scheme, query/fragment and whitespace, with the CLI
   }
   assert.equal(p("http:///h.example/?q=1"), "A base URL cannot have a query (?) or fragment (#).");
   assert.equal(p("HTTPS://H.example"), undefined);
+  // A value typed without its scheme that doesn't parse (a user name with "_" is no scheme) is
+  // quoted with its userinfo redacted, as the CLI reads a --base-url; it was quoted in clear.
+  assert.equal(p("my_user:s3cret@h.example"), 'Invalid URL "***@h.example".');
+  assert.equal(p("1alice:s3 cret@h.example:99999"), 'Invalid URL "***@h.example:99999".');
+  assert.throws(
+    () => new lib.RequestEngine({ baseUrl: "my_user:s3cret@h.example" }),
+    (err) => err instanceof EntgeltatlasValidationError && !err.message.includes("s3cret") && err.message.includes("***@h.example"),
+  );
 });
 
 test("validateBaseUrl strips trailing slashes and redacts credentials in its error", () => {
