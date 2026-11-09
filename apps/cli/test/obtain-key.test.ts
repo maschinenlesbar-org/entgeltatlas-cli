@@ -376,3 +376,15 @@ test("04 Bug 7: obtainKey retries a reset connection like the client, and names 
   await assert.rejects(obtainKey({ transport: refuse, maxRetries: 2, sleep }), EntgeltatlasNetworkError);
   assert.equal(refused, 1);
 });
+
+test("a key source behind Basic auth: an error body echoing its credentials keeps none of their forms (security audit class D)", async () => {
+  // Only `user:password@` was cut from the body; the Basic value, the decoded pair and the
+  // password alone, as a server echoes them, stayed in `.body`.
+  const pw = "s3cret-Pw";
+  const basic = Buffer.from(`alice:${pw}`, "latin1").toString("base64");
+  const transport = async (): Promise<HttpResponse> =>
+    rawResponse(`denied: Basic ${basic} (alice:${pw}) ${pw}`, "text/plain", 401);
+  const err = await obtainKey({ sourceUrl: `https://alice:${pw}@mirror.example/key`, transport, maxRetries: 0 }).catch((caught: unknown) => caught);
+  assert.ok(err instanceof EntgeltatlasKeySourceError, String(err));
+  for (const secret of [basic, `alice:${pw}`, pw]) assert.ok(!err.body.includes(secret) && !err.message.includes(secret), err.body);
+});

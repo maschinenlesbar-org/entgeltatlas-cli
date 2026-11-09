@@ -35,7 +35,10 @@ import {
   EntgeltatlasError,
   EntgeltatlasKeySourceError,
   EntgeltatlasNetworkError,
+  credentialsIn,
+  echoedCredentialForms,
   redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 import {
@@ -198,6 +201,12 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
   );
 
   const sourceCredentials = userinfoForms(sourceUrl);
+  // And the forms a server echoes them in (the Basic value, `user:password`, the password),
+  // longest first: an error body or a transport's text can carry any of them.
+  const sourceEchoes = credentialsIn(sourceUrl)
+    .flatMap(echoedCredentialForms)
+    .sort((a, b) => b.length - a.length);
+  const scrubSource = (text: string): string => redactSecrets(redactCredentials(text, sourceCredentials), sourceEchoes);
   // A source behind Basic auth (a private mirror) gets its userinfo as an Authorization
   // header, never in the URL the transport sees; with same-origin redirects only, it
   // never leaves that origin.
@@ -251,7 +260,7 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
         retried === "" || !(named instanceof EntgeltatlasNetworkError)
           ? named
           : new EntgeltatlasNetworkError(`${named.message}${retried}`, { cause: named.cause });
-      const scrubbed = redactCredentials(err.message, sourceCredentials);
+      const scrubbed = scrubSource(err.message);
       if (scrubbed === err.message || !(err instanceof EntgeltatlasNetworkError)) throw err;
       throw new EntgeltatlasNetworkError(scrubbed);
     }
@@ -295,7 +304,7 @@ export async function obtainKey(rawOptions: ObtainKeyOptions = {}): Promise<Obta
       status: response.status,
       url,
       method: "GET",
-      body: redactCredentials(response.body.toString("utf8"), sourceCredentials),
+      body: scrubSource(response.body.toString("utf8")),
       ...(retryAfterTooLong(response) !== undefined ? { retryAfterMs: retryAfterTooLong(response) as number } : {}),
       ...(unfollowed !== undefined ? { location: unfollowed.location } : {}),
       ...(unfollowed?.redirectsFollowed !== undefined ? { redirectsFollowed: unfollowed.redirectsFollowed } : {}),

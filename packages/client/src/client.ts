@@ -12,7 +12,7 @@
 //   client.regionen()
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, cutText, quoteValue } from "./errors.js";
+import { EntgeltatlasParseError, EntgeltatlasSliceError, EntgeltatlasValidationError, quoteValue } from "./errors.js";
 import { DIMENSIONS, DIMENSION_PARAMS, dimensionCodeProblem, filterKeyProblem, type DimensionParam } from "./codes.js";
 import {
   apiKeyProblem,
@@ -115,10 +115,8 @@ function labelledCodeProblem(value: unknown): string | undefined {
 /** The dimension objects every salary row carries. */
 const ROW_DIMENSIONS = ["region", "gender", "ageCategory", "performanceLevel", "branche"] as const;
 
-/** A server label for a message: JSON-quoted (C0 escaped), DEL/C1 dropped, at most 80 characters (never half a character). */
-function quoteLabel(label: string): string {
-  return JSON.stringify(label.length > 80 ? `${cutText(label, 80)}…` : label).replace(/[\u007f-\u009f]/g, "");
-}
+/** The longest server label (in characters) a slice error quotes. */
+const MAX_LABEL_LENGTH = 80;
 
 /** The row field that carries each dimension filter's code. */
 const ROW_FIELD: Record<DimensionParam, (typeof ROW_DIMENSIONS)[number]> = {
@@ -137,7 +135,16 @@ const ROW_FIELD: Record<DimensionParam, (typeof ROW_DIMENSIONS)[number]> = {
  * dimension is not checked: the API answers one row per value of it (recorded live on
  * 2026-10-06: all four age bands for an omitted `a`).
  */
-function assertRequestedSlice(rows: EntgeltEntry[], kldb: string, query: Record<string, unknown>, request: string): void {
+function assertRequestedSlice(
+  rows: EntgeltEntry[],
+  kldb: string,
+  query: Record<string, unknown>,
+  request: string,
+  engine: RequestEngine,
+): void {
+  // A server label is quoted (`quoteValue`) with the base URL's credentials and the API key
+  // scrubbed first, before the cut: a row can echo them as well as an error body can.
+  const quoteLabel = (label: string): string => engine.quoteServerValue(label, MAX_LABEL_LENGTH);
   // The occupation is the first coordinate of the slice: live, every row's kldb equals the
   // requested code (a 3-digit group and a 5-digit code alike; 2026-10-21, result 02 Bug 5).
   rows.forEach((row, i) => {
@@ -145,7 +152,7 @@ function assertRequestedSlice(rows: EntgeltEntry[], kldb: string, query: Record<
       throw new EntgeltatlasSliceError(
         `${request}: the API answered another slice than the one requested: kldb ${kldb} was asked for, but ` +
           `row ${i} has kldb ${quoteLabel(row.kldb)}. No figure is returned rather than another occupation's.`,
-        { param: "kldb", requested: kldb, received: row.kldb, row: i },
+        { param: "kldb", requested: kldb, received: engine.scrubServerValue(row.kldb), row: i },
       );
     }
   });
@@ -300,7 +307,7 @@ export class EntgeltatlasClient {
     // a ParseError, never wrapped or coerced (an empty array means suppressed).
     const request = `GET ${this.#engine.describeUrl(path, query)}`;
     const rows = assertArrayOf<EntgeltEntry>(res, request, "salary rows", entgeltRowProblem, true);
-    assertRequestedSlice(rows, code, query, request);
+    assertRequestedSlice(rows, code, query, request, this.#engine);
     return rows;
   }
 

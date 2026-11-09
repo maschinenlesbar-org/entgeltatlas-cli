@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EntgeltatlasClient, emptyAnswerNote, type EntgeltatlasClientOptions } from "../src/client.js";
+import { RequestEngine } from "../src/engine.js";
 import {
+  EntgeltatlasApiError,
   EntgeltatlasParseError,
   EntgeltatlasSliceError,
   EntgeltatlasValidationError,
@@ -214,7 +216,8 @@ test("a long server label in the slice error is cut, never inside a surrogate pa
     const { c } = client(() => jsonResponse([{ ...row, region: { id: 1, bezeichnung: label } }]), { apiKey: "K" });
     await assert.rejects(
       () => c.entgelte("84304", { r: 11 }),
-      (err: Error) => err instanceof EntgeltatlasSliceError && /…"\)/.test(err.message) && !/\\ud83d/.test(err.message),
+      // quoteValue's form: the "…" after the closing quote, so it does not read as part of the label.
+      (err: Error) => err instanceof EntgeltatlasSliceError && /"…\)/.test(err.message) && !/\\ud83d/.test(err.message),
       label.length.toString(),
     );
   }
@@ -301,4 +304,110 @@ test("01 Bug 2: emptyAnswerNote names a level the 5-digit code contradicts and a
     assert.equal(emptyAnswerNote("84304", [], params), undefined, JSON.stringify(params));
   }
   assert.equal(emptyAnswerNote("84304", [{}], { g: 2, b: 5 }), undefined);
+});
+
+test("an error body keeps its spelling unless a credential hides behind an escape (security audit class D)", async () => {
+  const base = "https://alice:s3cret-pw@mirror.example";
+  const bodyOf = async (body: string): Promise<string> => {
+    const e = new RequestEngine({ baseUrl: base, transport: async () => rawResponse(body, "application/json", 500) });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof EntgeltatlasApiError, String(err));
+    return err.body;
+  };
+  // No credential, or one spelled as sent: the body as sent (scrubbed), escapes kept.
+  assert.equal(await bodyOf('{"m":"caf\\u00e9 \\"x\\""}'), '{"m":"caf\\u00e9 \\"x\\""}');
+  assert.equal(await bodyOf('{"m":"pw s3cret-pw \\u00e9"}'), '{"m":"pw *** \\u00e9"}');
+  // Escaped: written again decoded, scrubbed in that spelling.
+  assert.equal(await bodyOf('{"m":"pw s3cret\\u002dpw \\u00e9"}'), '{"m":"pw *** é"}');
+  // Not JSON: nobody decodes it, it stays as sent.
+  assert.equal(await bodyOf("pw s3cret\\u002dpw"), "pw s3cret\\u002dpw");
+});
+
+test("a value quoted from an answer is scrubbed before it is cut, so no part of a credential stays (security audit class D)", async () => {
+  const pw = "s3cret-Pw-long";
+  const e = new RequestEngine({ baseUrl: `https://alice:${pw}@mirror.example` });
+  for (const at of [0, 190, 195, 199]) {
+    const quoted = e.quoteServerValue(`${"x".repeat(at)}${pw}${"y".repeat(600)}`);
+    assert.ok(!quoted.includes("s3cret"), `${at}: ${quoted}`);
+  }
+  assert.equal(new RequestEngine().quoteServerValue('a"b'), '"a\\"b"');
+  // A slice error quotes the row's kldb and label this way, and keeps the kldb scrubbed: the API
+  // key and the password are gone from the message and the error's fields, also where the old
+  // cut at 80 left a prefix.
+  const key = "4c0ffee5-1d2e-4f3a-9b8c-7d6e5f4a3b2c";
+  const row = fx.entgelteResult[0]!;
+  for (const label of [pw, key, `${"x".repeat(75)}${pw}`, `${"x".repeat(77)}${key}`]) {
+    for (const answer of [
+      [{ ...row, kldb: label }],
+      [{ ...row, region: { ...row.region, id: 99, bezeichnung: label } }],
+    ]) {
+      const c = new EntgeltatlasClient({
+        apiKey: key,
+        baseUrl: `https://alice:${pw}@mirror.example`,
+        transport: async () => jsonResponse(answer),
+      });
+      const err = await c.entgelte("84304", { r: 1 }).catch((caught: unknown) => caught);
+      assert.ok(err instanceof EntgeltatlasSliceError, String(err));
+      for (const part of ["s3cret", key.slice(0, 7)]) {
+        assert.ok(!err.message.includes(part), err.message);
+        assert.ok(!String(err.received).includes(part), String(err.received));
+      }
+    }
+  }
+});
+
+test("an echo of the request URL as sent is scrubbed, a short password too (security audit class D)", async () => {
+  // Typed raw; WHATWG spells it `p%22%C3%A4` in the URL, which a server echoes.
+  const e = new RequestEngine({
+    baseUrl: 'https://alice:p"ä@mirror.example',
+    transport: async () => rawResponse(JSON.stringify({ message: "no access: https://alice:p%22%C3%A4@mirror.example/x" }), "application/json", 403),
+  });
+  const err = await e.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(err instanceof EntgeltatlasApiError, String(err));
+  for (const text of [err.message, err.detail ?? "", err.body]) {
+    assert.ok(!text.includes("p%22%C3%A4@") && !text.includes('p"ä@'), text);
+  }
+});
+
+test("the API key and the base URL's Basic value echoed with JSON escapes are scrubbed from the message, the detail and the decoded body (security audit class D)", async () => {
+  const key = "4c0ffee5-1d2e-4f3a-9b8c-7d6e5f4a3b2c";
+  const pw = "pä\"s's-W0rd";
+  const escaped = (text: string): string => `"${[...text].map((ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")}"`;
+  const basics = [Buffer.from(`alice:${pw}`, "latin1").toString("base64"), Buffer.from(`alice:${pw}`, "utf8").toString("base64")];
+  for (const echo of [escaped(key), escaped(`bad key ${key}`), ...basics.map((b) => escaped(`Basic ${b}`)), JSON.stringify(`Basic ${basics[1]}`)]) {
+    for (const member of ["message", "detail", "error"]) {
+      const c = new EntgeltatlasClient({
+        apiKey: key,
+        baseUrl: `https://alice:${encodeURIComponent(pw)}@mirror.example`,
+        transport: async () => rawResponse(`{"${member}":${echo}}`, "application/json", 401),
+      });
+      const err = await c.regionen().catch((caught: unknown) => caught);
+      assert.ok(err instanceof EntgeltatlasApiError && err.status === 401, String(err));
+      const decoded = JSON.parse(err.body) as Record<string, string>;
+      for (const text of [err.message, err.detail ?? "", err.body, decoded[member] ?? ""]) {
+        for (const secret of [key, ...basics]) assert.ok(!text.includes(secret), `${member} ${echo}: ${text}`);
+      }
+    }
+  }
+  // And the password percent-encoded, as a server puts it into a URL it quotes.
+  const encoded = encodeURIComponent(pw);
+  const c = new EntgeltatlasClient({
+    baseUrl: `https://alice:${encoded}@mirror.example`,
+    transport: async () => rawResponse(JSON.stringify({ message: `log in again: /login?pw=${encoded}` }), "application/json", 401),
+  });
+  const err = await c.regionen().catch((caught: unknown) => caught);
+  assert.ok(err instanceof EntgeltatlasApiError, String(err));
+  for (const text of [err.message, err.detail ?? "", err.body]) assert.ok(!text.includes(encoded), text);
+});
+
+test("a number literal and a Content-Type a message quotes are scrubbed (security audit class D)", async () => {
+  const pw = "12345678";
+  const c = (body: string, type: string): EntgeltatlasClient =>
+    new EntgeltatlasClient({ baseUrl: `https://alice:${pw}@mirror.example`, transport: async () => rawResponse(body, type) });
+  const inexact = await c(`[9007199254740993${pw}]`, "application/json").regionen().catch((caught: unknown) => caught);
+  assert.ok(inexact instanceof EntgeltatlasParseError && /cannot be represented exactly/.test(inexact.message), String(inexact));
+  assert.ok(!inexact.message.includes(pw), inexact.message);
+  const html = await c("<html>", `text/x-${pw}; charset=utf-8`).regionen().catch((caught: unknown) => caught);
+  assert.ok(html instanceof EntgeltatlasParseError && /expected JSON/.test(html.message), String(html));
+  assert.ok(!html.message.includes(pw), html.message);
 });

@@ -339,7 +339,8 @@ export class EntgeltatlasParseError extends EntgeltatlasError {}
  * dimension id differs from what was sent (e.g. `r=11` asked, a `Deutschland` row received;
  * `84304` asked, a `99999` row received), so the figures are not an answer to the question.
  * An EntgeltatlasParseError (CLI exit 1), with the mismatch in `param` (`"kldb"` or the
- * dimension letter) / `requested` / `received` (strings for `kldb`, numbers for a dimension)
+ * dimension letter) / `requested` / `received` (strings for `kldb`, with the base URL's
+ * credentials and the API key scrubbed; numbers for a dimension)
  * / `row`.
  */
 export class EntgeltatlasSliceError extends EntgeltatlasParseError {

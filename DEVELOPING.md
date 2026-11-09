@@ -277,9 +277,20 @@ The engine keeps the base URL and the default headers (with the API key) in real
 `util.inspect` and `JSON.stringify` never show them. The base URL's userinfo (raw
 and percent-decoded, `userinfoForms`), the forms a server echoes it back in (the `Basic`
 value, the decoded `user:password`, the password alone from 4 characters:
-`echoedCredentialForms`) and the key are scrubbed from error bodies and
-details, from transport error text and from the `cause` chain (`scrub` /
-`scrubCause`). `redactUrl` cuts the userinfo out of a URL that doesn't parse too, so a
+`echoedCredentialForms`; the `Basic` value in Latin-1, as the engine sends it, and in UTF-8)
+and the key are scrubbed from error bodies and details, from transport error text and from the
+`cause` chain (`scrub` / `scrubCause`). The userinfo is taken as typed and as WHATWG spells it in
+the request URL (`p%22%C3%A4` for a typed `p"ä`), and each form also percent-encoded, as a server
+puts it into a URL it quotes. A `detail` is scrubbed again once decoded (a JSON escape, `\"` or
+`\u00e4`, hid an echo from the scrub of the body as sent), and `EntgeltatlasApiError.body` stays as
+sent (scrubbed) unless it is JSON with an escape whose decoded text still holds a secret: then it
+is the decoded JSON written again with the secret replaced (`scrubBody`; `""` for such a body too
+deeply nested to write again). A value the client quotes from a 2xx answer (a slice error's kldb
+and label) goes through `RequestEngine.quoteServerValue` (scrubbed, then `quoteValue`, so the cut
+never leaves part of a secret), and the slice error's `received` kldb through
+`scrubServerValue`; the number literal and the Content-Type a message quotes are scrubbed at the
+source. `obtainKey` scrubs a source URL's userinfo in all its echoed forms from its errors.
+`redactUrl` cuts the userinfo out of a URL that doesn't parse too, so a
 validation message (`Invalid baseUrl: Invalid URL "https://***@host:99999".`) and the
 built-in transport's `Invalid URL: …` never repeat a password. `obtainKey` names a
 source URL without its userinfo, in its errors and in `ObtainedKey.sourceUrl`.
