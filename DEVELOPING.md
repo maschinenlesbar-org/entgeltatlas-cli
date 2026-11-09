@@ -214,8 +214,14 @@ options argument that isn't an object (`optionsObject`; `null` counts as none), 
 `transport` or `sleep` that isn't a function (`functionOption`), `defaultHeaders` that
 isn't an object, a header value that isn't a string (`Expected a string, got number.`),
 a KldB that isn't a string, `entgelte()` params that aren't an object. Every failure is
-an `EntgeltatlasError` subclass. Server text in a message (`detail`, a transport's
-error text) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
+an `EntgeltatlasError` subclass. Server text bound for a message (a `detail`, a Content-Type, a
+charset, a redirect target, a transport's text) goes through `sanitizeServerText` (engine.ts): it
+reads at most the first 16 384 characters, drops whole terminal escape sequences, the remaining
+C0/C1 controls and DEL and every format character, and folds whitespace to one line, each step a
+linear regex replace (a 16 MB error detail, cleaned one character at a time, exhausted a small
+heap). Answer text the engine rebuilds (`scanNumbers`, the lone-surrogate repair) is put together
+in a `TextBuilder` (errors.ts), never one `+=` per piece. Server text in a message (`detail`, a
+transport's error text) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
 message stays well-formed; any other value an own message quotes from a server answer or
 the user's input (a redirect target, a charset, an unknown filter key, an invalid URL)
 at `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a
@@ -618,7 +624,7 @@ and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord`
 the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's
-message — `sanitizeServerText` keeps its newlines —, a value you typed, OpenSSL's EPROTO
+message, a value you typed, OpenSSL's EPROTO
 text), can split it, forge another one or steer the terminal; `apps/cli/test/log.test.ts` tests
 the helper on its own. Before that a lone surrogate (half a character, which jq rejects,
 stopping the whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
