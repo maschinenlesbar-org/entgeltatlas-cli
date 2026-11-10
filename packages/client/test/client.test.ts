@@ -507,3 +507,17 @@ test("a token as the base URL's user name is scrubbed from library errors in eve
     }
   }
 });
+
+test("a credential header's value with an inner space is scrubbed whole from an error, not from its second word on", async () => {
+  // As jobsuche-cli found (security audit 2026-10-27, D detail): the secret was the value after
+  // its first word (`Bearer <token>` → the token), so an X-API-Key "Zq9xWv first-part" echoed
+  // back by a server kept "Zq9xWv" in the message, the detail and the body.
+  // `apiKey` refuses a key with whitespace inside; a caller's own header is only checked as a header value.
+  const spaced = "Zq9xWv first-part";
+  for (const options of [{ defaultHeaders: { "X-API-Key": spaced } }]) {
+    const c = new EntgeltatlasClient({ ...options, maxRetries: 0, transport: async () => jsonResponse({ message: `bad key ${spaced}` }, 401) });
+    const caught = await c.regionen().catch((e: unknown) => e);
+    assert.ok(caught instanceof EntgeltatlasApiError, String(caught));
+    for (const text of [caught.message, caught.detail ?? "", caught.body]) assert.ok(!text.includes("Zq9xWv"), text);
+  }
+});
