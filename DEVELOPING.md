@@ -275,6 +275,11 @@ and `unknown option '--x=…'` what follows `=`. `apps/cli/test/conformance-p1-c
 shared check (ten passwords, seven URL shapes, every echo path, plus the key by flag,
 by environment and typed without its flag).
 
+A base URL (`--base-url`, and the environment variable where the CLI reads one) is read as
+a URL however its scheme is typed (`typedUrlCredentials`): missing (`alice:pw@host`) or
+mistyped (`http//alice:pw@host`, the colon left out, whose userinfo is everything between the
+first slashes and the last `@`), so commander's echo of a refused one shows no password.
+
 ### Secrets in the library's objects and errors
 
 The engine keeps the base URL and the default headers (with the API key) in real
