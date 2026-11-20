@@ -71,3 +71,35 @@ export {
 } from "./errors.js";
 
 export * from "./types.js";
+export {
+  codeName,
+  codeTable,
+  comparePay,
+  DIMENSION_NAMES,
+  findCodes,
+  fold,
+  kldbKind,
+  lookupPay,
+  MAX_COMPARE_VALUES,
+  NO_NAME_SEARCH,
+  PARAM_OF,
+  payRowOf,
+  resolveCode,
+  UNIT,
+} from "./operations.js";
+export type {
+  CodeList,
+  CodesAnswer,
+  Coded,
+  ComparePayInput,
+  ComparisonPoint,
+  DimensionName,
+  DimensionValue,
+  FindCodesInput,
+  LookupPayInput,
+  OperationStatus,
+  PayComparison,
+  PayLookup,
+  PayRow,
+  Resolved,
+} from "./operations.js";
