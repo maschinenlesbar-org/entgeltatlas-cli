@@ -22,6 +22,60 @@ This installs the **`entgeltatlas`** command. Requires **Node.js 22.12+**. If th
 can't find it, run `npm prefix -g` and add its `bin/` subdirectory to your `PATH` (on
 Windows, the directory itself).
 
+## Docker
+
+From 0.10.0 every release is also a container image for linux/amd64 and linux/arm64 on the
+GitHub Container Registry, made from the same tarball as the npm package. It needs no Node.js and no
+install. Pass the key through the environment (the image has no credentials file):
+
+```bash
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+  -e ENTGELTATLAS_API_KEY ghcr.io/maschinenlesbar-org/entgeltatlas-cli:latest entgelte 84304 -r 1
+```
+
+The image's entrypoint is the program, so the command follows the image name directly;
+`… entgeltatlas-cli:latest entgeltatlas entgelte …` works too.
+
+In a container with a memory limit (`--memory`) the default `--max-response-bytes` is an eighth
+of that limit (at most the usual 100 MiB), so an oversized answer is refused with a clear
+error instead of the container being killed for memory. The CLI needs at least 12 processes and
+threads (`--pids-limit 12`): below that it refuses with an error, and with 4 or fewer Node.js
+itself hangs before the CLI can check.
+
+`latest` is the newest release. For scripts, name a release and pin its digest, which the
+[release notes](https://github.com/maschinenlesbar-org/entgeltatlas-cli/releases) give:
+`…/entgeltatlas-cli:0.10.0@sha256:<digest>`. Each image carries signed build provenance;
+check it with
+
+```bash
+gh attestation verify oci://ghcr.io/maschinenlesbar-org/entgeltatlas-cli:latest \
+  --repo maschinenlesbar-org/entgeltatlas-cli
+```
+
+## MCP server
+
+From 0.10.0 the Entgeltatlas is also an [MCP](https://modelcontextprotocol.io/) server for AI
+agents, `@maschinenlesbar.org/entgeltatlas-mcp` (command `entgeltatlas-mcp`, image
+`ghcr.io/maschinenlesbar-org/entgeltatlas-mcp`): three read-only tools, to look up what an
+occupation earns in a slice (median, quartiles, headcount), compare pay across one dimension
+(gender, region, level, age or branch) with the gap to the first value, and find the codes the
+API needs, on stdio or Streamable HTTP. The tools handle the skills' traps: no occupation-name
+search (a KldB code is never guessed), irregular region codes and the Ost/West regions that answer
+no rows, negative figures that are markers and never amounts, censoring at the contribution
+ceiling, a branch never crossed with gender or age. The server finds the public key by itself:
+`ENTGELTATLAS_API_KEY`, else the key stored with `entgeltatlas config set api-key`, else the
+published one, obtained at the first call (never bundled). Setup for Claude Code, Claude Desktop
+and VS Code: [MCP.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/MCP.md).
+
+```bash
+npm i -g @maschinenlesbar.org/entgeltatlas-mcp
+claude mcp add entgeltatlas -- entgeltatlas-mcp
+```
+
+Every result carries the terms of the Statistik der Bundesagentur für Arbeit: attribution,
+figures unaltered, own calculations labelled as such; running the server as a service for others
+may need the BA's permission.
+
 ## API key
 
 The API needs a static **`X-API-Key`** (the public `clientId` of the BA's own
@@ -232,4 +286,4 @@ npm test           # builds, then node --test on each workspace's dist/test
 npm run typecheck
 ```
 
-See [DEVELOPING.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/DEVELOPING.md) for architecture and API specifics.
+See [DEVELOPING.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/DEVELOPING.md) for architecture and API specifics. The MCP server: [MCP.md](https://github.com/maschinenlesbar-org/entgeltatlas-cli/blob/main/MCP.md).

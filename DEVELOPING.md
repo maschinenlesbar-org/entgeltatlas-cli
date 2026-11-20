@@ -22,14 +22,18 @@ apps/cli/            # @maschinenlesbar.org/entgeltatlas-cli — the published p
   test/              # CLI tests and every conformance-*.test.ts
 packages/client/     # @maschinenlesbar.org/entgeltatlas-client — private, shipped inside the CLI's tarball
   src/               # the API client (below)
-  test/              # tests that only touch the client, + the transport helpers and fixtures
+  test/              # tests that only touch the client, + the transport helpers and fixtures (recorded.ts: recorded answers)
+apps/mcp/            # @maschinenlesbar.org/entgeltatlas-mcp — the MCP server, released with the CLI
+packages/log/        # the log records (text/jsonl), shared by both apps
+tools/image/         # the container images of both apps (build, push, smoke, SBOM)
+tools/interop/       # the built MCP server against the official MCP client (own lockfile)
 tools/pack/          # prepack/postpack: ship the client (dist/node_modules) and commander in the tarball
-tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tools/bump.mjs       # version bump + commit + tag of every published app (npm run bump)
 tools/sbom/          # the CycloneDX SBOM tool, own lockfile (release.yml's sbom job only)
 tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
 ```
 
-- **The client is its own package** so a later MCP app can share it with the CLI. It is
+- **The client is its own package** so the MCP app shares it with the CLI. It is
   never published on its own: `apps/cli`'s `prepack` copies it into
   `apps/cli/dist/node_modules/`, where the CLI's imports find it, and the tarball ships it
   as plain files — so npm lists only commander (bundled) as a dependency, never the
@@ -42,12 +46,13 @@ tsconfig.docs.json   # TypeDoc only: the package entry, with the client read fro
   the CLI needs beyond that; `"./test/*"` reaches the client's test helpers and fixtures
   from the CLI's tests (not bundled). Only `"."` is part of the library.
 - **Dependencies point one way:** the app depends on the client, the client on nothing
-  in the workspace. `obtainKey()` (reading the key from the page it is published in) is
-  client code; the `obtain-key` and `config` commands and the credentials file are the
-  CLI's.
-- **The version lives in `apps/cli/package.json`.** The root has none; a plain
-  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
-  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+  in the workspace. `obtainKey()` (reading the key from the page it is published in) and the
+  credentials file's store are client code, which both apps use; the `obtain-key` and `config`
+  commands are the CLI's.
+- **The version lives in `apps/cli/package.json`** (and, the same, in `apps/mcp/package.json`).
+  The root has none; a plain `npm version` at the root is refused. Release with
+  `npm run bump -- <patch|minor|major>`, which bumps every published app together, commits (the
+  bare version as the message) and tags `vX.Y.Z`.
 - **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
   `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
   `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
@@ -65,11 +70,14 @@ packages/client/src/
     errors.ts    # Entgeltatlas{Error,ApiError,NetworkError,ValidationError,ParseError}
     client.ts    # EntgeltatlasClient — entgelte() + reference lists
     obtain-key.ts # obtainKey(): reads the public key from the page it is published in
+    credentials.ts # CredentialStore — the credentials file behind `entgeltatlas config` (internal)
+    operations.ts # the skills' use cases: lookupPay / comparePay / findCodes
     index.ts     # the client's public surface (the library entry re-exports it)
 apps/cli/src/cli/
     io.ts        # injectable I/O + env seam (CliDeps); API_KEY_ENV_VAR; the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
-    credentials.ts # CredentialStore — the credentials file behind `config`
+    credentials.ts # re-exports the client's CredentialStore
+    limits.ts    # the container's cgroup limits (memory -> response cap, pids)
     shared.ts    # option parsers (incl. KldB + dimension-code), the dimension flag names, render
     commands/    # entgelte + reference lists + codes, config, obtain-key
     program.ts   # assembles the commander program; seeds --api-key from env
@@ -125,9 +133,11 @@ home) and `obtain-key` (`obtain-key.test.ts`, a mock transport) included, is in
 `apps/cli/test/`, and `apps/cli/test/helpers.ts` re-exports the client's helpers next to the
 CLI's own.
 
-CI (`ci.yml`) type-checks, builds and tests on Node 22/24/26, then packs the real tarball,
-checks the pack left nothing behind, installs it globally with the registry out of reach and
-runs the bin. `release.yml` (on a `v*` tag, made by `npm run bump`) has three jobs. **pack**
+CI (`ci.yml`) type-checks, builds and tests on Node 22/24/26, then packs each published app
+(the CLI and the MCP server), checks the pack left nothing behind, installs it globally with the
+registry out of reach and runs its bins; its `interop` job runs the MCP server against the
+official client. `images.yml` builds, smoke-tests and scans both container images on every push
+and weekly (see [Container image](#container-image)). `release.yml` (on a `v*` tag, made by `npm run bump`) has three jobs. **pack**
 (read-only): verify the tag against `apps/cli/package.json`, test, `npm pack --workspace
 apps/cli`, record the tarball's and the notes' sha256 as job outputs. **sbom** (read-only):
 `npm ci --ignore-scripts`, then the CycloneDX tool from the isolated, lockfile-pinned
@@ -140,7 +150,11 @@ its version in `tools/sbom/package.json` and running `npm install --package-lock
 --ignore-scripts` there; don't chain its install into an npm script.
 `apps/cli/test/conformance-p31-release-pipeline.test.ts` (P31) reads the workflow and the
 lockfile and checks it.
-`publish.yml` runs `npm publish --workspace apps/cli`.
+The release also carries both apps' tarballs, both image archives, their SBOMs, `SHA256SUMS` and
+signed provenance (P32 checks the image pipeline). `publish.yml` (manual dispatch from the release
+tag) publishes the release's own files, each checked first against the immutable release and the
+provenance `release.yml` signed: both tarballs to npm via OIDC Trusted Publishing, and both images
+to ghcr.io.
 
 ## Entgeltatlas-specific notes
 
@@ -164,8 +178,10 @@ it only in a command that builds a client (`assertEnvKey` in `shared.ts`, the li
 rule, the message naming `ENTGELTATLAS_API_KEY`), so help, `codes` (which builds no
 client) and `obtain-key` work whatever the variable holds (P19).
 
-The credentials file is the CLI's, not the library's: `apps/cli/src/cli/credentials.ts`
-(`CredentialStore`, the same mechanism as openka-cli's `ka config`) and `entgeltatlas
+The credentials file is written by the CLI only; its store lives with the client as an internal
+module, so the MCP server can read it too: `packages/client/src/credentials.ts` (`CredentialStore`,
+the same mechanism as openka-cli's `ka config`, not part of the library's public surface;
+`apps/cli/src/cli/credentials.ts` re-exports it) and `entgeltatlas
 config` (`apps/cli/src/cli/commands/config.ts`). It reaches the CLI through `CliDeps.credentials`,
 which only `defaultDeps` sets, so a test that does not ask for one never reads the user's
 file; `action()` (`apps/cli/src/cli/shared.ts`) reads it only when neither the flag nor the env
@@ -636,6 +652,111 @@ shared check.
   then resolved (`shownTarget`; `obtainKey` does the same for a source's credentials).
   Resolving first would spell an echoed password anew (`'` as `%27` in a query), which no
   scrub matches. The request itself still goes to the `Location` as sent.
+
+## MCP server (apps/mcp)
+
+`apps/mcp` is the second published app, `@maschinenlesbar.org/entgeltatlas-mcp` (bin
+`entgeltatlas-mcp`), released in lockstep with the CLI: `npm run bump` bumps every published app
+under `apps/` together, one version, one tag. Its npm README is the root `MCP.md` (prepack packs
+`<APP>.md` for an app that has one).
+
+**The API key.** The kit's credentials hook (`apps/mcp/src/mcp/credentials.ts`) asks `api.ts`'s
+`findCredentials` once, at the first tool call that needs the client, and builds the client with
+what it returns. `findCredentials` takes `ENTGELTATLAS_API_KEY` from the server's environment
+(checked with `apiKeyProblem`), else (only when the server runs from its bin, never in a test) the
+`api-key` of the credentials file through the client's `CredentialStore.usable` (a stored value
+the CLI would refuse is an error naming the file and the fix, never skipped), else the published
+key through the client's `obtainKey` (as `entgeltatlas obtain-key`, from the BA's web app), over the
+server's limited transport and inside the call's deadline; a failure there says how to set the key
+instead. A lookup that fails is tried again at the next call. Not at start: the handshake, the tool
+list, the image's smoke test and the tests that start the bin need neither the network nor a
+credentials file. One INFO record of `entgeltatlas-mcp.config` names the source, never the key;
+every form of the key is a secret from then on, replaced with `***` in every record the server logs
+(`redactingLog`), every result (`Secrets.redactAll`) and every error message. The server has no
+option for the key (argv shows in `ps`), and HTTP needs no authentication for a public key. A
+401/403 is a tool error that says what the gateway's bare 403 can mean and what to check
+(`withKeyHint` in `tools.ts`).
+
+| Module | Role |
+|---|---|
+| `packages/client/src/operations.ts` | The skills' use cases as library functions, with their traps built in. `resolveCode`: a dimension's value from its code or a name (the table's name in any case and without umlauts, an English name or abbreviation such as `Bavaria`, `BY`, `women`, `IT`, else the one name containing it; several are `ambiguous`, an exact name wins). `payRowOf`: a row with its markers read (-1 suppressed, -2 above the contribution ceiling, -100 no figure, null no figure: each a null figure with a note, never 0; a figure at or above the ceiling `censored`). `lookupPay`: names resolved, Deutschland and Gesamt by default, every level unless one is given, "all" leaves a dimension out (one row per value), one request; an occupation word instead of a KldB code is `empty` with where codes come from (`NO_NAME_SEARCH`), no request; a branch crossed with gender or age is refused before any request; an empty answer gives the client's `emptyAnswerNote` (a 4-digit code, Ost/West, a level the 5-digit code contradicts) or says suppression and an unknown code look the same. `comparePay`: one dimension varied, one request with it left out, the rows picked by label, each median's gap to the first value (EUR, percent) within the same level and only between two amounts; Ost/West missing with the reason, levels of a 5-digit code refused, a censored side noted. `findCodes`: a name in one dimension or every one, the tables with their traps, `live` the API's own lists with the differences, and where a KldB code comes from. Public API of both packages. |
+| `packages/log` | The log records (text/jsonl), shared by both apps; `createLogger({ program })`. |
+| `src/mcp/tools.ts` | This repo's: the three tools (flat input schemas with limits, no root combinators; one object output schema each; descriptions under 2000 characters), the instructions, the licence (the BA's custom terms: attribution, unaltered, own calculations labelled), the hints the server's messages give, `withKeyHint`. `lookupPay` pages its rows (offset, limit, `nextOffset`). |
+| `src/mcp/api.ts` | This repo's: how the kit reaches the client (`EntgeltatlasClient` as `Client`, `EntgeltatlasError` as `ClientError`, `EntgeltatlasNetworkError` as `NetworkError`, `apiBase` with the service path `/infosysbub/entgeltatlas/pc/v1`) and `findCredentials` (the key, above). `EntgeltatlasKeySourceError` and `EntgeltatlasSliceError` are `ClientError`s: their messages are the call's error. |
+| `src/mcp/credentials.ts` | The kit's credentials hook: `findCredentials` read from `api.ts` when it exports one, `Secrets` (the values never shown), `redactingLog`. |
+| `src/mcp/server.ts` | The McpServer factory (the client built at the first call once the credentials are found), the tool types, `callTool`: deadline (`--call-timeout`) plus the client's cancellation, cleaned, redacted and fitted answers, failures as `isError` results. |
+| `src/mcp/result.ts` | `cleanStrings` (control, bidi, zero-width characters dropped in the value), `fitResult` (whole list entries dropped under `--max-result-chars`, `nextOffset`). |
+| `src/mcp/limiter.ts` | One per process around the upstream transport: 2 in flight, 120 a minute, pause on 429, a bounded queue. |
+| `src/mcp/http.ts` | node:http adapter for the SDK's `createMcpHandler`: POST /mcp, /healthz, Host and Origin checks (the SDK does neither), 1 MiB body, 8 requests at once, timeouts. |
+| `src/mcp/config.ts`, `run.ts`, `index.ts` | Options (`node:util` parseArgs), argv -> exit code, the bin (console into log records, SIGINT/SIGTERM, stdin's end; the environment and the credentials file for the key, from here only). |
+
+The protocol is the SDK's: `@modelcontextprotocol/server` 2.4.0, bundled with its core and zod
+(prepack). It serves the 2026-07-28 revision and the 2025 handshake (2025-11-25, 2025-06-18)
+statelessly, on stdio (`serveStdio`) and HTTP. The SDK bundles AJV 8.18 into its own code to
+validate tool arguments against the input schemas; an SBOM doesn't list that copy.
+
+**The kit.** Everything in `apps/mcp` but `tools.ts`, `api.ts`, `test/helpers.ts`,
+`test/tools.test.ts` and the conformance tests' adapter blocks, plus `packages/log`,
+`apps/cli/src/cli/limits.ts`, `tools/image/` (but `smoke.json`), `tools/interop/` (but
+`interop.json`), `tools/bump.mjs`, `tools/pack/` and the workflows `ci.yml`, `images.yml`,
+`release.yml` and `publish.yml`, is the kit of `create-cli-template` (in the api-cli workspace),
+the same in every repository with an MCP server: a fix lands there first and comes here with
+`npm run sync-kit -- ../entgeltatlas-cli` (run in create-cli-template; `--check` lists the drift).
+
+Tests (`apps/mcp/test`) run in-process over the SDK's InMemoryTransport with raw JSON-RPC (the
+kit's `harness.ts`, which gives every server `helpers.ts`'s `TEST_ENV`, a test key, unless a test
+passes its own environment: no test reads a credentials file or obtains a key over the network).
+The rules every server follows are the shared conformance tests `conformance-m1-…` to
+`conformance-m11-…`, each with an adapter block naming this repo's calls and mock answers; M11
+covers the key: nothing looked up before the first call, the environment's key sent with one
+INFO record, the key never in a record, a result or an error even when the upstream echoes it,
+the published key obtained once (from a page shaped like the web app's) and tried again after a
+failure. `tools.test.ts` holds this server's own. The mock (`entgeltatlasApi` in `helpers.ts`)
+answers the salary path and the reference lists with the client's `test/recorded.ts`: KldB 84304
+(Deutschland, Gesamt), 434 per level (Helfer -100), 434 Fachkraft per gender and per region (28
+rows, Ost and West left out, small regions -1), 81302 in the Saarland for women under 25
+(suppressed), 814 per level (Q75 -2) and the region list, recorded on 2026-11-20; the operation
+tests (`packages/client/test/operations.test.ts`) add the traps' variants (names in German and
+English, an ambiguous name, an occupation word, null figures, a median at the ceiling, the empty
+answers' reasons, a branch crossed with gender, another slice than asked for, gaps per level, a
+censored gap, live lists that differ). `tools/interop/` checks the built server against the
+official client 2.4.0 (stdio and HTTP; legacy, auto and pinned 2026-07-28) in ci.yml's `interop`
+job, with its own lockfile; `interop.json` gives both servers a test key (`env`) and answers 84304,
+434 and the region list.
+
+## Container image
+
+`tools/image/` builds both apps' images (Dockerfile targets `cli` and `mcp`) from their release
+tarballs (`npm pack` output), never from source: `ADD` unpacks it onto distroless Node 24 (Debian
+13, `nonroot`, uid 65532), so the image holds exactly the files npm users get. The base,
+BuildKit, the test registry, skopeo (local runs only), syft and grype are pinned in `pins.json`;
+bump them in the deps round. A Node or Debian security fix reaches the image only through a new
+base digest, so it means a patch release.
+
+| Script | What it does |
+|---|---|
+| `build.mjs` | Multi-arch OCI archive (amd64, arm64), reproducible: no provenance or SBOM attestation, timestamps from `SOURCE_DATE_EPOCH` (default: the HEAD commit's time). Two builds give the same index digest; compare index digests, not files. |
+| `push.mjs` | Copies the archive to a registry with skopeo (`--all --preserve-digests`) and checks the digest the registry serves. Used for the local test registry and for ghcr.io. |
+| `smoke.mjs` | Runs the image read-only, without capabilities, as an arbitrary uid: `--version`, `--help`, a network error (exit 6, one ERROR record), one request to a mock upstream (`smoke.json`: `entgelte 84304 -r 1 -g 1 -a 1 -b 1` against the recorded answer; the mock asks for no key, so none is sent), and `docker stop`, which must end a waiting call with 143 in under 5 s. The MCP image's checks make no tool call, so the server looks up no key. |
+| `sbom.mjs` | One CycloneDX SBOM per platform with syft, and with `--gate true` grype over them: a fixable high or critical finding fails. Accepted findings go into `.grype.yaml` with a reason. CI only. |
+
+Locally (colima; the scripts never read your docker config, so no credential helper is asked;
+on macOS port 5000 is often taken by the AirPlay receiver, hence 5055):
+
+```bash
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+npm pack --workspace apps/cli --pack-destination dist-artifacts
+node tools/image/build.mjs --app cli --tarball dist-artifacts/<tarball>.tgz --out dist-artifacts/cli.oci.tar
+docker run -d -p 127.0.0.1:5055:5000 <registry pin from pins.json>
+node tools/image/push.mjs --archive dist-artifacts/cli.oci.tar --to 127.0.0.1:5055/entgeltatlas-cli:dev
+node tools/image/smoke.mjs --app cli --image 127.0.0.1:5055/entgeltatlas-cli@<index digest>
+```
+
+In CI: `images.yml` does all of it on every push and weekly, with the arm64 image smoke-tested on
+an arm64 runner and the vulnerability gate. In `release.yml` the job `image` builds from the
+checked tarball and records the archive's digest, `image-sbom` makes the SBOMs (no gate: the
+scanner's database changes daily), `attest` signs build provenance for the tarball, the archive
+and the image index, and the release attaches the archive, the image SBOMs and `SHA256SUMS`.
 
 ## Website
 
