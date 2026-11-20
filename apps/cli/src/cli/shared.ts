@@ -6,6 +6,7 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
 import { pidsProblem, responseCapFor } from "./limits.js";
+import { API_KEY_CREDENTIAL } from "@maschinenlesbar.org/entgeltatlas-client/internal/credentials";
 import type { EntgeltatlasClientOptions } from "@maschinenlesbar.org/entgeltatlas-client/internal/client";
 import { EntgeltatlasError, EntgeltatlasValidationError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/entgeltatlas-client/internal/obtain-key";
@@ -23,7 +24,7 @@ import {
 } from "@maschinenlesbar.org/entgeltatlas-client/internal/validate";
 
 /** The name the API key is stored under in the credentials file (`entgeltatlas config set api-key`). */
-export const API_KEY_CREDENTIAL = "api-key";
+export { API_KEY_CREDENTIAL };
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
