@@ -1,0 +1,54 @@
+{
+  "comment": "What tools/image/smoke.mjs needs that is particular to this repo: the bin (its log topic), a command that makes one request (no key: the mock asks for none), the exit code of a network error, the mock answer to that request (by path, under --base-url http://mock:8080; recorded live 2026-11-20), and a string the printed answer contains.",
+  "bin": "entgeltatlas",
+  "command": [
+    "--compact",
+    "entgelte",
+    "84304",
+    "-r",
+    "1",
+    "-g",
+    "1",
+    "-a",
+    "1",
+    "-b",
+    "1"
+  ],
+  "networkErrorExit": 6,
+  "answers": {
+    "/infosysbub/entgeltatlas/pc/v1/entgelte/84304": [
+      {
+        "ageCategory": {
+          "id": 1,
+          "bezeichnung": "Gesamt"
+        },
+        "besetzung": 125551,
+        "branche": {
+          "id": 1,
+          "bezeichnung": "Gesamt"
+        },
+        "entgelt": 5731,
+        "entgeltQ25": 5138,
+        "entgeltQ75": 6903,
+        "gender": {
+          "id": 1,
+          "bezeichnung": "Gesamt"
+        },
+        "kldb": "84304",
+        "performanceLevel": {
+          "id": 4,
+          "bezeichnung": "Experte"
+        },
+        "region": {
+          "beitragsBemessungsGrenze": 8050,
+          "bezeichnung": "Deutschland",
+          "id": 1,
+          "oberRegionBezeichnung": null,
+          "oberRegionId": null,
+          "schluessel": "D"
+        }
+      }
+    ]
+  },
+  "expectStdout": "\"entgelt\":5731"
+}
