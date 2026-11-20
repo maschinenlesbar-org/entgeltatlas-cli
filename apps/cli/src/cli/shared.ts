@@ -5,6 +5,7 @@ import { constants } from "node:buffer";
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
+import { pidsProblem, responseCapFor } from "./limits.js";
 import type { EntgeltatlasClientOptions } from "@maschinenlesbar.org/entgeltatlas-client/internal/client";
 import { EntgeltatlasError, EntgeltatlasValidationError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/entgeltatlas-client/internal/obtain-key";
@@ -207,6 +208,9 @@ export function toEngineOptions(global: GlobalOptions): EntgeltatlasClientOption
  */
 export class OutputError extends EntgeltatlasError {}
 
+/** The container can't run the CLI as it is limited (limits.ts): an ERROR record of the cli area and exit 1. */
+export class EnvironmentError extends EntgeltatlasError {}
+
 /** The longest string V8 makes (2^29 - 24 characters on 64-bit): a longer JSON text can't be printed at once. */
 const MAX_TEXT_LENGTH = constants.MAX_STRING_LENGTH;
 
@@ -395,8 +399,17 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
+    // In a container: under a pids limit Node can't work with, refuse before any request; under a
+    // memory limit the 100 MiB default can't be held, so cap by the memory instead (an oversized
+    // answer is then the cap's error, not an OOM kill). An explicit --max-response-bytes wins.
+    const limits = deps.limits?.() ?? {};
+    const problem = pidsProblem(limits);
+    if (problem !== undefined) throw new EnvironmentError(problem);
     assertEnvKey(command, global);
     const options = toEngineOptions(global);
+    const given = command.getOptionValueSourceWithGlobals("maxResponseBytes");
+    const memory = given === undefined || given === "default" ? limits.memoryBytes : undefined;
+    if (memory !== undefined) options.maxResponseBytes = responseCapFor(memory);
     // flag > ENTGELTATLAS_API_KEY > the credentials file (`entgeltatlas config set
     // api-key`) > none. The file is read only here, when no key came from the first
     // two, so a problem with it never stands in the way of a key given another way.

@@ -5,7 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
-import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
+import { DEFAULT_LOG_FORMAT, LOG_PROGRAM, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import { API_KEY_ENV_VAR } from "./io.js";
 import { COMMAND_NAMES, OutputError } from "./shared.js";
 import {
@@ -421,6 +421,10 @@ function areaOf(err: EntgeltatlasError): string {
 }
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
+  // In the container image the entrypoint is the program, so `docker run <image> entgelte 84304`;
+  // people copy the npm form and type `docker run <image> entgeltatlas entgelte 84304`. A leading
+  // program name is dropped, so both work (no command is named like the program).
+  if (argv[0] === LOG_PROGRAM) argv = argv.slice(1);
   // The log replaces the secrets of the run in every message, in either format.
   deps = withRedactedOutput(deps, argv);
   const program = buildProgram(deps);
