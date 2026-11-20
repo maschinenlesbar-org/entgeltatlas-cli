@@ -1,0 +1,443 @@
+{
+ "comment": "What tools/interop/interop.mjs needs that is particular to this repo: the environment both servers get (a test key, so neither reads a credentials file nor obtains the key over the network), the mock upstream answer per path (under --base-url http://127.0.0.1:<port>; recorded live on 2026-11-20), how many tools the server lists, and the calls to make with what each must answer.",
+ "env": {
+  "ENTGELTATLAS_API_KEY": "interop-test-key"
+ },
+ "answers": {
+  "/infosysbub/entgeltatlas/pc/v1/entgelte/84304": [
+   {
+    "ageCategory": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "besetzung": 125551,
+    "branche": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "entgelt": 5731,
+    "entgeltQ25": 5138,
+    "entgeltQ75": 6903,
+    "gender": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "kldb": "84304",
+    "performanceLevel": {
+     "id": 4,
+     "bezeichnung": "Experte"
+    },
+    "region": {
+     "beitragsBemessungsGrenze": 8050,
+     "bezeichnung": "Deutschland",
+     "id": 1,
+     "oberRegionBezeichnung": null,
+     "oberRegionId": null,
+     "schluessel": "D"
+    }
+   }
+  ],
+  "/infosysbub/entgeltatlas/pc/v1/entgelte/434": [
+   {
+    "ageCategory": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "besetzung": 20510,
+    "branche": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "entgelt": 4612,
+    "entgeltQ25": 3685,
+    "entgeltQ75": 6034,
+    "gender": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "kldb": "434",
+    "performanceLevel": {
+     "id": 2,
+     "bezeichnung": "Fachkraft"
+    },
+    "region": {
+     "beitragsBemessungsGrenze": 8050,
+     "bezeichnung": "Deutschland",
+     "id": 1,
+     "oberRegionBezeichnung": null,
+     "oberRegionId": null,
+     "schluessel": "D"
+    }
+   },
+   {
+    "ageCategory": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "besetzung": 17995,
+    "branche": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "entgelt": 4629,
+    "entgeltQ25": 3693,
+    "entgeltQ75": 6076,
+    "gender": {
+     "id": 2,
+     "bezeichnung": "Männer"
+    },
+    "kldb": "434",
+    "performanceLevel": {
+     "id": 2,
+     "bezeichnung": "Fachkraft"
+    },
+    "region": {
+     "beitragsBemessungsGrenze": 8050,
+     "bezeichnung": "Deutschland",
+     "id": 1,
+     "oberRegionBezeichnung": null,
+     "oberRegionId": null,
+     "schluessel": "D"
+    }
+   },
+   {
+    "ageCategory": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "besetzung": 2515,
+    "branche": {
+     "id": 1,
+     "bezeichnung": "Gesamt"
+    },
+    "entgelt": 4499,
+    "entgeltQ25": 3623,
+    "entgeltQ75": 5768,
+    "gender": {
+     "id": 3,
+     "bezeichnung": "Frauen"
+    },
+    "kldb": "434",
+    "performanceLevel": {
+     "id": 2,
+     "bezeichnung": "Fachkraft"
+    },
+    "region": {
+     "beitragsBemessungsGrenze": 8050,
+     "bezeichnung": "Deutschland",
+     "id": 1,
+     "oberRegionBezeichnung": null,
+     "oberRegionId": null,
+     "schluessel": "D"
+    }
+   }
+  ],
+  "/infosysbub/entgeltatlas/pc/v1/regionen": [
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Deutschland",
+    "id": 1,
+    "oberRegionBezeichnung": null,
+    "oberRegionId": null,
+    "schluessel": "D"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Ostdeutschland",
+    "id": 2,
+    "oberRegionBezeichnung": "Deutschland",
+    "oberRegionId": 1,
+    "schluessel": "O"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Westdeutschland",
+    "id": 3,
+    "oberRegionBezeichnung": "Deutschland",
+    "oberRegionId": 1,
+    "schluessel": "W"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Schleswig-Holstein",
+    "id": 4,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "01"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Hamburg",
+    "id": 5,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "02"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Niedersachsen",
+    "id": 6,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "03"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Bremen",
+    "id": 7,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "04"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Nordrhein-Westfalen",
+    "id": 8,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "05"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Hessen",
+    "id": 9,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "06"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Rheinland-Pfalz",
+    "id": 10,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "07"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Baden-Württemberg",
+    "id": 11,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "08"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Bayern",
+    "id": 12,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "09"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Saarland",
+    "id": 13,
+    "oberRegionBezeichnung": "Westdeutschland",
+    "oberRegionId": 3,
+    "schluessel": "10"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Berlin",
+    "id": 14,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "11"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Brandenburg",
+    "id": 15,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "12"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Mecklenburg-Vorpommern",
+    "id": 16,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "13"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Sachsen",
+    "id": 17,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "14"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Sachsen-Anhalt",
+    "id": 18,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "15"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Thüringen",
+    "id": 19,
+    "oberRegionBezeichnung": "Ostdeutschland",
+    "oberRegionId": 2,
+    "schluessel": "16"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Dresden",
+    "id": 20,
+    "oberRegionBezeichnung": "Sachsen",
+    "oberRegionId": 17,
+    "schluessel": "14612"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Düsseldorf",
+    "id": 21,
+    "oberRegionBezeichnung": "Nordrhein-Westfalen",
+    "oberRegionId": 8,
+    "schluessel": "05111"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Dortmund",
+    "id": 22,
+    "oberRegionBezeichnung": "Nordrhein-Westfalen",
+    "oberRegionId": 8,
+    "schluessel": "05913"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Essen",
+    "id": 23,
+    "oberRegionBezeichnung": "Nordrhein-Westfalen",
+    "oberRegionId": 8,
+    "schluessel": "05113"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Frankfurt am Main",
+    "id": 24,
+    "oberRegionBezeichnung": "Hessen",
+    "oberRegionId": 9,
+    "schluessel": "06412"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Nürnberg",
+    "id": 25,
+    "oberRegionBezeichnung": "Bayern",
+    "oberRegionId": 12,
+    "schluessel": "09564"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Hannover",
+    "id": 26,
+    "oberRegionBezeichnung": "Niedersachsen",
+    "oberRegionId": 6,
+    "schluessel": "03241001"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Köln",
+    "id": 27,
+    "oberRegionBezeichnung": "Nordrhein-Westfalen",
+    "oberRegionId": 8,
+    "schluessel": "05315"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Leipzig",
+    "id": 28,
+    "oberRegionBezeichnung": "Sachsen",
+    "oberRegionId": 17,
+    "schluessel": "14713"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "München",
+    "id": 29,
+    "oberRegionBezeichnung": "Bayern",
+    "oberRegionId": 12,
+    "schluessel": "09162"
+   },
+   {
+    "beitragsBemessungsGrenze": 8050,
+    "bezeichnung": "Stuttgart",
+    "id": 30,
+    "oberRegionBezeichnung": "Baden-Württemberg",
+    "oberRegionId": 11,
+    "schluessel": "08111"
+   }
+  ]
+ },
+ "tools": 3,
+ "calls": [
+  {
+   "name": "lookupPay",
+   "arguments": {
+    "kldb": "84304"
+   },
+   "expect": {
+    "status": "ok",
+    "rows.0.median": 5731,
+    "rows.0.level.name": "Experte"
+   }
+  },
+  {
+   "name": "comparePay",
+   "arguments": {
+    "kldb": "434",
+    "by": "gender",
+    "level": "Fachkraft"
+   },
+   "expect": {
+    "status": "ok",
+    "base.name": "Männer",
+    "points.1.gap.eur": -130
+   }
+  },
+  {
+   "name": "findCodes",
+   "arguments": {
+    "name": "Bavaria"
+   },
+   "expect": {
+    "status": "ok",
+    "matches.0.code": 12
+   }
+  },
+  {
+   "name": "findCodes",
+   "arguments": {
+    "dimension": "region",
+    "live": true
+   },
+   "expect": {
+    "status": "ok",
+    "dimensions.0.live": true
+   }
+  },
+  {
+   "name": "lookupPay",
+   "arguments": {
+    "kldb": "Pflegefachkraft"
+   },
+   "expect": {
+    "status": "empty"
+   }
+  },
+  {
+   "name": "lookupPay",
+   "arguments": {
+    "kldb": "84304",
+    "region": 31
+   },
+   "error": true
+  }
+ ]
+}
