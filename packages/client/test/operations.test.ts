@@ -178,7 +178,10 @@ test("comparePay by region: by default the 16 Länder, cities left out", async (
   const answer = await comparePay(client(answering(KLDB_434_L2_REGIONS)), { kldb: "434", by: "region", level: 2 });
   assert.deepEqual(answer.points?.map((p) => p.value.code), [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
   assert.equal(answer.base?.name, "Schleswig-Holstein");
-  assert.match(answer.points?.[1]?.gapNote ?? "", /the base \(Schleswig-Holstein\) has no median/);
+  assert.equal(answer.points?.[1]?.value.name, "Hamburg");
+  assert.equal(answer.points?.[1]?.gap, undefined, "the stand-in base has no gap to itself");
+  assert.deepEqual(answer.points?.[2]?.gap, { eur: 4086 - 4776, percent: -14.4 });
+  assert.deepEqual(answer.points?.[2]?.gapTo, { code: 5, name: "Hamburg" }, "Schleswig-Holstein is suppressed: the gaps are measured against Hamburg, and say so");
 });
 
 test("comparePay by level: a 5-digit code is one level, refused without a request; a 3-digit group compares its levels", async () => {
@@ -194,6 +197,13 @@ test("comparePay by level: a 5-digit code is one level, refused without a reques
     ["Experte", 37.6],
     ["Helfer", "no gap: this value has no median (see notes)"],
   ]);
+  const defaults = await comparePay(client(mock), { kldb: "434", by: "level" });
+  assert.deepEqual(defaults.points?.map((p) => [p.value.name, p.gap?.percent ?? p.gapNote, p.gapTo?.name]), [
+    ["Helfer", "no gap: this value has no median (see notes)", undefined],
+    ["Fachkraft", undefined, undefined],
+    ["Spezialist", 36.9, "Fachkraft"],
+    ["Experte", 37.6, "Fachkraft"],
+  ], "Helfer has no figure (-100): the gaps are measured against Fachkraft, not left empty");
 });
 
 test("comparePay: with the level not held, a 3-digit group is compared within each level, never across", async () => {

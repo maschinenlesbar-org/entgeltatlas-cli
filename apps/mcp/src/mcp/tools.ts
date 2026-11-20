@@ -112,6 +112,8 @@ const dim = (args: Record<string, unknown>, key: string): DimensionValue | undef
 /** The salary request as the API sees it, for `source`: the codes it could resolve, the defaults, `by` left out. */
 function entgelteSource(args: Record<string, unknown>, by?: DimensionName): string {
   const kldb = (str(args, "kldb") ?? "").trim();
+  // An occupation word is no code: the tool makes no request, and the source names the endpoint.
+  if (!/^\d+$/.test(kldb)) return "entgelte";
   const query = new URLSearchParams();
   for (const d of DIMENSION_NAMES) {
     if (d === by) continue;
@@ -187,7 +189,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Compare pay across one dimension",
     description: [
       'Pay gaps: one occupation\'s median with one dimension varied and every other held. Use it for "Gender Pay Gap bei Pflegekräften", "verdient man in Bayern mehr als in Sachsen?", "wie viel mehr verdient ein Experte als eine Fachkraft?", "gender pay gap for software developers", "compare salaries for KldB 434 across the Länder".',
-      "by is the dimension that varies: gender (default values Männer, Frauen), region (default the 16 Länder; or values such as Bayern, Sachsen), level (Helfer to Experte; a 3-digit code only), age (the three bands), branch (the ten). The first value is the base: each point has its gap to the base in EUR and percent, within the same level. One request. The held dimensions default to Deutschland and Gesamt; without a level a 3-digit group is compared per level.",
+      "by is the dimension that varies: gender (default values Männer, Frauen), region (default the 16 Länder; or values such as Bayern, Sachsen), level (Helfer to Experte; a 3-digit code only), age (the three bands), branch (the ten). The first value with a median is the base: each point has its gap to it in EUR and percent, within the same level (gapTo names the base when the first value has no median). One request. The held dimensions default to Deutschland and Gesamt; without a level a 3-digit group is compared per level.",
       "Traps: a gap needs two medians: a suppressed side has none (gapNote), never substitute 0. Ost and West have no rows: compare Länder and say the API has no East/West figure. A censored side (contribution ceiling) means the real gap may be larger. Medians, not adjusted for hours, tenure or qualification: descriptive, not causal. The gaps are your calculation from the BA's figures: say so. A branch is never crossed with gender or age.",
       RULES,
     ].join("\n\n"),

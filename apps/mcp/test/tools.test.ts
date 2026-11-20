@@ -53,6 +53,7 @@ test("lookupPay: an occupation word is no KldB code: empty with where codes come
   const content = (await connection.call("lookupPay", { kldb: "Pflegefachkraft" })).structuredContent ?? {};
   assert.equal(content["status"], "empty");
   assert.match(String(content["reason"]), /no occupation-name search.*BERUFENET.*never guess/);
+  assert.equal(content["source"], `${API}/entgelte`);
   assert.equal(upstream.calls.length, 0);
   await connection.close();
 });

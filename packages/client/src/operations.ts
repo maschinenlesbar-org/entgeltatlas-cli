@@ -370,6 +370,8 @@ export interface ComparisonPoint extends PayRow {
   value: Coded;
   /** The median minus the base's, in EUR and in percent of the base's; only when both medians are amounts. */
   gap?: { eur: number; percent: number };
+  /** The value the gap is measured against, when not the first (which has no median here). */
+  gapTo?: Coded;
   /** Why there is no gap, or what to keep in mind about it. */
   gapNote?: string;
 }
@@ -401,7 +403,7 @@ const rowValue = (row: PayRow, d: DimensionName): Coded => row[d];
 /**
  * One dimension varied, every other held: one request with that dimension left out (the API then
  * answers one row per value of it), the values picked by their label (never by position), and
- * the gap of each median to the base's within the same level. A gap needs two amounts: a
+ * the gap of each median to the base's within the same level (the first value with a median there). A gap needs two amounts: a
  * suppressed or missing side has none, and a censored side says the real gap may be larger. Ost
  * and West answer no rows; a branch is never crossed with gender or age (refused before any
  * request); a 5-digit code has one level, so levels compare in its 3-digit group.
@@ -464,9 +466,13 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
   const missing: { value: Coded; level?: Coded; reason: string }[] = [];
   for (const level of groupLevels) {
     const inGroup = rows.filter((row) => level === undefined || row.level.code === level.code);
-    const base = inGroup.find((row) => rowValue(row, by).code === values[0]!.code);
+    // The base is the first value with a median here: a first value without one (Helfer is often
+    // -100) would leave every gap empty. A point measured against another than the first says so.
+    const rowOf = (value: Coded): PayRow | undefined => inGroup.find((r) => rowValue(r, by).code === value.code);
+    const baseValue = values.find((value) => typeof rowOf(value)?.median === "number");
+    const base = baseValue === undefined ? undefined : rowOf(baseValue);
     for (const value of values) {
-      const row = inGroup.find((r) => rowValue(r, by).code === value.code);
+      const row = rowOf(value);
       if (row === undefined) {
         const reason =
           by === "region" && (value.code === 2 || value.code === 3)
@@ -479,10 +485,11 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
       }
       const point: ComparisonPoint = { value, ...row };
       if (row !== base) {
-        if (base === undefined || base.median === null) point.gapNote = `no gap: the base (${values[0]!.name}) has no median here`;
+        if (base === undefined || base.median === null) point.gapNote = "no gap: none of the compared values has a median here";
         else if (row.median === null) point.gapNote = "no gap: this value has no median (see notes)";
         else {
           point.gap = { eur: row.median - base.median, percent: round1(((row.median - base.median) / base.median) * 100) };
+          if (baseValue !== undefined && baseValue.code !== values[0]!.code) point.gapTo = baseValue;
           if (row.censored || base.censored) point.gapNote = "a median or quartile reaches the contribution ceiling: the real gap at the top may be larger than shown";
         }
       }
