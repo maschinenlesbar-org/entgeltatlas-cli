@@ -345,7 +345,10 @@ export interface ComparePayInput {
    * level 1-4; age the three bands; region the 16 Länder; branch the ten branches.
    */
   values?: DimensionValue[];
-  /** The dimensions held (the `by` one is ignored): default Deutschland and Gesamt; level as in lookupPay. */
+  /**
+   * The dimensions held (the `by` one is ignored), one value each, never "all" (a validation
+   * error): default Deutschland and Gesamt; level as in lookupPay.
+   */
   level?: DimensionValue;
   region?: DimensionValue;
   gender?: DimensionValue;
@@ -409,7 +412,8 @@ const rowValue = (row: PayRow, d: DimensionName): Coded => row[d];
 /**
  * One dimension varied, every other held: one request with that dimension left out (the API then
  * answers one row per value of it), the values picked by their label (never by position), and
- * the gap of each median to the base's within the same level (the first value with a median there). A gap needs two amounts: a
+ * the gap of each median to the base's within the same level (the first value with a median there);
+ * a value answered by several rows is reported in `missing`, never picked. A gap needs two amounts: a
  * suppressed or missing side has none, and a censored side says the real gap may be larger. Ost
  * and West answer no rows; a branch is never crossed with gender or age (refused before any
  * request); a 5-digit code has one level, so levels compare in its 3-digit group.
@@ -448,6 +452,16 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
   // The dimensions held.
   const heldInput: Filters = { level: input.level, region: input.region, gender: input.gender, age: input.age, branch: input.branch };
   delete heldInput[by];
+  // A held dimension is one value: "all" would answer one row per value, and the comparison would
+  // hold none of them.
+  for (const dimension of DIMENSION_NAMES) {
+    const value = heldInput[dimension];
+    if (typeof value === "string" && fold(value) === "all") {
+      throw new EntgeltatlasValidationError(
+        `Invalid ${dimension} "all": a comparison holds one ${dimension} value (default ${dimension === "level" ? "every level, compared per level" : codeName(dimension, 1)}); "all", one row per value, is lookupPay's. Give one ${dimension}, or vary it with by.`,
+      );
+    }
+  }
   const defaults: Partial<Record<DimensionName, number | "all">> = { ...LOOKUP_DEFAULTS };
   delete defaults[by];
   const resolved = resolveFilters(heldInput, defaults);
@@ -477,15 +491,24 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
     const inGroup = rows.filter((row) => level === undefined || row.level.code === level.code);
     // The base is the first value with a median here: a first value without one (Helfer is often
     // -100) would leave every gap empty. A point measured against another than the first says so.
-    const rowOf = (value: Coded): PayRow | undefined => inGroup.find((r) => rowValue(r, by).code === value.code);
+    // A value answered by several rows (which the held slice should never give) has none: the
+    // rows are told apart by their labels, never picked by position.
+    const rowsOf = (value: Coded): PayRow[] => inGroup.filter((r) => rowValue(r, by).code === value.code);
+    const rowOf = (value: Coded): PayRow | undefined => {
+      const found = rowsOf(value);
+      return found.length === 1 ? found[0] : undefined;
+    };
     const baseValue = values.find((value) => typeof rowOf(value)?.median === "number");
     const base = baseValue === undefined ? undefined : rowOf(baseValue);
     if (baseValue !== undefined && !bases.some((b) => b.code === baseValue.code)) bases.push(baseValue);
     for (const value of values) {
       const row = rowOf(value);
       if (row === undefined) {
+        const several = rowsOf(value).length;
         const reason =
-          by === "region" && (value.code === 2 || value.code === 3)
+          several > 1
+            ? `the API answered ${several} rows for this value in the same slice, which can't be told apart: no figure is picked (lookupPay shows them)`
+            : by === "region" && (value.code === 2 || value.code === 3)
             ? "the API answers no rows for Ostdeutschland (2) and Westdeutschland (3): it has no East/West aggregate; compare Länder instead"
             : by === "branch"
               ? "no row for this branch (the API answers a branch only for gender and age Gesamt; otherwise the cell is not published)"

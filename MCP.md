@@ -102,8 +102,9 @@ Klassifikationsserver), never with a guessed code; a 5-digit code's fifth digit 
 every 4-digit code tried answered no rows; region codes are irregular (1 Deutschland, 2 Ost, 3 West,
 4-19 the Länder, 20-30 eleven cities), and Ost and West answer no rows, which is said, not passed
 off as a suppressed figure; an omitted dimension answers one row per value of it, so every
-dimension is held (Deutschland and Gesamt by default) and rows are picked by their labels, never by
-position; a negative figure is a marker, never an amount (-1 suppressed, too few cases; -2 above the
+dimension is held (Deutschland and Gesamt by default; in `comparePay` one value each, never "all")
+and rows are picked by their labels, never by position (a compared value answered by several rows is
+reported in `missing`); a negative figure is a marker, never an amount (-1 suppressed, too few cases; -2 above the
 contribution ceiling; -100 no figure), and null is no figure either: never 0; the figures are
 medians cut off at the contribution ceiling, so a censored value is flagged and a gap at the top may
 be larger than shown; a branch is answered only with gender and age Gesamt, so crossing them is

@@ -238,6 +238,19 @@ test("comparePay: a censored side says the real gap may be larger", async () => 
   assert.match(answer.points?.[1]?.gapNote ?? "", /real gap at the top may be larger/);
 });
 
+test("comparePay: a held dimension is one value, never \"all\"; a value answered by several rows is reported, never picked by position", async () => {
+  const mock = answering(KLDB_434_L2_GENDERS);
+  await assert.rejects(comparePay(client(mock), { kldb: "434", by: "gender", region: "all", level: 2 }), (err: Error) => err instanceof EntgeltatlasValidationError && /region.*"all".*lookupPay/.test(err.message));
+  await assert.rejects(comparePay(client(mock), { kldb: "434", by: "region", gender: " ALL " }), EntgeltatlasValidationError);
+  assert.equal(mock.calls.length, 0);
+  const [, men, women] = KLDB_434_L2_GENDERS;
+  const doubled = [men!, { ...women!, entgelt: 3000, besetzung: 12 }, { ...women!, entgelt: 5400, besetzung: 30000 }];
+  const answer = await comparePay(client(answering(doubled)), { kldb: "434", by: "gender", level: 2 });
+  assert.deepEqual(answer.points?.map((p) => [p.value.name, p.gap]), [["Männer", undefined]], "no gap from the first of two Frauen rows");
+  assert.equal(answer.missing?.[0]?.value.name, "Frauen");
+  assert.match(answer.missing?.[0]?.reason ?? "", /2 rows for this value/);
+});
+
 test("comparePay by branch with gender or age held other than Gesamt: refused without a request", async () => {
   const mock = answering([]);
   const answer = await comparePay(client(mock), { kldb: "434", by: "branch", gender: "Frauen" });
