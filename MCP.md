@@ -157,7 +157,8 @@ the gateway's bare 403 (a wrong or outdated key, a refused network) says what to
   ends it at once. On stdio it ends at once, and when stdin ends.
 - **In a container** it needs at least 12 processes and threads (`--pids-limit`) and about
   256 MB of memory.
-- **Logs** go to stderr, one record per line; stdout carries only the protocol.
+- **Logs** go to stderr, one record per line; stdout carries only the protocol. A call that fails
+  upstream or reaches its deadline leaves a WARN record naming the tool.
 - **Never installs anything.**
 
 ## Licence
