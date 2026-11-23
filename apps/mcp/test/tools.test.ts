@@ -58,6 +58,29 @@ test("lookupPay: an occupation word is no KldB code: empty with where codes come
   await connection.close();
 });
 
+test("an answer that made no request cites no request: source is the endpoint, never the URL of another slice", async () => {
+  const upstream = entgeltatlasApi();
+  const connection = await connect({ transport: upstream });
+  const cases: [string, Record<string, unknown>][] = [
+    ["lookupPay", { kldb: "84304", region: "Atlantis" }],
+    ["lookupPay", { kldb: "84304", region: "burg" }],
+    ["lookupPay", { kldb: "84304", branch: "IT", gender: "Frauen" }],
+    ["lookupPay", { kldb: "84304", level: 2 }],
+    ["comparePay", { kldb: "84304", by: "gender", region: "Atlantis" }],
+    ["comparePay", { kldb: "434", by: "branch", gender: "Frauen" }],
+  ];
+  for (const [tool, args] of cases) {
+    const content = (await connection.call(tool, args)).structuredContent ?? {};
+    assert.notEqual(content["status"], "ok", JSON.stringify(args));
+    assert.equal(content["source"], `${API}/entgelte`, JSON.stringify(args));
+  }
+  assert.equal(upstream.calls.length, 0);
+  const made = (await connection.call("comparePay", { kldb: "434", by: "region", level: 2, values: ["Bayern", "Muenchen"] })).structuredContent ?? {};
+  assert.equal(made["source"], `${API}/entgelte/434?l=2&g=1&a=1&b=1`, "a request made is cited as it was sent");
+  assert.equal(upstream.calls[0]?.url, made["source"]);
+  await connection.close();
+});
+
 test("lookupPay: Ost answers no rows, and the answer says it is not a suppressed figure", async () => {
   const connection = await connect({ transport: entgeltatlasApi({ entgelte: () => [] }) });
   const content = (await connection.call("lookupPay", { kldb: "434", region: "Ost" })).structuredContent ?? {};

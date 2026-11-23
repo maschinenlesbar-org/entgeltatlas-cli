@@ -110,7 +110,9 @@ contribution ceiling; -100 no figure), and null is no figure either: never 0; th
 medians cut off at the contribution ceiling, so a censored value is flagged and a gap at the top may
 be larger than shown; a branch is answered only with gender and age Gesamt, so crossing them is
 refused before any request; an answer for another slice than the one asked for is an error, never
-its figures.
+its figures. The `source` of `lookupPay` and `comparePay` is the request they sent; an answer that
+made none (a name that matched nothing or several codes, a refused combination, an occupation word)
+names only the salary endpoint.
 
 Every tool only reads. An answer is JSON (`structuredContent` and the same as text), with the
 `source` it came from (whole, never cut like the data; an answer a redirect fetched from another

@@ -16,10 +16,9 @@ import {
   findCodes,
   lookupPay,
   MAX_COMPARE_VALUES,
-  PARAM_OF,
-  resolveCode,
   type DimensionName,
   type DimensionValue,
+  type EntgeltatlasClient,
 } from "@maschinenlesbar.org/entgeltatlas-client";
 import { EntgeltatlasApiError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import type { JsonSchema, ToolDefinition } from "./server.js";
@@ -109,26 +108,38 @@ const str = (args: Record<string, unknown>, key: string): string | undefined => 
 const dim = (args: Record<string, unknown>, key: string): DimensionValue | undefined =>
   typeof args[key] === "number" || typeof args[key] === "string" ? (args[key] as DimensionValue) : undefined;
 
-/** The salary request as the API sees it, for `source`: the codes it could resolve, the defaults, `by` left out. */
-function entgelteSource(args: Record<string, unknown>, by?: DimensionName): string {
-  const kldb = (str(args, "kldb") ?? "").trim();
-  // An occupation word is no code: the tool makes no request, and the source names the endpoint.
-  if (!/^\d+$/.test(kldb)) return "entgelte";
-  const query = new URLSearchParams();
-  for (const d of DIMENSION_NAMES) {
-    if (d === by) continue;
-    const given = dim(args, d) ?? (d === "level" ? undefined : 1);
-    if (given === undefined || (typeof given === "string" && given.trim().toLowerCase() === "all")) continue;
-    try {
-      const found = resolveCode(d, given);
-      if (found.status === "ok") query.set(PARAM_OF[d], String(found.value.code));
-    } catch {
-      // An unknown code has no source; the call is an error anyway.
-    }
-  }
-  const q = query.toString();
-  return `entgelte/${encodeURIComponent(kldb)}${q === "" ? "" : `?${q}`}`;
+/** The salary request each answer was made with (its path under the API's base), for `source`. */
+const REQUESTS = new WeakMap<object, string>();
+
+/**
+ * Run `work` with a client that notes the salary request it sends, and remember it for the answer:
+ * `source` cites the request made, and an answer that made none (a name that didn't resolve, a
+ * cross refused, an occupation word) cites the endpoint, never a URL of another slice.
+ */
+async function citing(client: EntgeltatlasClient, work: (client: EntgeltatlasClient) => Promise<object>): Promise<Record<string, unknown>> {
+  let made: string | undefined;
+  const noting = new Proxy(client, {
+    get(target, property) {
+      if (property === "entgelte") {
+        return (...call: Parameters<EntgeltatlasClient["entgelte"]>) => {
+          const [kldb, params = {}] = call;
+          const pairs = Object.entries(params).flatMap(([k, v]): [string, string][] => (v === undefined ? [] : [[k, String(v)]]));
+          const query = new URLSearchParams(pairs).toString();
+          made = `entgelte/${encodeURIComponent(kldb.trim())}${query === "" ? "" : `?${query}`}`;
+          return target.entgelte(...call);
+        };
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+  const answer: Record<string, unknown> = { ...(await withKeyHint(() => work(noting))) };
+  if (made !== undefined) REQUESTS.set(answer, made);
+  return answer;
 }
+
+/** The request an answer was made with, else the salary endpoint (no request was made). */
+const entgelteSource = (_args: Record<string, unknown>, _apiBase: string, answer: Record<string, unknown>): string => REQUESTS.get(answer) ?? "entgelte";
 
 /** The API's list of a dimension, or where the code tables come from. */
 const LIST_PATHS: Partial<Record<string, string>> = { region: "regionen", gender: "geschlechter", age: "alter", branch: "branchen" };
@@ -170,18 +181,20 @@ export const TOOLS: readonly ToolDefinition[] = [
       ["kldb"],
     ),
     outputSchema: output({ searched: obj, rows: arr, total: { type: "integer", description: "Rows in the API's answer." }, offset: { type: "integer" }, nextOffset: { type: "integer" } }),
-    source: (args) => entgelteSource(args),
+    source: entgelteSource,
     paged: (args) => ({ list: "rows", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
       const filters = Object.fromEntries(DIMENSION_NAMES.map((d) => [d, dim(args, d)]).filter(([, v]) => v !== undefined));
-      const answer = await withKeyHint(() => lookupPay(context.client, { kldb: str(args, "kldb") ?? "", ...filters }));
-      if (answer.rows === undefined) return { ...answer };
-      // One answer can hold many rows ("all" for several dimensions): a slice of them, and where the next one starts.
-      const offset = num(args, "offset") ?? 0;
-      const limit = num(args, "limit") ?? DEFAULT_ROWS;
-      const rows = answer.rows.slice(offset, offset + limit);
-      const more = offset + rows.length < answer.rows.length;
-      return { ...answer, rows, total: answer.rows.length, offset, ...(more ? { nextOffset: offset + rows.length } : {}) };
+      return citing(context.client, async (client) => {
+        const answer = await lookupPay(client, { kldb: str(args, "kldb") ?? "", ...filters });
+        if (answer.rows === undefined) return answer;
+        // One answer can hold many rows ("all" for several dimensions): a slice of them, and where the next one starts.
+        const offset = num(args, "offset") ?? 0;
+        const limit = num(args, "limit") ?? DEFAULT_ROWS;
+        const rows = answer.rows.slice(offset, offset + limit);
+        const more = offset + rows.length < answer.rows.length;
+        return { ...answer, rows, total: answer.rows.length, offset, ...(more ? { nextOffset: offset + rows.length } : {}) };
+      });
     },
   },
   {
@@ -209,15 +222,13 @@ export const TOOLS: readonly ToolDefinition[] = [
       ["kldb", "by"],
     ),
     outputSchema: output({ by: { type: "string" }, base: obj, held: obj, points: arr, missing: arr }),
-    source: (args) => entgelteSource(args, str(args, "by") as DimensionName | undefined),
+    source: entgelteSource,
     async run(args, context) {
       const held = Object.fromEntries(DIMENSION_NAMES.map((d) => [d, dim(args, d)]).filter(([, v]) => v !== undefined));
       const values = Array.isArray(args["values"]) ? (args["values"] as DimensionValue[]) : undefined;
-      return {
-        ...(await withKeyHint(() =>
-          comparePay(context.client, { kldb: str(args, "kldb") ?? "", by: str(args, "by") as DimensionName, ...(values === undefined ? {} : { values }), ...held }),
-        )),
-      };
+      return citing(context.client, (client) =>
+        comparePay(client, { kldb: str(args, "kldb") ?? "", by: str(args, "by") as DimensionName, ...(values === undefined ? {} : { values }), ...held }),
+      );
     },
   },
   {
