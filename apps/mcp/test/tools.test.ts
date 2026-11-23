@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { connect } from "./harness.js";
-import { entgeltatlasApi, jsonResponse, makeMockTransport, TEST_KEY } from "./helpers.js";
+import { entgeltatlasApi, jsonResponse, KLDB_434_L2_REGIONS, makeMockTransport, TEST_KEY } from "./helpers.js";
 
 const API = "https://rest.arbeitsagentur.de/infosysbub/entgeltatlas/pc/v1";
 const queryOf = (call: { url: string }): Record<string, string> => Object.fromEntries(new URL(call.url).searchParams);
@@ -109,6 +109,29 @@ test("comparePay by region: a suppressed Land has no gap; West is missing with t
   assert.deepEqual(points.map((p) => p.value.name), ["Bayern", "Bremen"]);
   assert.match(points[1]?.gapNote ?? "", /no gap/);
   assert.match(JSON.stringify(content["missing"]), /Westdeutschland.*no East\/West aggregate/);
+  await connection.close();
+});
+
+test("comparePay over the size cap: the points are a page, and offset fetches the rest, every level included", async () => {
+  const LEVELS = ["Helfer", "Fachkraft", "Spezialist", "Experte"];
+  const rows = LEVELS.flatMap((name, i) => KLDB_434_L2_REGIONS.map((row) => ({ ...row, performanceLevel: { id: i + 1, bezeichnung: name } })));
+  const upstream = entgeltatlasApi({ entgelte: () => rows });
+  const connection = await connect({ transport: upstream, config: { maxResultChars: 20_000 } });
+  const values = [1, ...Array.from({ length: 27 }, (_, i) => i + 4)];
+  const points: { level: { name: string }; value: { code: number } }[] = [];
+  let offset: number | undefined = 0;
+  let total = 0;
+  for (let page = 0; offset !== undefined && page < 20; page++) {
+    const content: Record<string, unknown> = (await connection.call("comparePay", { kldb: "434", by: "region", values, offset })).structuredContent ?? {};
+    assert.equal(content["status"], "ok", JSON.stringify(content).slice(0, 300));
+    if (page === 0) assert.equal(content["truncated"], true, "the first page is cut");
+    total = content["total"] as number;
+    points.push(...(content["points"] as typeof points));
+    offset = content["nextOffset"] as number | undefined;
+  }
+  assert.ok(total > 100, String(total));
+  assert.equal(points.length, total, "every point once");
+  assert.deepEqual([...new Set(points.map((p) => p.level.name))], LEVELS, "Experte included");
   await connection.close();
 });
 

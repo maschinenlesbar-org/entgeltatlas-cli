@@ -98,6 +98,9 @@ const output = (properties: Record<string, JsonSchema>): JsonSchema => ({
 const obj: JsonSchema = { type: "object" };
 const arr: JsonSchema = { type: "array" };
 
+/** The furthest comparePay's points start: every value at every level. */
+const MAX_POINT_OFFSET = MAX_COMPARE_VALUES * 4;
+
 /** The rows lookupPay returns at once by default, at most, and the furthest it starts. */
 const DEFAULT_ROWS = 50;
 const MAX_ROWS = 200;
@@ -202,7 +205,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Compare pay across one dimension",
     description: [
       'Pay gaps: one occupation\'s median with one dimension varied and every other held. Use it for "Gender Pay Gap bei Pflegekräften", "verdient man in Bayern mehr als in Sachsen?", "wie viel mehr verdient ein Experte als eine Fachkraft?", "gender pay gap for software developers", "compare salaries for KldB 434 across the Länder".',
-      "by is the dimension that varies: gender (default values Männer, Frauen), region (default the 16 Länder; or values such as Bayern, Sachsen), level (Helfer to Experte; a 3-digit code only), age (the three bands), branch (the ten). The first value with a median is the base (base in the answer): each point has its gap to it in EUR and percent, within the same level; gapTo names the base when it isn't the first value. When the base differs per level, the answer has no base and every gap's gapTo names its own. One request. The held dimensions default to Deutschland and Gesamt; without a level a 3-digit group is compared per level.",
+      "by is the dimension that varies: gender (default values Männer, Frauen), region (default the 16 Länder; or values such as Bayern, Sachsen), level (Helfer to Experte; a 3-digit code only), age (the three bands), branch (the ten). The first value with a median is the base (base in the answer): each point has its gap to it in EUR and percent, within the same level; gapTo names the base when it isn't the first value. When the base differs per level, the answer has no base and every gap's gapTo names its own. One request. The held dimensions default to Deutschland and Gesamt; without a level a 3-digit group is compared per level, level by level (over the size cap the points are a page: nextOffset, then offset, gives the rest).",
       "Traps: a gap needs two medians: a suppressed side has none (gapNote), never substitute 0. Ost and West have no rows: compare Länder and say the API has no East/West figure. A censored side (contribution ceiling) means the real gap may be larger. Medians, not adjusted for hours, tenure or qualification: descriptive, not causal. The gaps are your calculation from the BA's figures: say so. A branch is never crossed with gender or age.",
       RULES,
     ].join("\n\n"),
@@ -218,17 +221,38 @@ export const TOOLS: readonly ToolDefinition[] = [
           description: "The values compared, codes or names, the first is the base (default: see by).",
         },
         ...DIMENSION_SCHEMAS,
+        offset: {
+          type: "integer",
+          minimum: 0,
+          maximum: MAX_POINT_OFFSET,
+          description: "The first point to return, 0-based (default 0): an answer over the size cap is a page of its points, and nextOffset says where the next begins.",
+        },
       },
       ["kldb", "by"],
     ),
-    outputSchema: output({ by: { type: "string" }, base: obj, held: obj, points: arr, missing: arr }),
+    outputSchema: output({
+      by: { type: "string" },
+      base: obj,
+      held: obj,
+      points: arr,
+      missing: arr,
+      total: { type: "integer", description: "Points in the whole comparison." },
+      offset: { type: "integer" },
+      nextOffset: { type: "integer" },
+    }),
     source: entgelteSource,
+    paged: (args) => ({ list: "points", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
       const held = Object.fromEntries(DIMENSION_NAMES.map((d) => [d, dim(args, d)]).filter(([, v]) => v !== undefined));
       const values = Array.isArray(args["values"]) ? (args["values"] as DimensionValue[]) : undefined;
-      return citing(context.client, (client) =>
-        comparePay(client, { kldb: str(args, "kldb") ?? "", by: str(args, "by") as DimensionName, ...(values === undefined ? {} : { values }), ...held }),
-      );
+      return citing(context.client, async (client) => {
+        const answer = await comparePay(client, { kldb: str(args, "kldb") ?? "", by: str(args, "by") as DimensionName, ...(values === undefined ? {} : { values }), ...held });
+        if (answer.points === undefined) return answer;
+        // Every level's points in one answer can be more than the size cap holds: from offset on,
+        // and the size cap's nextOffset says where the next page begins.
+        const offset = num(args, "offset") ?? 0;
+        return { ...answer, points: answer.points.slice(offset), total: answer.points.length, offset };
+      });
     },
   },
   {
