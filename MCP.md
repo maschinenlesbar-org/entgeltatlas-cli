@@ -154,12 +154,13 @@ to check.
   mcp-token)` makes one); anything else is answered 401. Exposed beyond localhost (it logs a warning
   then), it belongs behind a proxy that authenticates or at least terminates TLS.
 - **Gentle with the upstream.** One server process sends at most 2 requests at a time and 120 a
-  minute to the API, pauses on HTTP 429 (as long as its Retry-After asks, at most 30 s), and stops a
-  tool call after its deadline (a tool that has read part of its answer by then may answer with that
-  part, and says so). `lookupPay` and `comparePay` make one request each; `findCodes` none, or one
-  per list with `live` (at most four); the first call also reads the key's source once when no key
-  is set. A request those limits would hold longer than it or its call may wait is not sent: the
-  call fails at once, naming the limit and when to ask again (and the log says so).
+  minute to the API, pauses the requests to a host that answers HTTP 429 (as long as its Retry-After
+  asks, at most 30 s; those to another host go on), and stops a tool call after its deadline (a tool
+  that has read part of its answer by then may answer with that part, and says so). `lookupPay` and
+  `comparePay` make one request each; `findCodes` none, or one per list with `live` (at most four);
+  the first call also reads the key's source once when no key is set. A request those limits would
+  hold longer than it or its call may wait is not sent: the call fails at once, naming the limit and
+  when to ask again (and the log says so).
 - **Results are data.** Text from the API, keys included, is cleaned (control, bidi, zero-width, tag
   and other invisible characters removed, but an emoji keeps its joiners; the API key echoed with
   one inside is still replaced; a key that cleaning makes equal to another stays, as `name~2`), but
