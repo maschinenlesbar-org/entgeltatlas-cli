@@ -246,3 +246,14 @@ test("a request timeout, a 404 and a 5xx after the retries say what they mean fo
   assert.match(texts[503] ?? "", /HTTP 503.*after 2 retries|HTTP 503.*failed on the BA's side/s);
   assert.match(texts[503] ?? "", /try again in a few minutes/);
 });
+
+test("findCodes live without a dimension cites the API's lists it read, and the tables for the level", async () => {
+  const upstream = entgeltatlasApi();
+  const connection = await connect({ transport: upstream });
+  const all = (await connection.call("findCodes", { live: true })).structuredContent ?? {};
+  const level = (await connection.call("findCodes", { dimension: "level", live: true })).structuredContent ?? {};
+  await connection.close();
+  assert.equal(all["source"], [`${API}/regionen`, `${API}/geschlechter`, `${API}/alter`, `${API}/branchen`, "https://github.com/bundesAPI/entgeltatlas-api"].join(", "));
+  assert.equal(upstream.calls.length, 4);
+  assert.equal(level["source"], "https://github.com/bundesAPI/entgeltatlas-api", "the level has no list: the tables");
+});

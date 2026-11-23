@@ -150,8 +150,9 @@ async function citing(client: EntgeltatlasClient, work: (client: EntgeltatlasCli
 /** The request an answer was made with, else the salary endpoint (no request was made). */
 const entgelteSource = (_args: Record<string, unknown>, _apiBase: string, answer: Record<string, unknown>): string => REQUESTS.get(answer) ?? "entgelte";
 
-/** The API's list of a dimension, or where the code tables come from. */
+/** The API's list of a dimension, and where the code tables come from. */
 const LIST_PATHS: Partial<Record<string, string>> = { region: "regionen", gender: "geschlechter", age: "alter", branch: "branchen" };
+const TABLES_SOURCE = "https://github.com/bundesAPI/entgeltatlas-api";
 
 /**
  * A failed request says what it means for this API and what to do, instead of the bare status:
@@ -290,10 +291,14 @@ export const TOOLS: readonly ToolDefinition[] = [
       live: { type: "boolean", description: "Read the list from the API (region, gender, age, branch) instead of the tables." },
     }),
     outputSchema: output({ searched: obj, matches: arr, dimensions: arr }),
-    source: (args) => {
-      const list = LIST_PATHS[str(args, "dimension") ?? ""];
-      // The tables are transcribed from the API's documentation; live, the API's list.
-      return args["live"] === true && list !== undefined && str(args, "name") === undefined ? list : "https://github.com/bundesAPI/entgeltatlas-api";
+    // The tables are transcribed from the API's documentation; live, the API's lists that were read
+    // (every dimension's but the level's, which has none: its table).
+    source: (_args, apiBase, answer) => {
+      const lists = Array.isArray(answer["dimensions"]) ? (answer["dimensions"] as { dimension: string; live?: boolean }[]) : [];
+      const read = lists.flatMap((list) => (list.live === true && LIST_PATHS[list.dimension] !== undefined ? [LIST_PATHS[list.dimension] as string] : []));
+      if (read.length === 0) return TABLES_SOURCE;
+      if (read.length === 1 && lists.length === 1) return read[0] as string;
+      return [...read.map((path) => `${apiBase}/${path}`), ...(read.length < lists.length ? [TABLES_SOURCE] : [])].join(", ");
     },
     async run(args, context) {
       const dimension = str(args, "dimension") as DimensionName | "occupation" | undefined;
