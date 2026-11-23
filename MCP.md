@@ -162,7 +162,8 @@ to check.
   asks, at most 30 s; those to another host go on), and stops a tool call after its deadline (a tool
   that has read part of its answer by then may answer with that part, and says so). `lookupPay` and
   `comparePay` make one request each; `findCodes` none, or one per list with `live` (at most four);
-  the first call also reads the key's source once when no key is set. A request those limits would
+  the first call also reads the key's source once when no key is set (a 429 from it is held like
+  one from the API, and a call that ends meanwhile is told the key is being looked up). A request those limits would
   hold longer than it or its call may wait is not sent: the call fails at once, naming the limit and
   when to ask again (and the log says so).
 - **Results are data.** Text from the API, keys included, is cleaned (control, bidi, zero-width, tag

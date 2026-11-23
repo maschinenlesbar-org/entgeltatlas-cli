@@ -39,6 +39,9 @@ export function apiBase(baseUrl: string | undefined): string {
   return `${(baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "")}${SERVICE_PATH}`;
 }
 
+/** The longest obtainKey waits before a retry of its own in this server (ms); the limiter holds the rest of a 429's. */
+const KEY_RETRY_WAIT_MS = 1000;
+
 /**
  * The API key, in this order: ENTGELTATLAS_API_KEY from the server's environment (what an MCP
  * client's config sets), the credentials file (`entgeltatlas config set api-key`; only when the
@@ -70,6 +73,10 @@ export async function findCredentials(context: CredentialContext): Promise<Found
       timeoutMs: context.timeoutMs,
       userAgent: context.userAgent,
       maxResponseBytes: context.maxResponseBytes,
+      // A 429's Retry-After is the server's limiter's to hold (the transport is the limited one):
+      // it pauses the key source's origin, logs the hold, and fails at once a call it would hold
+      // past its deadline. obtainKey's own wait, unseen by the limiter and the log, is kept short.
+      sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, KEY_RETRY_WAIT_MS))),
     });
     return {
       clientOptions: { apiKey: obtained.key },

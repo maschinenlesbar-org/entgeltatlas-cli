@@ -8,9 +8,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { KEY_SOURCE_URL } from "@maschinenlesbar.org/entgeltatlas-client/internal/obtain-key";
+import { limitTransport } from "../src/mcp/limiter.js";
 import { listTools } from "../src/mcp/server.js";
+import { TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
-import { entgeltatlasApi, jsonResponse, KLDB_434_L2_REGIONS, makeMockTransport, TEST_KEY } from "./helpers.js";
+import { entgeltatlasApi, jsonResponse, KLDB_434_L2_REGIONS, makeMockTransport, rawResponse, TEST_KEY } from "./helpers.js";
 
 const API = "https://rest.arbeitsagentur.de/infosysbub/entgeltatlas/pc/v1";
 const queryOf = (call: { url: string }): Record<string, string> => Object.fromEntries(new URL(call.url).searchParams);
@@ -175,4 +178,50 @@ test("a refused key (the gateway's bare 403) is a tool error that says what to c
   assert.match(result.content[0]?.text ?? "", /403.*a wrong or outdated API key.*entgeltatlas obtain-key/s);
   assert.ok(!(result.content[0]?.text ?? "").includes(TEST_KEY));
   await connection.close();
+});
+
+test("a 429 from the key source: the wait is the limiter's, with a WARN record; a call that ends meanwhile is told the key is being looked up", async () => {
+  const api = entgeltatlasApi();
+  let keyRequests = 0;
+  const upstream = makeMockTransport((request) => {
+    if (request.url !== KEY_SOURCE_URL) return api.transport(request);
+    keyRequests += 1;
+    return keyRequests === 1
+      ? { status: 429, headers: { "retry-after": "2", "content-type": "text/plain" }, body: Buffer.from("slow down") }
+      : rawResponse("<html><script>window.infosysbubLibConfig = { clientId: 'from-the-page' };</script></html>", "text/html; charset=utf-8");
+  });
+  const held: string[] = [];
+  const limited = limitTransport(upstream.transport, { log: (message) => held.push(message) });
+  const connection = await connect({ transport: { transport: limited }, env: {}, config: { callTimeoutMs: 1500 } });
+  // The first call's deadline passes while the key source's 429 holds the lookup (2 s).
+  const first = await connection.call("lookupPay", { kldb: "84304" });
+  assert.equal(first.isError, true);
+  assert.match(first.content[0]?.text ?? "", /took longer .*ENTGELTATLAS_API_KEY also looks up the public key/s);
+  assert.doesNotMatch(first.content[0]?.text ?? "", /narrow the request/);
+  assert.match(held.join("\n"), /web\.arbeitsagentur\.de answered HTTP 429: every request to it waits \d+ s/, "the wait has a record");
+  // The next call joins the lookup, which goes on after the pause.
+  const second = await connection.call("lookupPay", { kldb: "84304" });
+  await connection.close();
+  assert.equal(second.structuredContent?.["status"], "ok", second.content[0]?.text);
+  assert.equal(keyRequests, 2);
+  assert.equal(upstream.calls.find((call) => call.url !== KEY_SOURCE_URL)?.headers?.["X-API-Key"], "from-the-page");
+});
+
+test("the deadline's advice fits every tool: each option it names is named with the tools that take it, and the key lookup too", async () => {
+  const hanging = { transport: (): Promise<never> => new Promise<never>(() => {}) };
+  const connection = await connect({ transport: hanging, config: { callTimeoutMs: 30 } });
+  const text = (await connection.call("findCodes", { dimension: "region", live: true })).content[0]?.text ?? "";
+  await connection.close();
+  assert.match(text, /took longer than .* and was stopped/);
+  assert.match(text, /try again shortly/);
+  assert.match(text, /ENTGELTATLAS_API_KEY/, "a slow key lookup at the first call is named too");
+  assert.doesNotMatch(text, /narrow the request/);
+  const schemas = new Map(TOOLS.map((tool) => [tool.name, Object.keys((tool.inputSchema as { properties: Record<string, unknown> }).properties)]));
+  const pairs = [...text.matchAll(/(\w+(?: or \w+)*) \((\w+(?:, \w+)*)\)/g)];
+  assert.ok(pairs.length >= 2, text);
+  for (const [, options, tools] of pairs) {
+    for (const tool of (tools as string).split(", ")) {
+      for (const option of (options as string).split(" or ")) assert.ok(schemas.get(tool)?.includes(option), `${tool} takes no ${option}: ${text}`);
+    }
+  }
 });

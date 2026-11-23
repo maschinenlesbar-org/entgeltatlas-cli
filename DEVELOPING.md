@@ -668,7 +668,8 @@ what it returns. `findCredentials` takes `ENTGELTATLAS_API_KEY` from the server'
 CLI would refuse is an error naming the file and the fix, never skipped), else the published key
 through the client's `obtainKey` (as `entgeltatlas obtain-key`, from the BA's web app), over the
 server's limited transport and inside the call's deadline; a failure there says how to set the key
-instead. A lookup that fails is tried again at the next call. Not at start: the handshake, the tool
+instead. obtainKey's own wait before a retry is cut to 1 s there: a 429's Retry-After is the
+limiter's to hold, which logs the hold (obtainKey's wait has no record). A lookup that fails is tried again at the next call. Not at start: the handshake, the tool
 list, the image's smoke test and the tests that start the bin need neither the network nor a
 credentials file. One INFO record of `entgeltatlas-mcp.config` names the source, never the key;
 every form of the key is a secret from then on, replaced with `***` in every record the server logs
