@@ -683,7 +683,7 @@ option for the key (argv shows in `ps`), and HTTP needs no authentication for a 
 | `packages/log` | The log records (text/jsonl), shared by both apps; `createLogger({ program })`. |
 | `src/mcp/tools.ts` | This repo's: the three tools (flat input schemas with limits, no root combinators; one object output schema each; descriptions under 2000 characters), the instructions, the licence (the BA's custom terms: attribution, unaltered, own calculations labelled), the hints the server's messages give, `withKeyHint`. `lookupPay` pages its rows (offset, limit, `nextOffset`). |
 | `src/mcp/api.ts` | This repo's: how the kit reaches the client (`EntgeltatlasClient` as `Client`, `EntgeltatlasError` as `ClientError`, `EntgeltatlasNetworkError` as `NetworkError`, `apiBase` with the service path `/infosysbub/entgeltatlas/pc/v1`) and `findCredentials` (the key, above). `EntgeltatlasKeySourceError` and `EntgeltatlasSliceError` are `ClientError`s: their messages are the call's error. |
-| `src/mcp/credentials.ts` | The kit's credentials hook: `findCredentials` read from `api.ts` when it exports one, `Secrets` (the values never shown), `redactingLog`. |
+| `src/mcp/credentials.ts`, `auth.ts` | The kit's credentials hook: `findCredentials` read from `api.ts` when it exports one, `Secrets` (the values never shown), `redactingLog`; the HTTP bearer token of `--auth-token-file`. |
 | `src/mcp/server.ts` | The McpServer factory (the client built at the first call once the credentials are found), the tool types, `callTool`: deadline (`--call-timeout`) plus the client's cancellation, cleaned, redacted and fitted answers, failures as `isError` results. |
 | `src/mcp/result.ts` | `cleanStrings` (control, bidi, zero-width characters dropped in the value), `fitResult` (whole list entries dropped under `--max-result-chars`, `nextOffset`). |
 | `src/mcp/limiter.ts` | One per process around the upstream transport: 2 in flight, 120 a minute, pause on 429, a bounded queue. |
@@ -703,26 +703,27 @@ validate tool arguments against the input schemas; an SBOM doesn't list that cop
 the same in every repository with an MCP server: a fix lands there first and comes here with
 `npm run sync-kit -- ../entgeltatlas-cli` (run in create-cli-template; `--check` lists the drift).
 
-Tests (`apps/mcp/test`) run in-process over the SDK's InMemoryTransport with raw JSON-RPC (the
-kit's `harness.ts`, which gives every server `helpers.ts`'s `TEST_ENV`, a test key, unless a test
-passes its own environment: no test reads a credentials file or obtains a key over the network).
-The rules every server follows are the shared conformance tests `conformance-m1-…` to
-`conformance-m11-…`, each with an adapter block naming this repo's calls and mock answers; M11
-covers the key: nothing looked up before the first call, the environment's key sent with one
-INFO record, the key never in a record, a result or an error even when the upstream echoes it,
-the published key obtained once (from a page shaped like the web app's) and tried again after a
-failure. `tools.test.ts` holds this server's own. The mock (`entgeltatlasApi` in `helpers.ts`)
-answers the salary path and the reference lists with the client's `test/recorded.ts`: KldB 84304
-(Deutschland, Gesamt), 434 per level (Helfer -100), 434 Fachkraft per gender and per region (28
-rows, Ost and West left out, small regions -1), 81302 in the Saarland for women under 25
-(suppressed), 814 per level (Q75 -2) and the region list, recorded on 2026-11-20; the operation
-tests (`packages/client/test/operations.test.ts`) add the traps' variants (names in German and
-English, an ambiguous name, an occupation word, null figures, a median at the ceiling, the empty
-answers' reasons, a branch crossed with gender, another slice than asked for, gaps per level, a
-censored gap, live lists that differ). `tools/interop/` checks the built server against the
-official client 2.4.0 (stdio and HTTP; legacy, auto and pinned 2026-07-28) in ci.yml's `interop`
-job, with its own lockfile; `interop.json` gives both servers a test key (`env`) and answers 84304,
-434 and the region list.
+Tests (`apps/mcp/test`) run in-process over the SDK's InMemoryTransport with raw JSON-RPC (the kit's
+`harness.ts`, which gives every server `helpers.ts`'s `TEST_ENV`, a test key, unless a test passes
+its own environment: no test reads a credentials file or obtains a key over the network). The rules
+every server follows are the shared conformance tests `conformance-m1-…` to `conformance-m12-…`,
+each with an adapter block naming this repo's calls and mock answers (M12: the HTTP bearer token of
+`--auth-token-file`, `auth.ts`, optional here: the key is public, so `api.ts` doesn't export
+`HTTP_NEEDS_AUTH_TOKEN`); M11 covers the key: nothing looked up before the first call, the
+environment's key sent with one INFO record, the key never in a record, a result or an error even
+when the upstream echoes it, the published key obtained once (from a page shaped like the web app's)
+and tried again after a failure. `tools.test.ts` holds this server's own. The mock
+(`entgeltatlasApi` in `helpers.ts`) answers the salary path and the reference lists with the
+client's `test/recorded.ts`: KldB 84304 (Deutschland, Gesamt), 434 per level (Helfer -100), 434
+Fachkraft per gender and per region (28 rows, Ost and West left out, small regions -1), 81302 in the
+Saarland for women under 25 (suppressed), 814 per level (Q75 -2) and the region list, recorded on
+2026-11-20; the operation tests (`packages/client/test/operations.test.ts`) add the traps' variants
+(names in German and English, an ambiguous name, an occupation word, null figures, a median at the
+ceiling, the empty answers' reasons, a branch crossed with gender, another slice than asked for,
+gaps per level, a censored gap, live lists that differ). `tools/interop/` checks the built server
+against the official client 2.4.0 (stdio and HTTP; legacy, auto and pinned 2026-07-28) in ci.yml's
+`interop` job, with its own lockfile; `interop.json` gives both servers a test key (`env`) and
+answers 84304, 434 and the region list.
 
 ## Container image
 
