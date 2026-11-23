@@ -21,6 +21,7 @@
 import { emptyAnswerNote, type EntgeltatlasClient } from "./client.js";
 import { DIMENSIONS, type CodeEntry, type DimensionParam } from "./codes.js";
 import { EntgeltatlasValidationError, quoteValue } from "./errors.js";
+import { assertValid, kldbProblem, normalizeToken } from "./validate.js";
 import type { EntgeltEntry, EntgelteParams, ReferenceItem } from "./types.js";
 
 /** What every operation answers: ok, ambiguous (ask which), or empty (with the reason). */
@@ -125,10 +126,15 @@ export function resolveCode(dimension: DimensionName, value: DimensionValue): Re
   return { status: "empty" };
 }
 
-/** A KldB code checked for digits: undefined when it is an occupation name (the API has no name search). */
+/**
+ * A KldB code as it is sent, or undefined for an occupation name (the API has no name search).
+ * A blank value, and one with a digit in it (full-width digits, a path, six digits), is meant as a
+ * code: checked as the client checks it (kldbProblem), a validation error when it isn't 3–5 ASCII
+ * digits, never read as an occupation word.
+ */
 function kldbDigits(kldb: string): string | undefined {
-  const trimmed = kldb.trim();
-  return /^\d+$/.test(trimmed) ? trimmed : undefined;
+  if (kldb.trim() !== "" && !/\p{Nd}/u.test(kldb)) return undefined;
+  return normalizeToken(assertValid("KldB code", kldb, kldbProblem));
 }
 
 /** What a KldB code is, by its length. */

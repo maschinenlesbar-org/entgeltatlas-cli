@@ -74,6 +74,17 @@ test("lookupPay: an occupation name is no KldB code: the answer says where codes
   assert.equal(mock.calls.length, 0);
 });
 
+test("a KldB code that is blank or holds digits but isn't 3-5 ASCII digits is a validation error, never read as an occupation word", async () => {
+  const mock = answering([]);
+  for (const kldb of ["   ", "", "８４３０４", "84304/../434", "123456"]) {
+    await assert.rejects(lookupPay(client(mock), { kldb }), EntgeltatlasValidationError, JSON.stringify(kldb));
+    await assert.rejects(comparePay(client(mock), { kldb, by: "gender" }), EntgeltatlasValidationError, JSON.stringify(kldb));
+  }
+  await assert.rejects(lookupPay(client(mock), { kldb: "８４３０４" }), /not a KldB-2010 code: expected 3–5 digits/);
+  assert.equal(mock.calls.length, 0);
+  assert.equal((await lookupPay(client(mock), { kldb: "Pflegefachkraft" })).reason, NO_NAME_SEARCH, "a word is still an occupation name");
+});
+
 test("lookupPay: a name matching several codes is ambiguous, with candidates, without a request", async () => {
   const mock = answering([]);
   const answer = await lookupPay(client(mock), { kldb: "434", region: "burg" });

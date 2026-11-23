@@ -98,7 +98,8 @@ For scripts and shared configs, pin a release and its digest from the
 
 The tools carry the API's traps so a model doesn't have to: the API has no occupation-name search,
 so an occupation word is answered with where KldB codes come from (BERUFENET, the
-Klassifikationsserver), never with a guessed code; a 5-digit code's fifth digit is its level, and
+Klassifikationsserver), never with a guessed code, while a blank code or one with digits that isn't
+3–5 ASCII digits (full-width digits, a path) is a tool error, never read as an occupation word; a 5-digit code's fifth digit is its level, and
 every 4-digit code tried answered no rows; region codes are irregular (1 Deutschland, 2 Ost, 3 West,
 4-19 the Länder, 20-30 eleven cities), and Ost and West answer no rows, which is said, not passed
 off as a suppressed figure; an omitted dimension answers one row per value of it, so every
