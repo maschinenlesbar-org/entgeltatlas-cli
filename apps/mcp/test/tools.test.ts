@@ -225,3 +225,24 @@ test("the deadline's advice fits every tool: each option it names is named with 
     }
   }
 });
+
+test("a request timeout, a 404 and a 5xx after the retries say what they mean for this API and what to do", async () => {
+  const hanging = { transport: (): Promise<never> => new Promise<never>(() => {}) };
+  const slow = await connect({ transport: hanging, config: { timeoutMs: 50, callTimeoutMs: 3000 } });
+  const timeout = (await slow.call("lookupPay", { kldb: "112" })).content[0]?.text ?? "";
+  await slow.close();
+  assert.match(timeout, /timed out after 50ms.*did not answer within 0\.05 s.*not "no data".*try again shortly/s);
+  const answering = (status: number) => makeMockTransport(() => rawResponse("<html>Not Found</html>", "text/html", status));
+  const texts: Record<number, string> = {};
+  for (const status of [404, 500, 503]) {
+    const connection = await connect({ transport: answering(status) });
+    const result = await connection.call("lookupPay", { kldb: "104" });
+    await connection.close();
+    assert.equal(result.isError, true);
+    texts[status] = result.content[0]?.text ?? "";
+  }
+  assert.match(texts[404] ?? "", /HTTP 404.*answers a code or slice it has no figures for with an empty list, never 404.*not "no such code".*try again later/is);
+  assert.match(texts[500] ?? "", /HTTP 500.*failed on the BA's side.*not "no data".*try again in a few minutes/s);
+  assert.match(texts[503] ?? "", /HTTP 503.*after 2 retries|HTTP 503.*failed on the BA's side/s);
+  assert.match(texts[503] ?? "", /try again in a few minutes/);
+});

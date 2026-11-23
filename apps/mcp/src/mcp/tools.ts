@@ -20,7 +20,7 @@ import {
   type DimensionValue,
   type EntgeltatlasClient,
 } from "@maschinenlesbar.org/entgeltatlas-client";
-import { EntgeltatlasApiError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
+import { EntgeltatlasApiError, EntgeltatlasNetworkError } from "@maschinenlesbar.org/entgeltatlas-client/internal/errors";
 import type { JsonSchema, ToolDefinition } from "./server.js";
 
 /** The service, as results and messages name it. */
@@ -142,7 +142,7 @@ async function citing(client: EntgeltatlasClient, work: (client: EntgeltatlasCli
       return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
     },
   });
-  const answer: Record<string, unknown> = { ...(await withKeyHint(() => work(noting))) };
+  const answer: Record<string, unknown> = { ...(await withHints(() => work(noting))) };
   if (made !== undefined) REQUESTS.set(answer, made);
   return answer;
 }
@@ -154,10 +154,13 @@ const entgelteSource = (_args: Record<string, unknown>, _apiBase: string, answer
 const LIST_PATHS: Partial<Record<string, string>> = { region: "regionen", gender: "geschlechter", age: "alter", branch: "branchen" };
 
 /**
- * The gateway answers a wrong or outdated key and a refused network the same way, with a bare
- * 401/403: say so, and what to do, instead of the bare status.
+ * A failed request says what it means for this API and what to do, instead of the bare status:
+ * the gateway answers a wrong or outdated key and a refused network the same way (401/403); the
+ * API answers a code or slice without figures with an empty list, so a 404 is the gateway's; a 5xx
+ * is a failure on the BA's side (after the client's retries of a 503); a request timeout is no
+ * answer at all. None of them is "no data".
  */
-async function withKeyHint<T>(work: () => Promise<T>): Promise<T> {
+async function withHints<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (err) {
@@ -165,6 +168,17 @@ async function withKeyHint<T>(work: () => Promise<T>): Promise<T> {
       err.message =
         `${err.message}. The BA's gateway answers a wrong or outdated API key and a refused network (WAF/IP block) the same way; it is never "no data". ` +
         "Retry once; if it persists, the server's key (ENTGELTATLAS_API_KEY, the entgeltatlas config file, or the published key) may be outdated: compare it with `entgeltatlas obtain-key` and restart the server; if a freshly obtained key is refused too, the network may be blocked.";
+    } else if (err instanceof EntgeltatlasApiError && err.status === 404) {
+      err.message =
+        `${err.message}. The Entgeltatlas answers a code or slice it has no figures for with an empty list, never 404: this 404 is the BA's gateway's (a moved path or an outage), ` +
+        'not "no such code". Try again later; if it persists, the API may have moved.';
+    } else if (err instanceof EntgeltatlasApiError && err.status >= 500) {
+      err.message = `${err.message}. The request failed on the BA's side (the server already retried a 503); it is not "no data": try again in a few minutes.`;
+    } else if (err instanceof EntgeltatlasNetworkError) {
+      const ms = /timed out after (\d+)ms/.exec(err.message)?.[1];
+      if (ms !== undefined) {
+        err.message = `${err.message}. The API did not answer within ${Number(ms) / 1000} s (the server's --timeout); it is not "no data": try again shortly, the BA's gateway is sometimes slow.`;
+      }
     }
     throw err;
   }
@@ -285,7 +299,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       const dimension = str(args, "dimension") as DimensionName | "occupation" | undefined;
       const name = str(args, "name");
       return {
-        ...(await withKeyHint(() =>
+        ...(await withHints(() =>
           findCodes(context.client, { ...(dimension === undefined ? {} : { dimension }), ...(name === undefined ? {} : { name }), live: args["live"] === true }),
         )),
       };

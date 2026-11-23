@@ -125,7 +125,8 @@ texts cut further (each with that mark) or, when that isn't enough, its other li
 `truncated`. One that can't be cut down so far is a tool error that says to ask for less. A failure
 is a tool error that says what to change (one over 5000 characters loses its middle, never its end,
 where the reason is); the gateway's bare 403 (a wrong or outdated key, a refused network) says what
-to check.
+to check, a 404 that it is the gateway's (the API answers a code without figures with an empty list),
+a 5xx and a request timeout that they are not "no data" and when to try again.
 
 ## Options
 
