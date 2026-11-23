@@ -289,6 +289,20 @@ function branchCrossProblem(values: Partial<Record<DimensionName, Coded | "all">
   return "the API answers a branch other than Gesamt only for gender and age Gesamt: it does not cross a branch with gender or age (no rows). Ask for the branch with gender and age Gesamt, or for gender or age with branch Gesamt.";
 }
 
+/**
+ * Why a 5-digit code can't be asked at the level given, or undefined: its fifth digit is its level,
+ * and the API answers no other (no rows), so no request is made.
+ */
+function levelProblem(kldb: string, values: Partial<Record<DimensionName, Coded | "all">>): string | undefined {
+  const own = /^[0-9]{4}([1-4])$/.exec(kldb)?.[1];
+  const level = values.level;
+  if (own === undefined || level === undefined || level === "all" || level.code === Number(own)) return undefined;
+  return (
+    `no rows for KldB ${kldb} at level ${level.code} (${level.name}): the fifth digit of a 5-digit code is its level ` +
+    `(${own}, ${codeName("level", Number(own))}), so the API answers no other. Leave level out or give ${own}.`
+  );
+}
+
 // --- lookupPay (entgelt-lookup) --------------------------------------------------------------
 
 export interface LookupPayInput {
@@ -327,8 +341,8 @@ const LOOKUP_DEFAULTS: Partial<Record<DimensionName, number | "all">> = { region
 /**
  * One occupation's pay for a slice: names resolved to codes, Deutschland and Gesamt by default,
  * every level unless one is given, one request; the markers read (payRowOf). An empty answer says
- * why when the request explains it (emptyAnswerNote: a 4-digit code, Ost/West, a level a 5-digit
- * code contradicts, a branch crossed with gender or age).
+ * why when the request explains it (emptyAnswerNote: a 4-digit code, Ost/West); a level a 5-digit
+ * code contradicts and a branch crossed with gender or age are answered without a request.
  */
 export async function lookupPay(client: EntgeltatlasClient, input: LookupPayInput): Promise<PayLookup> {
   const kldb = kldbDigits(input.kldb);
@@ -340,7 +354,7 @@ export async function lookupPay(client: EntgeltatlasClient, input: LookupPayInpu
   if (resolved.status === "empty") return { status: "empty", kldb, dimension: resolved.dimension, reason: resolved.reason };
   const searched: Record<string, Coded | "all" | string> = { kldb, ...resolved.values };
   if (resolved.values.level === undefined) searched["level"] = "all";
-  const cross = branchCrossProblem(resolved.values);
+  const cross = levelProblem(kldb, resolved.values) ?? branchCrossProblem(resolved.values);
   if (cross !== undefined) return { status: "empty", kldb, occupation: kldbKind(kldb), searched, reason: cross };
   const params = paramsOf(resolved.values);
   const rows = await client.entgelte(kldb, params);
@@ -487,7 +501,7 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
   if (resolved.status === "empty") return { status: "empty", kldb, by, dimension: resolved.dimension, reason: resolved.reason };
   const held: Record<string, Coded | "all"> = { ...resolved.values };
   if (by !== "level" && resolved.values.level === undefined) held["level"] = "all";
-  const cross = branchCrossProblem(resolved.values, by);
+  const cross = levelProblem(kldb, resolved.values) ?? branchCrossProblem(resolved.values, by);
   if (cross !== undefined) return { status: "empty", kldb, occupation: kldbKind(kldb), by, held, reason: cross };
   const params = paramsOf(resolved.values);
   const rows = (await client.entgelte(kldb, params)).map(payRowOf);

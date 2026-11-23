@@ -146,6 +146,19 @@ test("lookupPay: an empty answer says why when the request explains it: a 4-digi
   assert.match(unknown.reason ?? "", /suppressed or the KldB code doesn't exist/);
 });
 
+test("a level a 5-digit code contradicts is answered without a request, in the library's terms (no CLI option)", async () => {
+  const mock = answering([]);
+  const lookup = await lookupPay(client(mock), { kldb: "84304", level: "Fachkraft" });
+  assert.equal(lookup.status, "empty");
+  assert.match(lookup.reason ?? "", /fifth digit of a 5-digit code is its level \(4, Experte\).*Leave level out or give 4\./);
+  assert.doesNotMatch(lookup.reason ?? "", /-l\b/);
+  const compare = await comparePay(client(mock), { kldb: "84304", by: "gender", level: 2 });
+  assert.equal(compare.status, "empty");
+  assert.match(compare.reason ?? "", /Leave level out or give 4\./);
+  assert.equal(mock.calls.length, 0);
+  assert.equal((await lookupPay(client(answering(KLDB_84304_DE_GESAMT)), { kldb: "84304", level: 4 })).status, "ok");
+});
+
 test("lookupPay: a branch is never crossed with gender or age (the API answers no rows): refused without a request", async () => {
   const mock = answering([]);
   const answer = await lookupPay(client(mock), { kldb: "434", branch: "IT", gender: "Frauen" });
