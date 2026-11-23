@@ -98,7 +98,7 @@ export type Resolved = { status: "ok"; value: Coded } | { status: "ambiguous"; c
 
 /**
  * A dimension's value from a code (a number or digits) or a name: the table's name (any case, with
- * or without umlauts), an alias (English, an abbreviation), else the one name that contains it
+ * or without umlauts, or with ae, oe, ue for them), an alias (English, an abbreviation), else the one name that contains it
  * (at least 3 letters). Several names containing it are ambiguous; an exact name wins over names
  * that contain it ("Sachsen", not "Sachsen-Anhalt"). An unknown code is a validation error.
  */
@@ -115,6 +115,16 @@ export function resolveCode(dimension: DimensionName, value: DimensionValue): Re
   }
   const wanted = fold(String(value));
   if (wanted === "") throw new EntgeltatlasValidationError(`Invalid ${dimension}: a code or a name, not blank.`);
+  const found = resolveName(dimension, table, wanted);
+  // A name written with ae, oe, ue for the umlaut (Muenchen, Maenner): the fold drops the umlaut's
+  // dots, so the second letter goes too. Only when the name as written finds nothing, so a real
+  // "ue" (Frauen) is never read as one.
+  if (found.status !== "empty" || !/ae|oe|ue/.test(wanted)) return found;
+  return resolveName(dimension, table, wanted.replace(/([aou])e/g, "$1"));
+}
+
+/** A folded name in one dimension's table: exact, an alias, else the one name containing it. */
+function resolveName(dimension: DimensionName, table: readonly CodeEntry[], wanted: string): Resolved {
   const exact = table.find((v) => fold(v.bezeichnung) === wanted);
   if (exact !== undefined) return { status: "ok", value: coded(dimension, exact.id) };
   const alias = Object.entries(ALIASES[dimension]).find(([name]) => fold(name) === wanted)?.[1];

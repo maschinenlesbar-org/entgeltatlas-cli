@@ -328,3 +328,24 @@ test("resolveCode: digits are codes, short unknown words find nothing rather tha
   assert.deepEqual(resolveCode("region", "xy"), { status: "empty" });
   assert.deepEqual(resolveCode("region", "frankfurt"), { status: "ok", value: { code: 24, name: "Frankfurt am Main" } });
 });
+
+test("resolveCode: a name written with ae, oe, ue for the umlaut is found like the umlaut one", () => {
+  const cases: [Parameters<typeof resolveCode>[0], string, number][] = [
+    ["region", "Muenchen", 29],
+    ["region", "Koeln", 27],
+    ["region", "Nuernberg", 25],
+    ["region", "Duesseldorf", 21],
+    ["region", "Thueringen", 19],
+    ["region", "Baden-Wuerttemberg", 11],
+    ["region", "MUENCHEN", 29],
+    ["gender", "Maenner", 2],
+    ["age", "55 Jahre und aelter", 4],
+    ["branch", "Oeffentliche Verwaltung", 10],
+  ];
+  for (const [dimension, name, code] of cases) {
+    const found = resolveCode(dimension, name);
+    assert.equal(found.status === "ok" ? found.value.code : found.status, code, name);
+  }
+  assert.deepEqual(resolveCode("gender", "Frauen"), { status: "ok", value: { code: 3, name: "Frauen" } }, "a real ue stays as it is");
+  assert.equal(resolveCode("region", "Sachsen").status, "ok");
+});
