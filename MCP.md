@@ -93,7 +93,7 @@ For scripts and shared configs, pin a release and its digest from the
 | Tool | What it answers |
 |---|---|
 | `lookupPay` | What one occupation (its KldB-2010 code) earns in a slice: the median, the quartiles and the headcount, with names resolved to codes, Deutschland and Gesamt by default, "all" for one row per value (paged), and the API's markers read as what they are. |
-| `comparePay` | One dimension varied (gender, region, level, age or branch), every other held, in one request: each value's median and its gap to the first value in EUR and percent, within the same level. |
+| `comparePay` | One dimension varied (gender, region, level, age or branch), every other held, in one request: each value's median and its gap in EUR and percent to the base, within the same level: the first value with a median (`base`; when that differs per level, there is no `base` and each gap's `gapTo` names its own). |
 | `findCodes` | The codes of the five dimensions, a code found by name (German or English), the API's own lists on request with where they differ, and where an occupation's KldB code comes from. |
 
 The tools carry the API's traps so a model doesn't have to: the API has no occupation-name search,

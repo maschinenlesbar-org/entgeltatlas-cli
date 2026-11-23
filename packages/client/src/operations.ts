@@ -370,7 +370,10 @@ export interface ComparisonPoint extends PayRow {
   value: Coded;
   /** The median minus the base's, in EUR and in percent of the base's; only when both medians are amounts. */
   gap?: { eur: number; percent: number };
-  /** The value the gap is measured against, when not the first (which has no median here). */
+  /**
+   * The value the gap is measured against, when not the first value (which has no median here),
+   * and on every gap when the base differs per level (the answer then has no `base`).
+   */
   gapTo?: Coded;
   /** Why there is no gap, or what to keep in mind about it. */
   gapNote?: string;
@@ -381,7 +384,10 @@ export interface PayComparison {
   kldb?: string;
   occupation?: string;
   by?: DimensionName;
-  /** The value every gap is measured against. */
+  /**
+   * The value every gap is measured against: the first value with a median (in every level).
+   * Absent when no value has one, or when it differs per level (each gap's `gapTo` names it).
+   */
   base?: Coded;
   /** The dimensions held. */
   held?: Record<string, Coded | "all">;
@@ -464,6 +470,9 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
   const groupLevels = by === "level" ? [undefined] : levels;
   const points: ComparisonPoint[] = [];
   const missing: { value: Coded; level?: Coded; reason: string }[] = [];
+  // The base of each level group, and each gap's point with the base it was measured against.
+  const bases: Coded[] = [];
+  const measured: [ComparisonPoint, Coded][] = [];
   for (const level of groupLevels) {
     const inGroup = rows.filter((row) => level === undefined || row.level.code === level.code);
     // The base is the first value with a median here: a first value without one (Helfer is often
@@ -471,6 +480,7 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
     const rowOf = (value: Coded): PayRow | undefined => inGroup.find((r) => rowValue(r, by).code === value.code);
     const baseValue = values.find((value) => typeof rowOf(value)?.median === "number");
     const base = baseValue === undefined ? undefined : rowOf(baseValue);
+    if (baseValue !== undefined && !bases.some((b) => b.code === baseValue.code)) bases.push(baseValue);
     for (const value of values) {
       const row = rowOf(value);
       if (row === undefined) {
@@ -489,25 +499,31 @@ export async function comparePay(client: EntgeltatlasClient, input: ComparePayIn
         else if (row.median === null) point.gapNote = "no gap: this value has no median (see notes)";
         else {
           point.gap = { eur: row.median - base.median, percent: round1(((row.median - base.median) / base.median) * 100) };
-          if (baseValue !== undefined && baseValue.code !== values[0]!.code) point.gapTo = baseValue;
+          if (baseValue !== undefined) measured.push([point, baseValue]);
           if (row.censored || base.censored) point.gapNote = "a median or quartile reaches the contribution ceiling: the real gap at the top may be larger than shown";
         }
       }
       points.push(point);
     }
   }
+  // The answer's base is the one value every gap is measured against; when the levels measure
+  // against different values, there is none, and each gap names its own.
+  const base = bases.length === 1 ? bases[0] : undefined;
+  for (const [point, against] of measured) if (base === undefined || against.code !== values[0]!.code) point.gapTo = against;
+  const note =
+    "Medians of full-time pay, not means and not adjusted for qualification, tenure, hours or bonuses: descriptive, not causal. Compare like with like; a small headcount makes a value unreliable.";
   return {
     status: points.length === 0 ? "empty" : "ok",
     kldb,
     occupation: kldbKind(kldb),
     by,
-    base: values[0]!,
+    ...(base === undefined ? {} : { base }),
     held,
     unit: UNIT,
     points,
     ...(missing.length === 0 ? {} : { missing }),
     ...(points.length === 0 ? { reason: "none of the compared values has a row: see missing" } : {}),
-    note: "Medians of full-time pay, not means and not adjusted for qualification, tenure, hours or bonuses: descriptive, not causal. Compare like with like; a small headcount makes a value unreliable.",
+    note: bases.length > 1 ? `${note} The base differs per level (the first value with a median there): each gap's gapTo names the value it is measured against.` : note,
   };
 }
 

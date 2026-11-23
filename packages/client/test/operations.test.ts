@@ -177,7 +177,7 @@ test("comparePay by region: Ost and West have no rows (said so), a suppressed si
 test("comparePay by region: by default the 16 Länder, cities left out", async () => {
   const answer = await comparePay(client(answering(KLDB_434_L2_REGIONS)), { kldb: "434", by: "region", level: 2 });
   assert.deepEqual(answer.points?.map((p) => p.value.code), [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
-  assert.equal(answer.base?.name, "Schleswig-Holstein");
+  assert.equal(answer.base?.name, "Hamburg", "Schleswig-Holstein has no median: the base is the value the gaps are measured against");
   assert.equal(answer.points?.[1]?.value.name, "Hamburg");
   assert.equal(answer.points?.[1]?.gap, undefined, "the stand-in base has no gap to itself");
   assert.deepEqual(answer.points?.[2]?.gap, { eur: 4086 - 4776, percent: -14.4 });
@@ -204,6 +204,23 @@ test("comparePay by level: a 5-digit code is one level, refused without a reques
     ["Spezialist", 36.9, "Fachkraft"],
     ["Experte", 37.6, "Fachkraft"],
   ], "Helfer has no figure (-100): the gaps are measured against Fachkraft, not left empty");
+});
+
+test("comparePay: base names the value the gaps are measured against, never a first value without a median", async () => {
+  const levels = await comparePay(client(answering(KLDB_434_LEVELS)), { kldb: "434", by: "level" });
+  assert.deepEqual(levels.base, { code: 2, name: "Fachkraft" }, "Helfer has no median: every gap is measured against Fachkraft");
+  // Per level, the first value with a median is the base: Männer in one level, Frauen in another.
+  const rows: EntgeltEntry[] = KLDB_434_LEVELS.slice(1, 3).flatMap((row, i) =>
+    [2, 3].map((g) => ({ ...row, gender: { id: g, bezeichnung: g === 2 ? "Männer" : "Frauen" }, entgelt: i === 1 && g === 2 ? -1 : row.entgelt! - (g === 3 ? 100 : 0) })),
+  );
+  const mixed = await comparePay(client(answering(rows)), { kldb: "434", by: "gender", values: ["Männer", "Frauen"] });
+  assert.equal(mixed.base, undefined, "the base differs per level: none for the whole answer");
+  assert.match(mixed.note ?? "", /gapTo/);
+  assert.deepEqual(mixed.points?.filter((p) => p.gap !== undefined).map((p) => [p.level.name, p.value.name, p.gapTo?.name]), [
+    ["Fachkraft", "Frauen", "Männer"],
+  ]);
+  const none = await comparePay(client(answering(rows.map((r) => ({ ...r, entgelt: -100, entgeltQ25: -100, entgeltQ75: -100 })))), { kldb: "434", by: "gender" });
+  assert.equal(none.base, undefined, "no value has a median: no gap, no base");
 });
 
 test("comparePay: with the level not held, a 3-digit group is compared within each level, never across", async () => {
