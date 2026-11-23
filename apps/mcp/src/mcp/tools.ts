@@ -82,7 +82,7 @@ const output = (properties: Record<string, JsonSchema>): JsonSchema => ({
     status: { type: "string", enum: ["ok", "ambiguous", "empty"], description: "ok: the answer; ambiguous: a name matches several codes, ask which (candidates); empty: nothing to show (see reason)." },
     source: { type: "string" },
     licence: { type: "string" },
-    truncated: { type: "boolean", description: "True when the answer holds only part of the rows (size cap)." },
+    truncated: { type: "boolean", description: "True when the answer holds only part of the rows (size cap), or a text cut at its end (it ends in \"…[cut, N characters in all]\")." },
     reason: { type: "string" },
     kldb: { type: "string" },
     occupation: { type: "string", description: "What the KldB code is (by its length), or how to find one." },
