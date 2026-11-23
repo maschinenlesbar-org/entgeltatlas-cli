@@ -127,7 +127,7 @@ the gateway's bare 403 (a wrong or outdated key, a refused network) says what to
 --call-timeout <ms>        per tool call, retries included (default 45000)
 --max-result-chars <n>     cap on one tool result's JSON (default 25000)
 --max-pages <n>            pages a tool reads per list and call (default 10)
---user-agent <ua>          User-Agent header value
+--user-agent <ua>          User-Agent header value (Latin-1, one line)
 --log-format <text|jsonl>  the log records on stderr (default text)
 ```
 
