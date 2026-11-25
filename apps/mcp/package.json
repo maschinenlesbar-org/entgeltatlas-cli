@@ -1,6 +1,6 @@
 {
   "name": "@maschinenlesbar.org/entgeltatlas-mcp",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "MCP server for the Entgeltatlas of the Bundesagentur für Arbeit: what an occupation earns in Germany (median and quartiles by level, region, gender, age and branch), pay gaps between them, and the codes the statistics need, for AI agents (stdio and Streamable HTTP)",
   "type": "module",
   "bin": {
