@@ -95,7 +95,10 @@ seam; tests inject a mock) and **`CliDeps`** (client factory + I/O + `env`).
 hold for any transport a library user writes (fetch, a node:http wrapper, a test
 double), not only the built-in one. `callWithDeadline` races the transport against
 `timeoutMs` and passes an `AbortSignal` (`HttpRequest.signal`, honoured by the built-in
-transport) that fires at the deadline; `checkResponse` requires an integer status
+transport) that fires at the deadline, with the timeout error as its reason. The built-in
+transport stops with the signal's reason; for a signal some other caller aborted (the MCP
+server's tool call: its deadline, a cancellation) it says "Request aborted by its caller before
+it finished", never a timeout it didn't have. `checkResponse` requires an integer status
 100–599 (a `NaN` status is never read as success), an object of headers (a `Headers`
 object, a `Map` or any name case is normalised by `plainHeaders`, so `Retry-After` and
 `Location` are always seen) and a byte body (any `ArrayBuffer` view, an `ArrayBuffer`
